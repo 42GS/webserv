@@ -1,12 +1,12 @@
 #include "handler/AutoindexHandler.hpp"
 
 #include <dirent.h>
-#include <sys/stat.h>
 
 #include <algorithm>
 #include <string>
 #include <vector>
 
+#include "fs/FileInfo.hpp"
 #include "http/StatusCodes.hpp"
 #include "route/PathResolver.hpp"
 
@@ -38,11 +38,6 @@ std::string escapeHtml(const std::string& text) {
   return escaped;
 }
 
-bool isDirectory(const std::string& path) {
-  struct stat info;
-  return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
-}
-
 // Names in the directory except "." and "..", sorted, with "/" appended to
 // subdirectories.
 bool readNames(const std::string& directory, std::vector<std::string>& names) {
@@ -51,7 +46,8 @@ bool readNames(const std::string& directory, std::vector<std::string>& names) {
   for (dirent* entry = readdir(stream); entry != 0; entry = readdir(stream)) {
     const std::string name(entry->d_name);
     if (name == "." || name == "..") continue;
-    names.push_back(isDirectory(directory + name) ? name + "/" : name);
+    names.push_back(fileKind(directory + name) == FILE_DIRECTORY ? name + "/"
+                                                                 : name);
   }
   closedir(stream);  // nothing to recover if closing fails
   std::sort(names.begin(), names.end());

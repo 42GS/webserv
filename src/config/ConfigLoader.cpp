@@ -1,7 +1,5 @@
 #include "config/ConfigLoader.hpp"
 
-#include <sys/stat.h>
-
 #include <fstream>
 #include <sstream>
 
@@ -9,12 +7,13 @@
 #include "config/ConfigError.hpp"
 #include "config/ConfigLexer.hpp"
 #include "config/ConfigSyntax.hpp"
+#include "fs/FileInfo.hpp"
 
 std::vector<ServerConfig> loadConfigFile(const std::string& path) {
-  struct stat info;
-  if (stat(path.c_str(), &info) != 0)
+  const FileKind kind = fileKind(path);
+  if (kind == FILE_MISSING)
     throw ConfigError(path, 0, "cannot open configuration file");
-  if (!S_ISREG(info.st_mode))
+  if (kind != FILE_REGULAR)
     throw ConfigError(path, 0, "configuration file is not a regular file");
   std::ifstream file(path.c_str());
   if (!file) throw ConfigError(path, 0, "cannot open configuration file");

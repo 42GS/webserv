@@ -1,5 +1,5 @@
-#ifndef HANDLER_FILEREADER_HPP
-#define HANDLER_FILEREADER_HPP
+#ifndef FS_FILEREADER_HPP
+#define FS_FILEREADER_HPP
 
 #include <cstddef>
 #include <string>

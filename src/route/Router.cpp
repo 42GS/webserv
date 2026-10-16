@@ -1,9 +1,7 @@
 #include "route/Router.hpp"
 
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include "core/Limits.hpp"
+#include "fs/FileInfo.hpp"
 #include "http/StatusCodes.hpp"
 #include "route/PathResolver.hpp"
 
@@ -67,11 +65,6 @@ std::string withQuery(const std::string& path, const std::string& query) {
   return query.empty() ? path : path + "?" + query;
 }
 
-bool isRegularFile(const std::string& fsPath) {
-  struct stat info;
-  return stat(fsPath.c_str(), &info) == 0 && S_ISREG(info.st_mode);
-}
-
 }  // namespace
 
 Router::Router(const ServerConfig& server) : server_(server) {}
@@ -126,13 +119,12 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
     return methodNotAllowed(*location);
 
   const std::string fsPath = mapPath(*location, path);
-  struct stat info;
-  // stat() failing means missing (or unreachable): 404 without errno.
-  if (stat(fsPath.c_str(), &info) != 0) return error(http_status::kNotFound);
-  if (S_ISDIR(info.st_mode))
+  const FileKind kind = fileKind(fsPath);
+  if (kind == FILE_MISSING) return error(http_status::kNotFound);
+  if (kind == FILE_DIRECTORY)
     return routeDirectory(path, request, *location, internalRedirects);
   // Devices, FIFOs and the like are never served (RFC 9110 section 17.3).
-  if (!S_ISREG(info.st_mode) || access(fsPath.c_str(), R_OK) != 0)
+  if (kind != FILE_REGULAR || !isReadable(fsPath))
     return error(http_status::kForbidden);
   RouteResult result;
   result.kind = RouteResult::STATIC_FILE;
@@ -152,7 +144,7 @@ RouteResult Router::routeDirectory(const std::string& path,
                     withQuery(encodePath(path + "/"), request.query));
   const std::string fsPath = mapPath(location, path);
   for (std::size_t i = 0; i < location.indexFiles.size(); ++i) {
-    if (!isRegularFile(fsPath + location.indexFiles[i])) continue;
+    if (fileKind(fsPath + location.indexFiles[i]) != FILE_REGULAR) continue;
     if (internalRedirects >= limits::kMaxInternalRedirects)
       return error(http_status::kInternalServerError);
     return routePath(path + location.indexFiles[i], request,

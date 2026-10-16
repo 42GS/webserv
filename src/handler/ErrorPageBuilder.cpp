@@ -1,12 +1,11 @@
 #include "handler/ErrorPageBuilder.hpp"
 
-#include <sys/stat.h>
-
 #include <map>
 #include <sstream>
 
 #include "core/Limits.hpp"
-#include "handler/FileReader.hpp"
+#include "fs/FileInfo.hpp"
+#include "fs/FileReader.hpp"
 #include "http/MimeTypes.hpp"
 #include "http/StatusText.hpp"
 #include "route/Router.hpp"
@@ -28,8 +27,7 @@ bool readConfiguredPage(int status, const ServerConfig& server,
       server.errorPages.find(status);
   if (page == server.errorPages.end()) return false;
   if (!Router(server).mapToFile(page->second, fsPath)) return false;
-  struct stat info;
-  return stat(fsPath.c_str(), &info) == 0 && S_ISREG(info.st_mode) &&
+  return fileKind(fsPath) == FILE_REGULAR &&
          readWholeFile(fsPath, limits::kMaxErrorPageSize, content);
 }
 
