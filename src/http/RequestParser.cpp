@@ -1,10 +1,9 @@
 #include "http/RequestParser.hpp"
 
-#include <cctype>
-#include <cstring>
 #include <vector>
 
 #include "core/Limits.hpp"
+#include "http/Ascii.hpp"
 #include "http/HeaderNames.hpp"
 #include "http/Hex.hpp"
 #include "http/Methods.hpp"
@@ -17,8 +16,7 @@
 namespace {
 
 bool isTokenChar(char c) {
-  return std::isalnum(static_cast<unsigned char>(c)) ||
-         (c != '\0' && std::strchr(request_parser::kTokenSymbols, c) != 0);
+  return isAsciiAlnum(c) || isOneOf(c, request_parser::kTokenSymbols);
 }
 
 bool isToken(const std::string& text) {
@@ -42,8 +40,7 @@ std::string trimWhitespace(const std::string& text) {
 std::string toLower(const std::string& text) {
   std::string lowered(text);
   for (std::string::size_type i = 0; i < lowered.size(); ++i)
-    lowered[i] =
-        static_cast<char>(std::tolower(static_cast<unsigned char>(lowered[i])));
+    lowered[i] = toAsciiLower(lowered[i]);
   return lowered;
 }
 
@@ -86,13 +83,11 @@ bool isFieldValue(const std::string& value) {
 }
 
 // Host = uri-host [ ":" port ] (RFC 9110 7.2). Only the character set is
-// checked; an empty value is allowed by the grammar. strchr() would accept
-// NUL, but header values reach here only after isFieldValue() rejected it.
+// checked; an empty value is allowed by the grammar.
 bool isHostValue(const std::string& value) {
   for (std::string::size_type i = 0; i < value.size(); ++i) {
     const char c = value[i];
-    if (!std::isalnum(static_cast<unsigned char>(c)) &&
-        std::strchr(request_parser::kHostSymbols, c) == 0)
+    if (!isAsciiAlnum(c) && !isOneOf(c, request_parser::kHostSymbols))
       return false;
   }
   return true;
@@ -111,7 +106,7 @@ bool parseDecimal(const std::string& text, std::size_t& value) {
   if (text.empty()) return false;
   value = 0;
   for (std::string::size_type i = 0; i < text.size(); ++i) {
-    if (!std::isdigit(static_cast<unsigned char>(text[i]))) return false;
+    if (!isAsciiDigit(text[i])) return false;
     if (!appendDigit(value, request_parser::kDecimalBase, text[i] - '0'))
       return false;
   }
@@ -269,13 +264,11 @@ bool RequestParser::parseRequestLine(const std::string& line, Result& result) {
   const std::string version = line.substr(second + 1);
   if (!isToken(method) || !isTargetText(target) ||
       version.size() != request_parser::kVersionLength ||
-      version.compare(0, std::strlen(request_parser::kVersionPrefix),
+      version.compare(0, std::string(request_parser::kVersionPrefix).size(),
                       request_parser::kVersionPrefix) != 0 ||
-      !std::isdigit(
-          static_cast<unsigned char>(version[request_parser::kMajorIndex])) ||
+      !isAsciiDigit(version[request_parser::kMajorIndex]) ||
       version[request_parser::kDotIndex] != '.' ||
-      !std::isdigit(
-          static_cast<unsigned char>(version[request_parser::kMinorIndex])))
+      !isAsciiDigit(version[request_parser::kMinorIndex]))
     return fail(http_status::kBadRequest, result);
   if (version[request_parser::kMajorIndex] != '1')
     return fail(http_status::kHttpVersionNotSupported, result);
@@ -296,7 +289,7 @@ bool RequestParser::parseRequestLine(const std::string& line, Result& result) {
 bool RequestParser::parseTarget(const std::string& target) {
   std::string pathAndQuery;
   const std::string::size_type prefixLength =
-      std::strlen(request_parser::kAbsoluteFormPrefix);
+      std::string(request_parser::kAbsoluteFormPrefix).size();
   if (target[0] == '/') {
     pathAndQuery = target;
   } else if (toLower(target.substr(0, prefixLength)) ==

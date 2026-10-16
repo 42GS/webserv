@@ -2,7 +2,6 @@
 
 #include <arpa/inet.h>
 
-#include <cstring>
 #include <sstream>
 
 unsigned long parseIpv4(const std::string& text) {
@@ -31,8 +30,8 @@ std::string formatIpv4(unsigned long address) {
 }
 
 sockaddr_in toSockaddr(const ListenAddr& addr) {
-  sockaddr_in result;
-  std::memset(&result, 0, sizeof(result));
+  // Value-initialized: every field starts as zero.
+  sockaddr_in result = sockaddr_in();
   result.sin_family = AF_INET;
   result.sin_port = htons(addr.port);
   result.sin_addr.s_addr = htonl(static_cast<uint32_t>(parseIpv4(addr.host)));

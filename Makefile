@@ -30,7 +30,8 @@ CORE_SRCS	:= core/Clock.cpp \
 ROUTE_SRCS	:= route/PathResolver.cpp \
 			   route/Router.cpp
 
-HTTP_SRCS	:= http/Connection.cpp \
+HTTP_SRCS	:= http/Ascii.cpp \
+			   http/Connection.cpp \
 			   http/HeaderMap.cpp \
 			   http/Hex.cpp \
 			   http/MimeTypes.cpp \
@@ -67,7 +68,8 @@ TEST_SRCS	:= tests/unit/test_main.cpp \
 			   tests/unit/http_date_test.cpp \
 			   tests/unit/path_resolver_test.cpp \
 			   tests/unit/response_stream_test.cpp \
-			   tests/unit/fs_test.cpp
+			   tests/unit/fs_test.cpp \
+			   tests/unit/ascii_test.cpp
 TEST_OBJS	:= $(addprefix $(OBJ_DIR)/, $(TEST_SRCS:.cpp=.o))
 
 DEPS		:= $(OBJS:.o=.d) $(TEST_OBJS:.o=.d)

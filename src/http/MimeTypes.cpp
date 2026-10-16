@@ -1,7 +1,8 @@
 #include "http/MimeTypes.hpp"
 
-#include <cctype>
 #include <cstddef>
+
+#include "http/Ascii.hpp"
 
 namespace {
 
@@ -12,8 +13,7 @@ std::string lowerExtension(const std::string& fileName) {
     return "";
   std::string extension = fileName.substr(dot + 1);
   for (std::string::size_type i = 0; i < extension.size(); ++i)
-    extension[i] = static_cast<char>(
-        std::tolower(static_cast<unsigned char>(extension[i])));
+    extension[i] = toAsciiLower(extension[i]);
   return extension;
 }
 

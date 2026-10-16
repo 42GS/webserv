@@ -1,9 +1,8 @@
 #include "route/PathResolver.hpp"
 
-#include <cctype>
-#include <cstring>
 #include <vector>
 
+#include "http/Ascii.hpp"
 #include "http/Hex.hpp"
 
 namespace {
@@ -61,9 +60,8 @@ std::string encodePath(const std::string& decodedPath) {
   std::string encoded;
   for (std::string::size_type i = 0; i < decodedPath.size(); ++i) {
     const unsigned char c = static_cast<unsigned char>(decodedPath[i]);
-    // strchr() would also find the terminating NUL, so c == 0 is excluded.
-    if (std::isalnum(c) ||
-        (c != 0 && std::strchr(path_resolver::kPathSymbols, c) != 0)) {
+    if (isAsciiAlnum(static_cast<char>(c)) ||
+        isOneOf(static_cast<char>(c), path_resolver::kPathSymbols)) {
       encoded += static_cast<char>(c);
     } else {
       encoded += '%';

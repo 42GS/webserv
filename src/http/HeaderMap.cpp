@@ -1,15 +1,13 @@
 #include "http/HeaderMap.hpp"
 
-#include <cctype>
+#include "http/Ascii.hpp"
 
 namespace {
 
 bool sameName(const std::string& a, const std::string& b) {
   if (a.size() != b.size()) return false;
   for (std::string::size_type i = 0; i < a.size(); ++i) {
-    if (std::tolower(static_cast<unsigned char>(a[i])) !=
-        std::tolower(static_cast<unsigned char>(b[i])))
-      return false;
+    if (toAsciiLower(a[i]) != toAsciiLower(b[i])) return false;
   }
   return true;
 }
