@@ -1,0 +1,4 @@
+# Google style, limited to C++98/03 syntax (e.g. "> >" in nested templates).
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++03

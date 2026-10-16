@@ -51,6 +51,10 @@ $(TEST_NAME): $(TEST_OBJS) $(LIB_OBJS)
 test: $(TEST_NAME)
 	./$(TEST_NAME)
 
+# Requires clang-format; style is in .clang-format.
+format:
+	clang-format -i $(shell find include src tests -name '*.hpp' -o -name '*.cpp')
+
 clean:
 	rm -rf $(OBJ_DIR)
 
@@ -62,4 +66,4 @@ re: fclean
 
 -include $(DEPS)
 
-.PHONY: all clean fclean re test
+.PHONY: all clean fclean re test format
