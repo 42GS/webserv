@@ -28,6 +28,8 @@ Listener::Listener(const ServerConfig& server, const ListenAddr& addr,
                    AcceptHandler& acceptor)
     : server_(server), addr_(addr), acceptor_(acceptor), fd_(-1) {}
 
+// close() results are not checked in this file: the descriptor is given up
+// either way and there is no caller left to report to.
 Listener::~Listener() {
   if (fd_ >= 0) close(fd_);
 }

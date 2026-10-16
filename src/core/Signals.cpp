@@ -14,6 +14,8 @@ void requestStop(int) { g_stopRequested = 1; }
 
 namespace signals {
 
+// std::signal() fails only for an invalid or uncatchable signal number, so
+// its result is not checked for these three.
 void install() {
   std::signal(SIGPIPE, SIG_IGN);
   std::signal(SIGINT, requestStop);

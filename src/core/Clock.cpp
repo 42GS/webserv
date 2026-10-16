@@ -17,7 +17,7 @@ bool Clock::refresh() {
       open(path_.c_str(), O_WRONLY | O_CREAT | O_TRUNC, kClockFileMode);
   if (fd < 0) return false;
   const ssize_t written = write(fd, "t", 1);
-  close(fd);
+  close(fd);  // nothing to recover; stat() below shows whether the write held
   if (written != 1) return false;
   struct stat info;
   if (stat(path_.c_str(), &info) != 0) return false;

@@ -63,6 +63,11 @@ $(TEST_NAME): $(TEST_OBJS) $(LIB_OBJS)
 test: $(TEST_NAME)
 	./$(TEST_NAME)
 
+# Starts the server and talks to it over TCP. WEBSERV_SLOW_TESTS=1 adds the
+# tests that wait for timeouts.
+integration: $(NAME)
+	python3 -m unittest discover -s tests/integration -v
+
 # Requires clang-format; style is in .clang-format.
 format:
 	clang-format -i $(shell find include src tests -name '*.hpp' -o -name '*.cpp')
@@ -78,4 +83,4 @@ re: fclean
 
 -include $(DEPS)
 
-.PHONY: all clean fclean re test format
+.PHONY: all clean fclean re test integration format

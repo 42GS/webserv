@@ -25,6 +25,7 @@ const char* const kFixedResponse =
 Connection::Connection(int fd, std::time_t now)
     : fd_(fd), state_(READ_HEAD), outSent_(0), now_(now), lastProgress_(now) {}
 
+// The connection is over; a close() error leaves nothing to do.
 Connection::~Connection() { close(fd_); }
 
 int Connection::fd() const { return fd_; }

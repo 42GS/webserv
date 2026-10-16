@@ -41,7 +41,7 @@ void Server::adopt(int clientFd, const ListenContext& /* where */) {
     connections_[clientFd] = connection;
   } catch (const std::exception&) {
     delete connection;  // closes clientFd if construction succeeded
-    if (connection == 0) close(clientFd);
+    if (connection == 0) close(clientFd);  // result unused: fd is dropped
     return;
   }
   registry_.watch(connection);
