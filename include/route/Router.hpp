@@ -5,6 +5,7 @@
 #include <string>
 
 #include "config/ServerConfig.hpp"
+#include "http/Methods.hpp"
 #include "http/Request.hpp"
 #include "route/RouteResult.hpp"
 
@@ -12,7 +13,7 @@ namespace router {
 
 // Methods that static resources answer in step 4. POST and DELETE get their
 // handlers in step 6.
-const char* const kStaticMethods[] = {"GET", "HEAD"};
+const char* const kStaticMethods[] = {methods::kGet, methods::kHead};
 const std::size_t kStaticMethodCount =
     sizeof(kStaticMethods) / sizeof(kStaticMethods[0]);
 

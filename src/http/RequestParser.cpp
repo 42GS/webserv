@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "core/Limits.hpp"
+#include "http/HeaderNames.hpp"
 #include "http/Hex.hpp"
 #include "http/Methods.hpp"
 #include "http/StatusCodes.hpp"
@@ -351,10 +352,11 @@ bool RequestParser::parseHeaderLine(const std::string& line, bool store,
 
 bool RequestParser::finishHead(Result& result) {
   const HeaderMap& headers = request_.headers;
-  const std::size_t hosts = headers.count("Host");
+  const std::size_t hosts = headers.count(header_name::kHost);
   // Section 3.2: Host is required in HTTP/1.1, never repeated, and valid.
   if ((hosts == 0 && request_.version == request_parser::kHttp11) ||
-      hosts > 1 || (hosts == 1 && !isHostValue(*headers.first("Host"))))
+      hosts > 1 ||
+      (hosts == 1 && !isHostValue(*headers.first(header_name::kHost))))
     return fail(http_status::kBadRequest, result);
   if (!decideBodyLength(result)) return false;
   state_ = BODY_START;
@@ -365,14 +367,14 @@ bool RequestParser::finishHead(Result& result) {
 // Section 6.3 for requests.
 bool RequestParser::decideBodyLength(Result& result) {
   const std::vector<std::string> codings =
-      splitList(request_.headers.all("Transfer-Encoding"));
+      splitList(request_.headers.all(header_name::kTransferEncoding));
   const std::vector<std::string> lengths =
-      splitList(request_.headers.all("Content-Length"));
-  if (request_.headers.has("Transfer-Encoding")) {
+      splitList(request_.headers.all(header_name::kContentLength));
+  if (request_.headers.has(header_name::kTransferEncoding)) {
     // HTTP/1.0 with Transfer-Encoding is faulty framing (section 6.1);
     // with Content-Length as well it may be smuggling (section 6.3).
     if (request_.version == request_parser::kHttp10 ||
-        request_.headers.has("Content-Length"))
+        request_.headers.has(header_name::kContentLength))
       return fail(http_status::kBadRequest, result);
     if (codings.empty() || toLower(codings.back()) != request_parser::kChunked)
       return fail(http_status::kBadRequest, result);
@@ -385,7 +387,7 @@ bool RequestParser::decideBodyLength(Result& result) {
     chunked_ = true;
     return true;
   }
-  if (request_.headers.has("Content-Length")) {
+  if (request_.headers.has(header_name::kContentLength)) {
     // A list is allowed only if every value is the same (section 6.3).
     if (lengths.empty()) return fail(http_status::kBadRequest, result);
     for (std::size_t i = 0; i < lengths.size(); ++i) {
@@ -398,7 +400,8 @@ bool RequestParser::decideBodyLength(Result& result) {
     return true;
   }
   // HTTP/1.0 POST must carry Content-Length (RFC 1945 section 8.3).
-  if (request_.version == request_parser::kHttp10 && request_.method == "POST")
+  if (request_.version == request_parser::kHttp10 &&
+      request_.method == methods::kPost)
     return fail(http_status::kBadRequest, result);
   return true;
 }

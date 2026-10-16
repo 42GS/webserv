@@ -6,6 +6,7 @@
 #include <sstream>
 
 #include "core/Limits.hpp"
+#include "http/HeaderNames.hpp"
 #include "http/StatusCodes.hpp"
 #include "http/StatusText.hpp"
 
@@ -32,7 +33,7 @@ std::string serializeHead(const Response& response) {
     const std::size_t length = response.bodyFile.empty()
                                    ? response.body.size()
                                    : response.bodyFileSize;
-    head << "Content-Length: " << length << "\r\n";
+    head << header_name::kContentLength << ": " << length << "\r\n";
   }
   head << "\r\n";
   return head.str();

@@ -45,8 +45,8 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
     location.allowedMethods.insert(directive.args[i]);
   }
   // NGINX: allowing GET also allows HEAD.
-  if (location.allowedMethods.count("GET") != 0)
-    location.allowedMethods.insert("HEAD");
+  if (location.allowedMethods.count(methods::kGet) != 0)
+    location.allowedMethods.insert(methods::kHead);
   const char* const onlyDeny =
       "\"limit_except\" block must contain only \"deny all;\"";
   if (directive.children.size() != 1) failAt(context, directive, onlyDeny);

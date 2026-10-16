@@ -5,6 +5,7 @@
 #include "core/Limits.hpp"
 #include "fs/FileInfo.hpp"
 #include "fs/FileReader.hpp"
+#include "http/HeaderNames.hpp"
 #include "http/MimeTypes.hpp"
 #include "http/StatusText.hpp"
 
@@ -37,10 +38,10 @@ Response buildStatusPage(int status,
   std::string fsPath;
   if (page != configuredPages.end() &&
       readConfiguredPage(page->second, router, fsPath, response.body)) {
-    response.headers.add("Content-Type", mimeTypeFor(fsPath));
+    response.headers.add(header_name::kContentType, mimeTypeFor(fsPath));
   } else {
     response.body = defaultPage(status);
-    response.headers.add("Content-Type", mime_types::kHtmlType);
+    response.headers.add(header_name::kContentType, mime_types::kHtmlType);
   }
   return response;
 }

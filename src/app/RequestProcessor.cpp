@@ -5,6 +5,8 @@
 #include "handler/AutoindexHandler.hpp"
 #include "handler/StaticHandler.hpp"
 #include "handler/StatusPage.hpp"
+#include "http/HeaderNames.hpp"
+#include "http/Methods.hpp"
 #include "http/StatusCodes.hpp"
 
 RequestProcessor::RequestProcessor(const ServerConfig& server)
@@ -45,7 +47,7 @@ Response RequestProcessor::respond(const RouteResult& route) const {
       return statusPage(http_status::kForbidden);
     case RouteResult::REDIRECT:
       response = statusPage(route.status);
-      response.headers.add("Location", route.redirectTo);
+      response.headers.add(header_name::kLocation, route.redirectTo);
       return response;
     case RouteResult::ERROR:
       break;
@@ -53,7 +55,7 @@ Response RequestProcessor::respond(const RouteResult& route) const {
   response = statusPage(route.status);
   // 405 must list what the resource supports (RFC 9110 15.5.6).
   if (route.status == http_status::kMethodNotAllowed)
-    response.headers.add("Allow", route.allow);
+    response.headers.add(header_name::kAllow, route.allow);
   return response;
 }
 
@@ -63,7 +65,7 @@ Response RequestProcessor::respond(const RouteResult& route) const {
 // until keep-alive comes in step 5.
 void RequestProcessor::finish(Response& response, const std::string& method,
                               std::time_t now) const {
-  response.omitBody = (method == "HEAD");
-  response.headers.add("Date", formatHttpDate(now));
-  response.headers.add("Connection", "close");
+  response.omitBody = (method == methods::kHead);
+  response.headers.add(header_name::kDate, formatHttpDate(now));
+  response.headers.add(header_name::kConnection, header_value::kClose);
 }
