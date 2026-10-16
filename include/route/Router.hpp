@@ -29,6 +29,10 @@ class Router {
   // Locations are sorted longest first by the configuration loader.
   const LocationConfig* matchLocation(const std::string& path) const;
 
+  // The location for a percent-encoded request path, or 0 if the path
+  // cannot be normalized or no location matches.
+  const LocationConfig* locationFor(const std::string& encodedPath) const;
+
   RouteResult route(const Request& request) const;
 
   // File system path for a URI path through its location's root or alias
@@ -36,6 +40,9 @@ class Router {
   bool mapToFile(const std::string& uriPath, std::string& fsPath) const;
 
  private:
+  // Normalizes and matches; false as for locationFor().
+  bool resolve(const std::string& encodedPath, std::string& path,
+               const LocationConfig*& location) const;
   RouteResult routePath(const std::string& path, const Request& request,
                         int internalRedirects) const;
   RouteResult routeDirectory(const std::string& path, const Request& request,

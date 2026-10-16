@@ -158,3 +158,12 @@ TEST_CASE(r10_r11_r12_r13_directories) {
   CHECK_EQ(std::string("/list/"), result.urlPath);
   CHECK_EQ(403, router.route(requestFor("GET", "/dir/")).status);
 }
+
+TEST_CASE(r02_locationForNormalizesFirst) {
+  const ServerConfig server = serverFrom(treeConfig());
+  const Router router(server);
+  const LocationConfig* location = router.locationFor("/old/../list/x");
+  CHECK(location != 0);
+  if (location != 0) CHECK_EQ(std::string("/list/"), location->path);
+  CHECK(router.locationFor("/../x") == 0);
+}

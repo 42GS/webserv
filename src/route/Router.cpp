@@ -92,13 +92,26 @@ RouteResult Router::route(const Request& request) const {
   return routePath(path, request, 0);
 }
 
+const LocationConfig* Router::locationFor(
+    const std::string& encodedPath) const {
+  std::string path;
+  const LocationConfig* location = 0;
+  return resolve(encodedPath, path, location) ? location : 0;
+}
+
 bool Router::mapToFile(const std::string& uriPath, std::string& fsPath) const {
   std::string path;
-  if (!normalizePath(uriPath, path)) return false;
-  const LocationConfig* location = matchLocation(path);
-  if (location == 0) return false;
+  const LocationConfig* location = 0;
+  if (!resolve(uriPath, path, location)) return false;
   fsPath = mapPath(*location, path);
   return true;
+}
+
+bool Router::resolve(const std::string& encodedPath, std::string& path,
+                     const LocationConfig*& location) const {
+  if (!normalizePath(encodedPath, path)) return false;
+  location = matchLocation(path);
+  return location != 0;
 }
 
 // Order of design 7: location, return, limit_except, then the file system.

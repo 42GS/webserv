@@ -6,15 +6,12 @@
 #include "handler/ErrorPageBuilder.hpp"
 #include "handler/StaticHandler.hpp"
 #include "http/StatusCodes.hpp"
-#include "route/PathResolver.hpp"
 
 RequestProcessor::RequestProcessor(const ServerConfig& server)
     : server_(server), router_(server) {}
 
 std::size_t RequestProcessor::bodyLimitFor(const Request& request) const {
-  std::string path;
-  const LocationConfig* location =
-      normalizePath(request.path, path) ? router_.matchLocation(path) : 0;
+  const LocationConfig* location = router_.locationFor(request.path);
   return location == 0 ? config_limits::kDefaultMaxBodySize
                        : location->maxBodySize;
 }
