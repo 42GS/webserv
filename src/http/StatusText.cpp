@@ -1,3 +1,8 @@
+/**
+ * @file  StatusText.cpp
+ * @brief The reason phrase table.
+ *        이유 문구 표.
+ */
 #include "http/StatusText.hpp"
 
 #include <cstddef>
@@ -6,13 +11,24 @@
 
 namespace {
 
-// One row of the reason phrase table.
+/**
+ * @brief One row of the reason phrase table.
+ *        이유 문구 표의 한 행.
+ */
 struct StatusName {
+  /** Status code. / 상태 코드. */
   int status;
+  /** Reason phrase. / 이유 문구. */
   const char* reason;
 };
 
-// Names as in raw/iana-http-status-codes.txt of the wiki.
+/**
+ * @brief Reason phrases of the codes the server sends.
+ *        서버가 보내는 코드의 이유 문구.
+ *
+ * Names as in raw/iana-http-status-codes.txt of the wiki.
+ * 이름은 위키의 raw/iana-http-status-codes.txt와 같다.
+ */
 const StatusName kStatusNames[] = {
     {http_status::kOk, "OK"},
     {http_status::kCreated, "Created"},
@@ -39,6 +55,7 @@ const StatusName kStatusNames[] = {
     {http_status::kHttpVersionNotSupported, "HTTP Version Not Supported"},
 };
 
+/** Number of rows in kStatusNames. / kStatusNames의 행 수. */
 const std::size_t kStatusNameCount =
     sizeof(kStatusNames) / sizeof(kStatusNames[0]);
 

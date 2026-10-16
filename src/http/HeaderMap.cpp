@@ -1,9 +1,21 @@
+/**
+ * @file  HeaderMap.cpp
+ * @brief Case-insensitive header field storage.
+ *        이름을 대소문자 구분 없이 찾는 헤더 필드 저장소.
+ */
 #include "http/HeaderMap.hpp"
 
 #include "http/Ascii.hpp"
 
 namespace {
 
+/**
+ * @brief Compares two field names ignoring ASCII case.
+ *        두 필드 이름을 ASCII 대소문자 구분 없이 비교한다.
+ * @param[in] a Name. / 이름.
+ * @param[in] b Name. / 이름.
+ * @return Whether they name the same field. / 같은 필드 이름인지.
+ */
 bool sameName(const std::string& a, const std::string& b) {
   if (a.size() != b.size()) return false;
   for (std::string::size_type i = 0; i < a.size(); ++i) {

@@ -1,3 +1,8 @@
+/**
+ * @file  Ascii.cpp
+ * @brief Character and decimal tests.
+ *        문자와 십진수 검사.
+ */
 #include "http/Ascii.hpp"
 
 #include <locale>
@@ -17,6 +22,7 @@ bool parseDecimal(const std::string& text, unsigned long maxValue,
   for (std::string::size_type i = 0; i < text.size(); ++i) {
     const unsigned long digit = static_cast<unsigned long>(text[i] - '0');
     // digit > maxValue first, so that maxValue - digit cannot wrap around.
+    // maxValue - digit이 음수로 돌지 않도록 digit > maxValue를 먼저 본다.
     if (digit > maxValue || result > (maxValue - digit) / 10) return false;
     result = result * 10 + digit;
   }

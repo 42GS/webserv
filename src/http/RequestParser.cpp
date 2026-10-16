@@ -1,3 +1,14 @@
+/**
+ * @file  RequestParser.cpp
+ * @brief The request parser's states and grammar checks.
+ *        요청 파서의 상태와 문법 검사.
+ *
+ * Section numbers in comments refer to RFC 9112 unless noted otherwise.
+ * The choices where the RFC allows several behaviours are listed in
+ * analysis/design section 6 of the wiki.
+ * 주석의 절 번호는 따로 적지 않으면 RFC 9112의 것이다. RFC가 여러
+ * 동작을 허용하는 곳에서 고른 것은 위키 analysis/design 6절에 있다.
+ */
 #include "http/RequestParser.hpp"
 
 #include <limits>
@@ -10,34 +21,63 @@
 #include "http/Methods.hpp"
 #include "http/StatusCodes.hpp"
 
-// Section numbers in comments refer to RFC 9112 unless noted otherwise.
-// The choices where the RFC allows several behaviours are listed in
-// analysis/design section 6 of the wiki.
-
 namespace {
 
-// tchar (RFC 9110 section 5.6.2).
+/** tchar (RFC 9110 section 5.6.2). / tchar (RFC 9110 5.6.2절). */
 const std::string kTokenChars = ascii::kAlphanumerics + "!#$%&'*+-.^_`|~";
-// Host characters: unreserved, pct-encoded, sub-delims, ":" and IP-literal
-// brackets (RFC 3986 section 3.2.2).
+/**
+ * @brief Host characters: unreserved, pct-encoded, sub-delims, ":" and
+ *        IP-literal brackets (RFC 3986 section 3.2.2).
+ *        Host 문자: unreserved, pct-encoded, sub-delims, ":", IP-literal
+ *        괄호 (RFC 3986 3.2.2절).
+ */
 const std::string kHostChars = ascii::kAlphanumerics + "-._~%!$&'()*+,;=:[]";
+/**
+ * @brief Prefix of the absolute-form, any case.
+ *        absolute-form 접두어, 대소문자 무관.
+ */
 const char* const kAbsoluteFormPrefix = "http://";
+/** The only transfer coding implemented. / 구현한 유일한 transfer coding. */
 const char* const kChunked = "chunked";
-const unsigned char kDeleteChar = 0x7f;  // DEL
+/** DEL, the control character after "~". / "~" 다음의 제어 문자 DEL. */
+const unsigned char kDeleteChar = 0x7f;
 
+/** Largest size_t. / size_t의 최댓값. */
 const std::size_t kMaxSize = std::numeric_limits<std::size_t>::max();
-// The largest Content-Length that fits both parseDecimal() and size_t.
+/**
+ * @brief The largest Content-Length that fits both parseDecimal() and
+ *        size_t.
+ *        parseDecimal()과 size_t 모두에 들어가는 가장 큰 Content-Length.
+ */
 const unsigned long kMaxContentLength =
     std::numeric_limits<unsigned long>::max() < kMaxSize
         ? std::numeric_limits<unsigned long>::max()
         : static_cast<unsigned long>(kMaxSize);
 
+/**
+ * @brief True for a non-empty token (RFC 9110 section 5.6.2).
+ *        비어 있지 않은 token이면 true (RFC 9110 5.6.2절).
+ * @param[in] text Text. / 텍스트.
+ * @return Whether text is a token. / token인지.
+ */
 bool isToken(const std::string& text) {
   return !text.empty() && consistsOf(text, kTokenChars);
 }
 
+/**
+ * @brief True for SP and HTAB, the whitespace of HTTP (OWS).
+ *        HTTP의 공백(OWS)인 SP와 HTAB이면 true.
+ * @param[in] c Character. / 문자.
+ * @return Whether c is SP or HTAB. / SP나 HTAB인지.
+ */
 bool isWhitespace(char c) { return c == ' ' || c == '\t'; }
 
+/**
+ * @brief Removes SP and HTAB at both ends.
+ *        양 끝의 SP와 HTAB을 지운다.
+ * @param[in] text Text. / 텍스트.
+ * @return The trimmed text. / 다듬은 텍스트.
+ */
 std::string trimWhitespace(const std::string& text) {
   std::string::size_type begin = 0;
   std::string::size_type end = text.size();
@@ -46,6 +86,12 @@ std::string trimWhitespace(const std::string& text) {
   return text.substr(begin, end - begin);
 }
 
+/**
+ * @brief Lowercases ASCII letters, for case-insensitive comparisons.
+ *        대소문자 구분 없이 비교하려고 ASCII 글자를 소문자로 바꾼다.
+ * @param[in] text Text. / 텍스트.
+ * @return The lowercase text. / 소문자 텍스트.
+ */
 std::string toLower(const std::string& text) {
   std::string lowered(text);
   for (std::string::size_type i = 0; i < lowered.size(); ++i)
@@ -53,8 +99,17 @@ std::string toLower(const std::string& text) {
   return lowered;
 }
 
-// Splits a comma-separated list (RFC 9110 section 5.6.1), trimming
-// whitespace and dropping empty elements.
+/**
+ * @brief Splits comma-separated lists (RFC 9110 section 5.6.1).
+ *        쉼표로 구분한 목록을 나눈다 (RFC 9110 5.6.1절).
+ *
+ * Whitespace around elements is trimmed and empty elements are dropped.
+ * 원소 앞뒤 공백은 지우고 빈 원소는 버린다.
+ *
+ * @param[in] lines Values of every field line with the same name.
+ *                  같은 이름을 가진 모든 필드 줄의 값.
+ * @return The elements of all lines, in order. / 모든 줄의 원소, 순서대로.
+ */
 std::vector<std::string> splitList(const std::vector<std::string>& lines) {
   std::vector<std::string> items;
   for (std::size_t i = 0; i < lines.size(); ++i) {
@@ -71,15 +126,32 @@ std::vector<std::string> splitList(const std::vector<std::string>& lines) {
   return items;
 }
 
-// HTTP-version = "HTTP/" DIGIT "." DIGIT, case-sensitive (section 2.3).
+/**
+ * @brief True for HTTP-version = "HTTP/" DIGIT "." DIGIT, case-sensitive
+ *        (section 2.3).
+ *        HTTP-version = "HTTP/" DIGIT "." DIGIT이면 true, 대소문자 구분
+ *        (2.3절).
+ * @param[in] version Third part of the request line. / 요청 줄의 셋째 부분.
+ * @return Whether it matches. / 문법에 맞는지.
+ */
 bool isHttpVersion(const std::string& version) {
   return version.size() == 8 && version.compare(0, 5, "HTTP/") == 0 &&
          isAsciiDigit(version[5]) && version[6] == '.' &&
          isAsciiDigit(version[7]);
 }
 
-// Visible ASCII only: no whitespace, control or non-ASCII octet, and no
-// fragment, which is not part of a request-target (section 3.2).
+/**
+ * @brief True for a non-empty request-target of visible ASCII.
+ *        보이는 ASCII로 된, 비어 있지 않은 request-target이면 true.
+ *
+ * No whitespace, control or non-ASCII octet, and no fragment ("#"), which
+ * is not part of a request-target (section 3.2).
+ * 공백, 제어 문자, 비 ASCII 옥텟이 없어야 하고, request-target에 속하지
+ * 않는 fragment("#")도 없어야 한다 (3.2절).
+ *
+ * @param[in] target Second part of the request line. / 요청 줄의 둘째 부분.
+ * @return Whether it is acceptable. / 받을 수 있는지.
+ */
 bool isTargetText(const std::string& target) {
   for (std::string::size_type i = 0; i < target.size(); ++i) {
     const unsigned char c = static_cast<unsigned char>(target[i]);
@@ -88,7 +160,14 @@ bool isTargetText(const std::string& target) {
   return !target.empty();
 }
 
-// Field values may hold any visible octet, SP and HTAB (RFC 9110 5.5).
+/**
+ * @brief True if a field value holds only visible octets, SP and HTAB
+ *        (RFC 9110 section 5.5).
+ *        필드 값이 보이는 옥텟, SP, HTAB만 담고 있으면 true
+ *        (RFC 9110 5.5절).
+ * @param[in] value Field value. / 필드 값.
+ * @return Whether it is acceptable. / 받을 수 있는지.
+ */
 bool isFieldValue(const std::string& value) {
   for (std::string::size_type i = 0; i < value.size(); ++i) {
     const unsigned char c = static_cast<unsigned char>(value[i]);
@@ -97,13 +176,30 @@ bool isFieldValue(const std::string& value) {
   return true;
 }
 
-// Host = uri-host [ ":" port ] (RFC 9110 7.2). Only the character set is
-// checked; an empty value is allowed by the grammar.
+/**
+ * @brief Checks Host = uri-host [ ":" port ] (RFC 9110 section 7.2).
+ *        Host = uri-host [ ":" port ]를 검사한다 (RFC 9110 7.2절).
+ *
+ * Only the character set is checked; an empty value is allowed by the
+ * grammar.
+ * 문자 집합만 검사한다. 빈 값은 문법이 허용한다.
+ *
+ * @param[in] value Host field value. / Host 필드 값.
+ * @return Whether every character is allowed. / 모든 문자가 허용되는지.
+ */
 bool isHostValue(const std::string& value) {
   return consistsOf(value, kHostChars);
 }
 
-// Adds one digit to value, or returns false if the result would not fit.
+/**
+ * @brief Appends one digit to @p value in base @p base.
+ *        @p value 뒤에 @p base 진법 숫자 하나를 붙인다.
+ * @param[in,out] value Number so far. / 지금까지의 수.
+ * @param[in]     base  Radix. / 기수.
+ * @param[in]     digit Digit value, 0 .. base - 1. / 숫자 값, 0 .. base - 1.
+ * @return False, leaving value unchanged, if the result would not fit.
+ *         결과가 size_t에 들어가지 않으면 false. 이때 value는 그대로다.
+ */
 bool appendDigit(std::size_t& value, int base, int digit) {
   const std::size_t factor = static_cast<std::size_t>(base);
   const std::size_t add = static_cast<std::size_t>(digit);
@@ -112,8 +208,17 @@ bool appendDigit(std::size_t& value, int base, int digit) {
   return true;
 }
 
-// A request line that does not end within the limit: a method longer than
-// any known one gets 501 (section 3), anything else 414.
+/**
+ * @brief Status for a request line that does not end within the limit.
+ *        상한 안에 끝나지 않은 요청 줄의 상태 코드.
+ *
+ * A method longer than any known one gets 501 (section 3), anything else
+ * 414.
+ * 아는 어떤 메서드보다 긴 메서드면 501 (3절), 그 밖에는 414.
+ *
+ * @param[in] text The request line so far. / 지금까지의 요청 줄.
+ * @return 501 or 414. / 501 또는 414.
+ */
 int overlongRequestLineStatus(const std::string& text) {
   const std::string::size_type space = text.find(' ');
   const std::string::size_type methodLength =
@@ -198,7 +303,9 @@ bool RequestParser::step(std::string& buffer) {
 
 RequestParser::Result RequestParser::resultOfState() const {
   switch (state_) {
-    case BODY_START:  // the head is complete; the caller sets the body limit
+    // The head is complete; the caller sets the body limit.
+    // 머리가 끝났다. 호출자가 본문 상한을 정한다.
+    case BODY_START:
       return HEAD_DONE;
     case COMPLETE:
       return DONE;
@@ -215,8 +322,6 @@ bool RequestParser::fail(int status) {
   return false;
 }
 
-// Takes one line ending in LF (section 2.2: a lone LF is accepted, a
-// preceding CR is dropped, any other CR makes the line invalid).
 RequestParser::LineStatus RequestParser::takeLine(const std::string& buffer,
                                                   std::string& line) {
   const std::string::size_type newline = buffer.find('\n', consumed_);
@@ -228,8 +333,6 @@ RequestParser::LineStatus RequestParser::takeLine(const std::string& buffer,
   return line.find('\r') == std::string::npos ? LINE_READY : LINE_INVALID;
 }
 
-// A line of the header section or of the trailer. Both count against the
-// same limit, so a long trailer cannot bypass it.
 bool RequestParser::takeHeaderLine(const std::string& buffer,
                                    std::string& line) {
   const LineStatus status = takeLine(buffer, line);
@@ -261,6 +364,8 @@ bool RequestParser::readRequestLine(std::string& buffer) {
   if (line.empty()) {
     // Empty lines before the request line are ignored (section 2.2), but
     // only as many as would fit in a request line.
+    // 요청 줄 앞의 빈 줄은 무시하지만 (2.2절), 요청 줄 하나에 들어갈
+    // 만큼만 받는다.
     preambleBytes_ += 1;
     if (preambleBytes_ > limits_.maxRequestLine)
       return fail(http_status::kBadRequest);
@@ -295,6 +400,7 @@ bool RequestParser::startBody() {
     return true;
   }
   // Known size: reserve once instead of growing (design decision 11).
+  // 크기를 아니까 늘려 가지 않고 한 번에 확보한다 (설계 결정 11).
   request_.body.reserve(contentLength_);
   remaining_ = contentLength_;
   state_ = BODY_LENGTH;
@@ -325,12 +431,12 @@ bool RequestParser::readChunkLine(std::string& buffer) {
   return readChunkSize(line);
 }
 
-// The CRLF after chunk-data.
 bool RequestParser::readChunkEnd(std::string& buffer) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
     // Only a CR may still be waiting for its LF.
+    // LF를 기다리는 CR 하나만 남아 있을 수 있다.
     if (unread(buffer) > 1 ||
         (unread(buffer) == 1 && buffer[consumed_] != '\r'))
       return fail(http_status::kBadRequest);
@@ -342,7 +448,6 @@ bool RequestParser::readChunkEnd(std::string& buffer) {
   return true;
 }
 
-// Trailer fields are checked and discarded (section 7.1.2).
 bool RequestParser::readTrailerLine(std::string& buffer) {
   std::string line;
   if (!takeHeaderLine(buffer, line)) return false;
@@ -355,9 +460,10 @@ bool RequestParser::readTrailerLine(std::string& buffer) {
   return parseFieldLine(line, name, value);
 }
 
-// request-line = method SP request-target SP HTTP-version (section 3),
-// with exactly one SP between the parts. Extra spaces leave an empty part
-// or a space inside the version, which the checks below reject.
+// Exactly one SP between the parts: extra spaces leave an empty part or a
+// space inside the version, which the checks below reject.
+// 부분 사이의 SP는 정확히 하나다. 공백이 더 있으면 빈 부분이 생기거나
+// 버전 안에 공백이 들어가고, 아래 검사가 그것을 거부한다.
 bool RequestParser::parseRequestLine(const std::string& line) {
   const std::string::size_type first = line.find(' ');
   const std::string::size_type second =
@@ -368,10 +474,11 @@ bool RequestParser::parseRequestLine(const std::string& line) {
   const std::string version = line.substr(second + 1);
   if (!isToken(method) || !isTargetText(target) || !isHttpVersion(version))
     return fail(http_status::kBadRequest);
-  const char major = version[5];  // "HTTP/x.y"
-  const char minor = version[7];
+  const char major = version[5];  // "HTTP/x.y": x
+  const char minor = version[7];  // "HTTP/x.y": y
   if (major != '1') return fail(http_status::kHttpVersionNotSupported);
   // A higher 1.x minor version is handled as 1.1 (RFC 9110 section 6.2).
+  // 1.x의 더 높은 minor 버전은 1.1로 처리한다 (RFC 9110 6.2절).
   request_.version =
       (minor == '0') ? request_parser::kHttp10 : request_parser::kHttp11;
   if (!isImplementedMethod(method)) return fail(http_status::kNotImplemented);
@@ -383,6 +490,9 @@ bool RequestParser::parseRequestLine(const std::string& line) {
 // origin-form "/path?query" or absolute-form "http://host/path?query"
 // (section 3.2). The host of the absolute-form is not used: there are no
 // virtual hosts (design decision 4).
+// origin-form "/path?query" 또는 absolute-form "http://host/path?query"
+// (3.2절). 가상 호스트가 없으므로 absolute-form의 host는 쓰지 않는다
+// (설계 결정 4).
 bool RequestParser::parseTarget(const std::string& target) {
   std::string pathAndQuery;
   const std::string::size_type prefixLength =
@@ -410,6 +520,8 @@ bool RequestParser::parseTarget(const std::string& target) {
 // field-line = field-name ":" OWS field-value OWS (section 5). A line that
 // starts with whitespace (after the request line, or an obs-fold) is
 // rejected (sections 2.2 and 5.2) because its name is not a token.
+// 공백으로 시작하는 줄(요청 줄 바로 뒤, 또는 obs-fold)은 이름이 token이
+// 아니라서 거부된다 (2.2절, 5.2절).
 bool RequestParser::parseFieldLine(const std::string& line, std::string& name,
                                    std::string& value) {
   const std::string::size_type colon = line.find(':');
@@ -417,6 +529,7 @@ bool RequestParser::parseFieldLine(const std::string& line, std::string& name,
   name = line.substr(0, colon);
   value = trimWhitespace(line.substr(colon + 1));
   // A space before the colon makes the name an invalid token (section 5.1).
+  // 콜론 앞에 공백이 있으면 이름이 올바른 token이 아니다 (5.1절).
   if (!isToken(name) || !isFieldValue(value))
     return fail(http_status::kBadRequest);
   return true;
@@ -426,6 +539,7 @@ bool RequestParser::finishHead() {
   const HeaderMap& headers = request_.headers;
   const std::size_t hosts = headers.count(header_name::kHost);
   // Section 3.2: Host is required in HTTP/1.1, never repeated, and valid.
+  // 3.2절: HTTP/1.1에서 Host는 필수이고, 반복되지 않고, 올바라야 한다.
   if ((hosts == 0 && request_.version == request_parser::kHttp11) ||
       hosts > 1 ||
       (hosts == 1 && !isHostValue(*headers.first(header_name::kHost))))
@@ -433,11 +547,12 @@ bool RequestParser::finishHead() {
   if (!decideBodyLength()) return false;
   // Stop here: feed() reports HEAD_DONE so that the caller can set the
   // body limit of the chosen location before the body is read.
+  // 여기서 멈춘다. feed()가 HEAD_DONE을 알려서, 본문을 읽기 전에 호출자가
+  // 고른 location의 본문 상한을 정할 수 있게 한다.
   state_ = BODY_START;
   return false;
 }
 
-// Section 6.3 for requests.
 bool RequestParser::decideBodyLength() {
   const std::vector<std::string> codings =
       splitList(request_.headers.all(header_name::kTransferEncoding));
@@ -446,12 +561,15 @@ bool RequestParser::decideBodyLength() {
   if (request_.headers.has(header_name::kTransferEncoding)) {
     // HTTP/1.0 with Transfer-Encoding is faulty framing (section 6.1);
     // with Content-Length as well it may be smuggling (section 6.3).
+    // HTTP/1.0에 Transfer-Encoding이 있으면 길이 표시가 잘못된 것이고
+    // (6.1절), Content-Length까지 있으면 smuggling일 수 있다 (6.3절).
     if (request_.version == request_parser::kHttp10 ||
         request_.headers.has(header_name::kContentLength))
       return fail(http_status::kBadRequest);
     if (codings.empty() || toLower(codings.back()) != kChunked)
       return fail(http_status::kBadRequest);
     // chunked may be applied only once; no other coding is implemented.
+    // chunked는 한 번만 적용할 수 있고, 다른 coding은 구현하지 않았다.
     for (std::size_t i = 0; i + 1 < codings.size(); ++i) {
       if (toLower(codings[i]) == kChunked)
         return fail(http_status::kBadRequest);
@@ -462,6 +580,7 @@ bool RequestParser::decideBodyLength() {
   }
   if (request_.headers.has(header_name::kContentLength)) {
     // A list is allowed only if every value is the same (section 6.3).
+    // 목록은 모든 값이 같을 때만 허용한다 (6.3절).
     if (lengths.empty()) return fail(http_status::kBadRequest);
     for (std::size_t i = 0; i < lengths.size(); ++i) {
       unsigned long value = 0;
@@ -473,13 +592,14 @@ bool RequestParser::decideBodyLength() {
     return true;
   }
   // HTTP/1.0 POST must carry Content-Length (RFC 1945 section 8.3).
+  // HTTP/1.0 POST에는 Content-Length가 있어야 한다 (RFC 1945 8.3절).
   if (request_.version == request_parser::kHttp10 &&
       request_.method == methods::kPost)
     return fail(http_status::kBadRequest);
   return true;
 }
 
-// chunk-size [ chunk-ext ] (section 7.1). Extensions are ignored.
+// Chunk extensions are ignored. / chunk 확장은 무시한다.
 bool RequestParser::readChunkSize(const std::string& line) {
   std::size_t size = 0;
   std::string::size_type i = 0;

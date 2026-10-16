@@ -1,3 +1,8 @@
+/**
+ * @file  Connection.cpp
+ * @brief Reading, timeouts and sending of one client connection.
+ *        클라이언트 연결 하나의 읽기, 시간 초과, 보내기.
+ */
 #include "http/Connection.hpp"
 
 #include <poll.h>
@@ -17,6 +22,7 @@ Connection::Connection(int fd, const ListenContext& where, std::time_t now)
       lastProgress_(now) {}
 
 // The connection is over; a close() error leaves nothing to do.
+// 연결이 끝났으므로 close()가 실패해도 할 일이 없다.
 Connection::~Connection() { close(fd_); }
 
 int Connection::fd() const { return fd_; }
@@ -35,6 +41,8 @@ void Connection::onEvent(short revents) {
   const bool reading = (state_ == READ_HEAD || state_ == READ_BODY);
   // POLLHUP may come with data still unread; recv() returns 0 once the
   // data is consumed, which closes the connection.
+  // POLLHUP과 함께 아직 읽지 않은 데이터가 있을 수 있다. 데이터를 다
+  // 읽으면 recv()가 0을 돌려주고, 그때 연결을 닫는다.
   if (reading && (revents & (POLLIN | POLLHUP)) != 0)
     receiveOnce();
   else if (state_ == WRITE && (revents & POLLOUT) != 0)
@@ -47,6 +55,8 @@ void Connection::onFailure() { changeState(CLOSED); }
 
 // An unfinished request gets 408 before closing (RFC 9112 section 8 allows
 // it); a connection that never sent anything is just closed.
+// 끝나지 않은 요청에는 닫기 전에 408을 보낸다 (RFC 9112 8절이 허용).
+// 아무것도 보내지 않은 연결은 그냥 닫는다.
 void Connection::checkTimeout(std::time_t now) {
   now_ = now;
   if (!hasTimedOut()) return;
@@ -59,6 +69,9 @@ void Connection::checkTimeout(std::time_t now) {
 // The head must arrive within limits::kHeaderTimeoutSeconds in total, so a
 // client that sends a byte now and then cannot hold the connection (design
 // 12). Body and send timeouts count only time without progress.
+// 머리는 모두 합쳐 limits::kHeaderTimeoutSeconds 안에 와야 한다. 그래서
+// 가끔 한 바이트씩 보내는 클라이언트가 연결을 붙잡을 수 없다 (설계
+// 12절). 본문과 전송 시간 초과는 진행이 없는 시간만 센다.
 bool Connection::hasTimedOut() const {
   const std::time_t idle = now_ - lastProgress_;
   switch (state_) {
@@ -80,6 +93,7 @@ void Connection::receiveOnce() {
   char buffer[limits::kRecvBufferSize];
   const ssize_t received = recv(fd_, buffer, sizeof(buffer), 0);
   // 0: the peer closed. -1: an error. Neither looks at errno.
+  // 0: 상대가 닫음. -1: 오류. 어느 쪽도 errno를 보지 않는다.
   if (received <= 0) {
     changeState(CLOSED);
     return;
@@ -117,12 +131,14 @@ void Connection::sendOnce() {
   lastProgress_ = now_;
   // A file body that cannot be read further cannot match the
   // Content-Length already sent: the connection has to end.
+  // 더 읽을 수 없는 파일 본문은 이미 보낸 Content-Length와 맞출 수 없으니
+  // 연결을 끝내야 한다.
   if (!stream_.consume(static_cast<std::size_t>(sent)) || !stream_.hasPending())
     changeState(CLOSED);
 }
 
-// A file that vanished between routing and opening becomes a 500, which
-// is built in memory and always starts.
+// The 500 for a vanished file is built in memory, so it always starts.
+// 사라진 파일 대신 보내는 500은 메모리에서 만들므로 항상 시작된다.
 void Connection::startResponse(const Response& response) {
   if (!stream_.reset(response))
     static_cast<void>(stream_.reset(processor_.errorResponse(

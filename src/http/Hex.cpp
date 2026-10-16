@@ -1,3 +1,8 @@
+/**
+ * @file  Hex.cpp
+ * @brief Hexadecimal digit values.
+ *        16진 숫자의 값.
+ */
 #include "http/Hex.hpp"
 
 int hexDigitValue(char c) {
