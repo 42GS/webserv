@@ -20,6 +20,7 @@ CONFIG_SRCS	:= config/BuildContext.cpp \
 			   config/SharedSettings.cpp
 
 CORE_SRCS	:= core/Clock.cpp \
+			   core/HttpDate.cpp \
 			   core/EventLoop.cpp \
 			   core/Listener.cpp \
 			   core/Server.cpp \
@@ -28,6 +29,7 @@ CORE_SRCS	:= core/Clock.cpp \
 
 HTTP_SRCS	:= http/Connection.cpp \
 			   http/HeaderMap.cpp \
+			   http/MimeTypes.cpp \
 			   http/Methods.cpp \
 			   http/RequestParser.cpp \
 			   http/Router.cpp \
@@ -47,7 +49,8 @@ TEST_SRCS	:= tests/unit/test_main.cpp \
 			   tests/unit/event_loop_test.cpp \
 			   tests/unit/header_map_test.cpp \
 			   tests/unit/request_parser_test.cpp \
-			   tests/unit/router_test.cpp
+			   tests/unit/router_test.cpp \
+			   tests/unit/http_date_test.cpp
 TEST_OBJS	:= $(addprefix $(OBJ_DIR)/, $(TEST_SRCS:.cpp=.o))
 
 DEPS		:= $(OBJS:.o=.d) $(TEST_OBJS:.o=.d)
