@@ -3,17 +3,6 @@
 
 #include <string>
 
-#include "http/Ascii.hpp"
-
-namespace path_resolver {
-
-const std::string::size_type kEscapeDigits = 2;  // %XX
-// Left as they are by encodePath: letters, digits, the rest of unreserved
-// and sub-delims, ":", "@" (pchar) and "/" (RFC 3986 section 3.3).
-const std::string kPathChars = ascii::kAlphanumerics + "-._~!$&'()*+,;=:@/";
-
-}  // namespace path_resolver
-
 // Turns the percent-encoded path of a request into a normalized one
 // (concepts/security "경로 정규화 절차"): split into segments, decode each
 // once, merge repeated "/", resolve "." and "..". Returns false, meaning

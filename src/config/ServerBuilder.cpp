@@ -13,6 +13,11 @@
 
 namespace {
 
+// error_page accepts codes 300..599 (chosen in step 1: redirect and error
+// responses are the ones that get a page).
+const unsigned long kMinErrorPageCode = 300;
+const unsigned long kMaxErrorPageCode = 599;
+
 bool longerPathFirst(const LocationConfig& a, const LocationConfig& b) {
   return a.path.size() > b.path.size();
 }
@@ -41,8 +46,7 @@ void applyErrorPage(const BuildContext& context, const Directive& directive,
   for (std::size_t i = 0; i + 1 < directive.args.size(); ++i) {
     unsigned long code = 0;
     if (!parseDecimal(directive.args[i], http_status::kMaxCode, code) ||
-        code < server_builder::kMinErrorPageCode ||
-        code > server_builder::kMaxErrorPageCode)
+        code < kMinErrorPageCode || code > kMaxErrorPageCode)
       throw ConfigError(
           context.source, directive.line,
           "invalid error_page code \"" + directive.args[i] + "\"");

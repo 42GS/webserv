@@ -2,9 +2,14 @@
 
 #include <vector>
 
+#include "http/Ascii.hpp"
 #include "http/Hex.hpp"
 
 namespace {
+
+// Left as they are by encodePath: letters, digits, the rest of unreserved
+// and sub-delims, ":", "@" (pchar) and "/" (RFC 3986 section 3.3).
+const std::string kPathChars = ascii::kAlphanumerics + "-._~!$&'()*+,;=:@/";
 
 // Decodes %XX once. Fails on a malformed escape, NUL, or "/".
 bool decodeSegment(const std::string& segment, std::string& decoded) {
@@ -14,14 +19,14 @@ bool decodeSegment(const std::string& segment, std::string& decoded) {
       decoded += segment[i];
       continue;
     }
-    if (i + path_resolver::kEscapeDigits >= segment.size()) return false;
+    if (i + 2 >= segment.size()) return false;  // "%" and two hex digits
     const int high = hexDigitValue(segment[i + 1]);
-    const int low = hexDigitValue(segment[i + path_resolver::kEscapeDigits]);
+    const int low = hexDigitValue(segment[i + 2]);
     if (high == hex::kNotHex || low == hex::kNotHex) return false;
     const char c = static_cast<char>(high * hex::kBase + low);
     if (c == '\0' || c == '/') return false;
     decoded += c;
-    i += path_resolver::kEscapeDigits;
+    i += 2;
   }
   return true;
 }
@@ -61,7 +66,7 @@ std::string encodePath(const std::string& decodedPath) {
   while (start < decodedPath.size()) {
     // Copy the run of characters that need no escape, then escape one.
     const std::string::size_type special =
-        decodedPath.find_first_not_of(path_resolver::kPathChars, start);
+        decodedPath.find_first_not_of(kPathChars, start);
     encoded.append(decodedPath, start,
                    special == std::string::npos ? special : special - start);
     if (special == std::string::npos) break;

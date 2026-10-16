@@ -15,7 +15,6 @@ const char* const kDigits = "0123456789";
 const char* const kLetters =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const std::string kAlphanumerics = std::string(kDigits) + kLetters;
-const unsigned long kDecimalBase = 10;
 
 }  // namespace ascii
 

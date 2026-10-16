@@ -28,14 +28,6 @@ struct DirectiveTree {
 DirectiveTree parseDirectives(const std::vector<Token>& tokens,
                               const std::string& source);
 
-namespace config_syntax {
-
-// server > location > limit_except. Deeper nesting is never valid, and
-// limiting it keeps the recursive parser from exhausting the stack.
-const std::size_t kMaxBlockDepth = 3;
-
-}  // namespace config_syntax
-
 // Recursive descent over the tokens; used by parseDirectives().
 class SyntaxParser {
  public:

@@ -7,6 +7,10 @@
 
 namespace {
 
+const unsigned long kMaxPort = 65535;
+const std::size_t kKilobyte = 1024;
+const std::size_t kMegabyte = 1024 * 1024;
+
 std::vector<std::string> split(const std::string& text, char separator) {
   std::vector<std::string> parts;
   std::string::size_type start = 0;
@@ -23,7 +27,7 @@ std::vector<std::string> split(const std::string& text, char separator) {
 
 bool isIpv4Address(const std::string& text) {
   const std::vector<std::string> octets = split(text, '.');
-  if (octets.size() != config_values::kOctetCount) return false;
+  if (octets.size() != 4) return false;  // a.b.c.d
   for (std::size_t i = 0; i < octets.size(); ++i) {
     unsigned long value;
     if (!parseDecimal(octets[i], config_values::kMaxOctet, value)) return false;
@@ -39,9 +43,9 @@ bool parseSize(const std::string& text, std::size_t& out) {
   std::string digits = text;
   const char suffix = text[text.size() - 1];
   if (suffix == 'k' || suffix == 'K')
-    unit = config_values::kKilobyte;
+    unit = kKilobyte;
   else if (suffix == 'm' || suffix == 'M')
-    unit = config_values::kMegabyte;
+    unit = kMegabyte;
   if (unit != 1) digits = text.substr(0, text.size() - 1);
   const unsigned long maxCount =
       static_cast<unsigned long>(static_cast<std::size_t>(-1) / unit);
@@ -61,8 +65,7 @@ bool parseListenAddr(const std::string& text, ListenAddr& out) {
     if (!isIpv4Address(host)) return false;
   }
   unsigned long port;
-  if (!parseDecimal(portText, config_values::kMaxPort, port) || port == 0)
-    return false;
+  if (!parseDecimal(portText, kMaxPort, port) || port == 0) return false;
   out.host = host;
   out.port = static_cast<unsigned short>(port);
   return true;

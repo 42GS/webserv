@@ -1,11 +1,20 @@
 #include "route/Router.hpp"
 
+#include <cstddef>
+
 #include "core/Limits.hpp"
 #include "fs/FileInfo.hpp"
+#include "http/Methods.hpp"
 #include "http/StatusCodes.hpp"
 #include "route/PathResolver.hpp"
 
 namespace {
+
+// Methods that static resources answer in step 4. POST and DELETE get their
+// handlers in step 6.
+const char* const kStaticMethods[] = {methods::kGet, methods::kHead};
+const std::size_t kStaticMethodCount =
+    sizeof(kStaticMethods) / sizeof(kStaticMethods[0]);
 
 RouteResult error(int status) {
   RouteResult result;
@@ -28,8 +37,8 @@ bool locationAllows(const LocationConfig& location, const std::string& method) {
 }
 
 bool isStaticMethod(const std::string& method) {
-  for (std::size_t i = 0; i < router::kStaticMethodCount; ++i) {
-    if (method == router::kStaticMethods[i]) return true;
+  for (std::size_t i = 0; i < kStaticMethodCount; ++i) {
+    if (method == kStaticMethods[i]) return true;
   }
   return false;
 }
@@ -38,10 +47,10 @@ bool isStaticMethod(const std::string& method) {
 // serve (RFC 9110 section 10.2.1).
 std::string allowFor(const LocationConfig& location) {
   std::string allow;
-  for (std::size_t i = 0; i < router::kStaticMethodCount; ++i) {
-    if (!locationAllows(location, router::kStaticMethods[i])) continue;
+  for (std::size_t i = 0; i < kStaticMethodCount; ++i) {
+    if (!locationAllows(location, kStaticMethods[i])) continue;
     if (!allow.empty()) allow += ", ";
-    allow += router::kStaticMethods[i];
+    allow += kStaticMethods[i];
   }
   return allow;
 }

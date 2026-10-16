@@ -1,5 +1,6 @@
 #include "http/RequestParser.hpp"
 
+#include <limits>
 #include <vector>
 
 #include "core/Limits.hpp"
@@ -15,8 +16,24 @@
 
 namespace {
 
+// tchar (RFC 9110 section 5.6.2).
+const std::string kTokenChars = ascii::kAlphanumerics + "!#$%&'*+-.^_`|~";
+// Host characters: unreserved, pct-encoded, sub-delims, ":" and IP-literal
+// brackets (RFC 3986 section 3.2.2).
+const std::string kHostChars = ascii::kAlphanumerics + "-._~%!$&'()*+,;=:[]";
+const char* const kAbsoluteFormPrefix = "http://";
+const char* const kChunked = "chunked";
+const unsigned char kDeleteChar = 0x7f;  // DEL
+
+const std::size_t kMaxSize = std::numeric_limits<std::size_t>::max();
+// The largest Content-Length that fits both parseDecimal() and size_t.
+const unsigned long kMaxContentLength =
+    std::numeric_limits<unsigned long>::max() < kMaxSize
+        ? std::numeric_limits<unsigned long>::max()
+        : static_cast<unsigned long>(kMaxSize);
+
 bool isToken(const std::string& text) {
-  return !text.empty() && consistsOf(text, request_parser::kTokenChars);
+  return !text.empty() && consistsOf(text, kTokenChars);
 }
 
 bool isWhitespace(char c) { return c == ' ' || c == '\t'; }
@@ -66,7 +83,7 @@ bool isHttpVersion(const std::string& version) {
 bool isTargetText(const std::string& target) {
   for (std::string::size_type i = 0; i < target.size(); ++i) {
     const unsigned char c = static_cast<unsigned char>(target[i]);
-    if (c <= ' ' || c >= request_parser::kDeleteChar || c == '#') return false;
+    if (c <= ' ' || c >= kDeleteChar || c == '#') return false;
   }
   return !target.empty();
 }
@@ -75,8 +92,7 @@ bool isTargetText(const std::string& target) {
 bool isFieldValue(const std::string& value) {
   for (std::string::size_type i = 0; i < value.size(); ++i) {
     const unsigned char c = static_cast<unsigned char>(value[i]);
-    if ((c < ' ' && c != '\t') || c == request_parser::kDeleteChar)
-      return false;
+    if ((c < ' ' && c != '\t') || c == kDeleteChar) return false;
   }
   return true;
 }
@@ -84,14 +100,14 @@ bool isFieldValue(const std::string& value) {
 // Host = uri-host [ ":" port ] (RFC 9110 7.2). Only the character set is
 // checked; an empty value is allowed by the grammar.
 bool isHostValue(const std::string& value) {
-  return consistsOf(value, request_parser::kHostChars);
+  return consistsOf(value, kHostChars);
 }
 
 // Adds one digit to value, or returns false if the result would not fit.
 bool appendDigit(std::size_t& value, int base, int digit) {
   const std::size_t factor = static_cast<std::size_t>(base);
   const std::size_t add = static_cast<std::size_t>(digit);
-  if (value > (request_parser::kMaxSize - add) / factor) return false;
+  if (value > (kMaxSize - add) / factor) return false;
   value = value * factor + add;
   return true;
 }
@@ -370,11 +386,10 @@ bool RequestParser::parseRequestLine(const std::string& line) {
 bool RequestParser::parseTarget(const std::string& target) {
   std::string pathAndQuery;
   const std::string::size_type prefixLength =
-      std::string(request_parser::kAbsoluteFormPrefix).size();
+      std::string(kAbsoluteFormPrefix).size();
   if (target[0] == '/') {
     pathAndQuery = target;
-  } else if (toLower(target.substr(0, prefixLength)) ==
-             request_parser::kAbsoluteFormPrefix) {
+  } else if (toLower(target.substr(0, prefixLength)) == kAbsoluteFormPrefix) {
     const std::string rest = target.substr(prefixLength);
     const std::string::size_type authorityEnd = rest.find_first_of("/?");
     if (authorityEnd == 0) return false;
@@ -434,11 +449,11 @@ bool RequestParser::decideBodyLength() {
     if (request_.version == request_parser::kHttp10 ||
         request_.headers.has(header_name::kContentLength))
       return fail(http_status::kBadRequest);
-    if (codings.empty() || toLower(codings.back()) != request_parser::kChunked)
+    if (codings.empty() || toLower(codings.back()) != kChunked)
       return fail(http_status::kBadRequest);
     // chunked may be applied only once; no other coding is implemented.
     for (std::size_t i = 0; i + 1 < codings.size(); ++i) {
-      if (toLower(codings[i]) == request_parser::kChunked)
+      if (toLower(codings[i]) == kChunked)
         return fail(http_status::kBadRequest);
     }
     if (codings.size() > 1) return fail(http_status::kNotImplemented);
@@ -450,7 +465,7 @@ bool RequestParser::decideBodyLength() {
     if (lengths.empty()) return fail(http_status::kBadRequest);
     for (std::size_t i = 0; i < lengths.size(); ++i) {
       unsigned long value = 0;
-      if (!parseDecimal(lengths[i], request_parser::kMaxContentLength, value) ||
+      if (!parseDecimal(lengths[i], kMaxContentLength, value) ||
           (i > 0 && value != contentLength_))
         return fail(http_status::kBadRequest);
       contentLength_ = static_cast<std::size_t>(value);

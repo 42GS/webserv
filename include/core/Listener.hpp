@@ -1,8 +1,6 @@
 #ifndef CORE_LISTENER_HPP
 #define CORE_LISTENER_HPP
 
-#include <sys/socket.h>
-
 #include <string>
 
 #include "config/ServerConfig.hpp"
@@ -10,12 +8,6 @@
 #include "core/ListenContext.hpp"
 
 // Receives sockets accepted by a Listener.
-namespace listener {
-
-const int kBacklog = SOMAXCONN;  // the system's largest listen queue
-
-}  // namespace listener
-
 class AcceptHandler {
  public:
   virtual ~AcceptHandler() {}

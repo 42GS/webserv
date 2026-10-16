@@ -17,9 +17,8 @@ bool parseDecimal(const std::string& text, unsigned long maxValue,
   for (std::string::size_type i = 0; i < text.size(); ++i) {
     const unsigned long digit = static_cast<unsigned long>(text[i] - '0');
     // digit > maxValue first, so that maxValue - digit cannot wrap around.
-    if (digit > maxValue || result > (maxValue - digit) / ascii::kDecimalBase)
-      return false;
-    result = result * ascii::kDecimalBase + digit;
+    if (digit > maxValue || result > (maxValue - digit) / 10) return false;
+    result = result * 10 + digit;
   }
   value = result;
   return true;

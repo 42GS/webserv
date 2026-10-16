@@ -29,7 +29,7 @@ bool Listener::open(std::string& error) {
   ok = ok &&
        setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == 0;
   ok = ok && bind(fd_, rawAddress, sizeof(address)) == 0;
-  ok = ok && listen(fd_, listener::kBacklog) == 0;
+  ok = ok && listen(fd_, SOMAXCONN) == 0;  // the largest queue allowed
   // Non-blocking only after bind: a non-blocking bind() may fail with
   // EINPROGRESS and finish later (POSIX bind).
   ok = ok && fcntl(fd_, F_SETFL, O_NONBLOCK) == 0;

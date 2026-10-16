@@ -7,7 +7,6 @@
 namespace hex {
 
 const int kBase = 16;
-const int kLetterValue = 10;  // value of 'a' / 'A'
 const int kNotHex = -1;
 const char* const kUpperDigits = "0123456789ABCDEF";
 

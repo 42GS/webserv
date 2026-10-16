@@ -62,8 +62,7 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
 void applyCgi(const BuildContext& context, const Directive& directive,
               LocationConfig& location) {
   const std::string& extension = directive.args[0];
-  if (extension.size() < location_builder::kMinCgiExtensionLength ||
-      extension[0] != '.')
+  if (extension.size() < 2 || extension[0] != '.')  // at least ".x"
     throw ConfigError(context.source, directive.line,
                       "\"cgi\" extension must look like \".php\"");
   if (location.cgiByExtension.count(extension) != 0)

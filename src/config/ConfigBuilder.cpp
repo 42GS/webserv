@@ -7,6 +7,12 @@
 
 namespace {
 
+// A listen address with the line it came from, for conflict messages.
+struct ListenEntry {
+  ListenAddr addr;
+  int line;
+};
+
 // The same interface:port twice, or 0.0.0.0 and a specific address on the
 // same port, cannot both be bound (design decision 4).
 void checkListenConflicts(const std::vector<ListenEntry>& listens,

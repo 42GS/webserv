@@ -7,12 +7,6 @@
 #include "config/ConfigSyntax.hpp"
 #include "config/ServerConfig.hpp"
 
-// A listen address with the line it came from, for conflict messages.
-struct ListenEntry {
-  ListenAddr addr;
-  int line;
-};
-
 // Turns the directive tree into validated server settings: checks each
 // directive's arguments, applies server-level values to locations, and
 // rejects conflicting listen addresses. Throws ConfigError.

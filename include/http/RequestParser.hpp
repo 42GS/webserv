@@ -2,31 +2,15 @@
 #define HTTP_REQUESTPARSER_HPP
 
 #include <cstddef>
-#include <limits>
 #include <string>
 
-#include "http/Ascii.hpp"
 #include "http/Request.hpp"
 
+// The values of Request::version.
 namespace request_parser {
 
 const char* const kHttp10 = "HTTP/1.0";
 const char* const kHttp11 = "HTTP/1.1";
-const char* const kAbsoluteFormPrefix = "http://";
-const char* const kChunked = "chunked";
-
-const unsigned char kDeleteChar = 0x7f;
-// tchar (RFC 9110 section 5.6.2).
-const std::string kTokenChars = ascii::kAlphanumerics + "!#$%&'*+-.^_`|~";
-// Host characters: unreserved, pct-encoded, sub-delims, ":" and IP-literal
-// brackets (RFC 3986 section 3.2.2).
-const std::string kHostChars = ascii::kAlphanumerics + "-._~%!$&'()*+,;=:[]";
-const std::size_t kMaxSize = std::numeric_limits<std::size_t>::max();
-// The largest Content-Length that fits both parseDecimal() and size_t.
-const unsigned long kMaxContentLength =
-    std::numeric_limits<unsigned long>::max() < kMaxSize
-        ? std::numeric_limits<unsigned long>::max()
-        : static_cast<unsigned long>(kMaxSize);
 
 }  // namespace request_parser
 

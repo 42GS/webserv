@@ -41,8 +41,7 @@ std::string serializeHead(const Response& response) {
 
 }  // namespace
 
-ResponseStream::ResponseStream()
-    : offset_(0), fileFd_(response_stream::kNoFile), fileRemaining_(0) {}
+ResponseStream::ResponseStream() : offset_(0), fileFd_(-1), fileRemaining_(0) {}
 
 ResponseStream::~ResponseStream() { closeFile(); }
 
@@ -100,6 +99,6 @@ bool ResponseStream::readFilePiece() {
 
 // The descriptor is given up either way; a close() error changes nothing.
 void ResponseStream::closeFile() {
-  if (fileFd_ != response_stream::kNoFile) close(fileFd_);
-  fileFd_ = response_stream::kNoFile;
+  if (fileFd_ >= 0) close(fileFd_);
+  fileFd_ = -1;
 }

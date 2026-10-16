@@ -8,12 +8,6 @@
 #include "config/BuildContext.hpp"
 #include "config/ServerConfig.hpp"
 
-namespace shared_settings {
-
-const char* const kDefaultIndexFile = "index.html";  // NGINX "index" default
-
-}  // namespace shared_settings
-
 // Settings that may appear in both server and location blocks. A location
 // starts from its server's values and overrides what it sets itself.
 struct SharedSettings {

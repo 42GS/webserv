@@ -6,12 +6,6 @@
 
 #include "http/Response.hpp"
 
-namespace response_stream {
-
-const int kNoFile = -1;  // fileFd_ when no file is open
-
-}  // namespace response_stream
-
 // Serialized response handed to send() a piece at a time. A file body is
 // read in kFileChunkSize pieces as the previous piece is sent, so a large
 // file never stalls the loop (raw/subject.md:134 exempts regular files
@@ -40,7 +34,7 @@ class ResponseStream {
 
   std::string out_;
   std::size_t offset_;
-  int fileFd_;
+  int fileFd_;  // -1 when no file is open
   std::size_t fileRemaining_;
 };
 

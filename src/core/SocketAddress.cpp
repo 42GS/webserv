@@ -16,7 +16,7 @@ unsigned long parseIpv4(const std::string& text) {
     // The configuration parser has already checked the address; an octet
     // that still fails to parse counts as 0.
     static_cast<void>(parseDecimal(octetText, config_values::kMaxOctet, octet));
-    address = (address << socket_address::kBitsPerOctet) | octet;
+    address = (address << 8) | octet;
     if (dot == std::string::npos) return address;
     start = dot + 1;
   }

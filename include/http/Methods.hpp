@@ -1,7 +1,6 @@
 #ifndef HTTP_METHODS_HPP
 #define HTTP_METHODS_HPP
 
-#include <cstddef>
 #include <string>
 
 namespace methods {
@@ -10,11 +9,6 @@ const char* const kGet = "GET";
 const char* const kHead = "HEAD";
 const char* const kPost = "POST";
 const char* const kDelete = "DELETE";
-
-const char* const kImplementedMethods[] = {kGet, kHead, kPost, kDelete};
-
-const std::size_t kMethodCount =
-    sizeof(kImplementedMethods) / sizeof(kImplementedMethods[0]);
 
 }  // namespace methods
 

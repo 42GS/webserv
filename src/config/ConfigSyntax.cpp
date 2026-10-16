@@ -2,6 +2,14 @@
 
 #include "config/ConfigError.hpp"
 
+namespace {
+
+// server > location > limit_except. Deeper nesting is never valid, and
+// limiting it keeps the recursive parser from exhausting the stack.
+const std::size_t kMaxBlockDepth = 3;
+
+}  // namespace
+
 SyntaxParser::SyntaxParser(const std::vector<Token>& tokens,
                            const std::string& source)
     : tokens_(tokens), source_(source), pos_(0), depth_(0) {}
@@ -41,7 +49,7 @@ std::size_t SyntaxParser::parseDirective() {
     return store(directive);
   }
   if (current().type == TOKEN_OPEN_BRACE) {
-    if (depth_ == config_syntax::kMaxBlockDepth)
+    if (depth_ == kMaxBlockDepth)
       throw ConfigError(source_, directive.line,
                         "blocks are nested too deeply");
     ++pos_;
