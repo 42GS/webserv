@@ -49,7 +49,6 @@ std::string allowFor(const LocationConfig& location) {
 RouteResult methodNotAllowed(const LocationConfig& location) {
   RouteResult result = error(http_status::kMethodNotAllowed);
   result.allow = allowFor(location);
-  result.location = &location;
   return result;
 }
 
@@ -143,7 +142,6 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
   result.kind = RouteResult::STATIC_FILE;
   result.fsPath = fsPath;
   result.urlPath = path;
-  result.location = location;
   return result;
 }
 
@@ -168,6 +166,5 @@ RouteResult Router::routeDirectory(const std::string& path,
   result.kind = RouteResult::DIRECTORY_LISTING;
   result.fsPath = fsPath;
   result.urlPath = path;
-  result.location = &location;
   return result;
 }
