@@ -33,21 +33,20 @@ Listener::~Listener() {
 }
 
 bool Listener::open(std::string& error) {
-  fd_ = socket(AF_INET, SOCK_STREAM, 0);
   const int enable = 1;
   const sockaddr_in address = toSockaddr(addr_);
+  const sockaddr* rawAddress = reinterpret_cast<const sockaddr*>(&address);
+  bool ok = (fd_ = socket(AF_INET, SOCK_STREAM, 0)) >= 0;
+  ok = ok &&
+       setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == 0;
+  ok = ok && fcntl(fd_, F_SETFL, O_NONBLOCK) == 0;
+  ok = ok && bind(fd_, rawAddress, sizeof(address)) == 0;
+  ok = ok && listen(fd_, kListenBacklog) == 0;
   // errno is read only to build the startup error message, never after a
   // read or write on a client socket.
-  if (fd_ < 0 ||
-      setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0 ||
-      fcntl(fd_, F_SETFL, O_NONBLOCK) < 0 ||
-      bind(fd_, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) <
-          0 ||
-      listen(fd_, kListenBacklog) < 0) {
+  if (!ok)
     error = "cannot listen on " + describe(addr_) + ": " + std::strerror(errno);
-    return false;
-  }
-  return true;
+  return ok;
 }
 
 int Listener::fd() const { return fd_; }
