@@ -1,13 +1,13 @@
 #include "route/PathResolver.hpp"
+#include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
 namespace {
 
-const char* const kRejected = "(400)";
-
 std::string normalized(const std::string& encoded) {
   std::string result;
-  return normalizePath(encoded, result) ? result : kRejected;
+  return normalizePath(encoded, result) ? result
+                                        : path_resolver_test::kRejected;
 }
 
 }  // namespace
@@ -26,12 +26,12 @@ TEST_CASE(r01_decodesOnceAndCaseInsensitively) {
 }
 
 TEST_CASE(r01_rejectsBadEncodings) {
-  CHECK_EQ(std::string(kRejected), normalized("/a%2"));
-  CHECK_EQ(std::string(kRejected), normalized("/a%"));
-  CHECK_EQ(std::string(kRejected), normalized("/a%zz"));
-  CHECK_EQ(std::string(kRejected), normalized("/a%00b"));
-  CHECK_EQ(std::string(kRejected), normalized("/a%2Fb"));
-  CHECK_EQ(std::string(kRejected), normalized("/a%2fb"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected), normalized("/a%2"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected), normalized("/a%"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected), normalized("/a%zz"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected), normalized("/a%00b"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected), normalized("/a%2Fb"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected), normalized("/a%2fb"));
 }
 
 TEST_CASE(r01_mergesSlashesAndResolvesDots) {
@@ -52,8 +52,11 @@ TEST_CASE(r01_encodesPathsForUris) {
 }
 
 TEST_CASE(r01_rejectsGoingAboveTheRoot) {
-  CHECK_EQ(std::string(kRejected), normalized("/.."));
-  CHECK_EQ(std::string(kRejected), normalized("/../etc/passwd"));
-  CHECK_EQ(std::string(kRejected), normalized("/a/../../etc"));
-  CHECK_EQ(std::string(kRejected), normalized("/%2e%2e/etc"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected), normalized("/.."));
+  CHECK_EQ(std::string(path_resolver_test::kRejected),
+           normalized("/../etc/passwd"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected),
+           normalized("/a/../../etc"));
+  CHECK_EQ(std::string(path_resolver_test::kRejected),
+           normalized("/%2e%2e/etc"));
 }

@@ -4,6 +4,7 @@
 #include "config/ConfigError.hpp"
 #include "config/ConfigLimits.hpp"
 #include "config/ConfigLoader.hpp"
+#include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
 namespace {
@@ -44,38 +45,10 @@ const LocationConfig* findLocation(const ServerConfig& server,
   return 0;
 }
 
-const char* const kDesignExample =
-    "server {\n"
-    "    listen 127.0.0.1:8080;\n"
-    "    root /var/www/site;\n"
-    "    index index.html;\n"
-    "    error_page 404 /errors/404.html;\n"
-    "    client_max_body_size 1m;\n"
-    "\n"
-    "    location / {\n"
-    "        limit_except GET { deny all; }\n"
-    "    }\n"
-    "    location /upload/ {\n"
-    "        limit_except GET POST DELETE { deny all; }\n"
-    "        upload_store /var/www/site/upload;\n"
-    "        client_max_body_size 10m;\n"
-    "    }\n"
-    "    location /cgi-bin/ {\n"
-    "        cgi .php /usr/bin/php-cgi;\n"
-    "        cgi .py /usr/bin/python3;\n"
-    "    }\n"
-    "    location /kapouet/ {\n"
-    "        alias /tmp/www/;   # subject example\n"
-    "    }\n"
-    "    location /old/ {\n"
-    "        return 301 /new/;\n"
-    "    }\n"
-    "}\n";
-
 }  // namespace
 
 TEST_CASE(parsesDesignExample) {
-  const std::vector<ServerConfig> servers = load(kDesignExample);
+  const std::vector<ServerConfig> servers = load(config_test::kDesignExample);
   CHECK_EQ(1u, servers.size());
   const ServerConfig& server = servers.at(0);
   CHECK_EQ(1u, server.listens.size());
@@ -120,7 +93,7 @@ TEST_CASE(parsesDesignExample) {
 }
 
 TEST_CASE(locationsAreSortedLongestFirst) {
-  const ServerConfig server = load(kDesignExample).at(0);
+  const ServerConfig server = load(config_test::kDesignExample).at(0);
   for (std::size_t i = 1; i < server.locations.size(); ++i)
     CHECK(server.locations[i - 1].path.size() >=
           server.locations[i].path.size());

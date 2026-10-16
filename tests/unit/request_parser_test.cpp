@@ -1,15 +1,12 @@
 #include <string>
 
 #include "http/RequestParser.hpp"
+#include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
 // Test IDs (P-xx) refer to the test plan in the wiki (analysis/test-plan).
 
 namespace {
-
-const std::size_t kBodyLimit = 100;
-const int kIncomplete = -1;  // statusOf(): the parser wants more bytes
-const int kParsed = 0;       // statusOf(): a complete request
 
 // Feeds the whole text, setting the body limit after the head as the
 // connection does. Leftover bytes stay in "buffer".
@@ -23,14 +20,16 @@ RequestParser::Result parse(RequestParser& parser, std::string& buffer,
   return result;
 }
 
-// kParsed, kIncomplete, or the error status code.
-int statusOf(const std::string& text, std::size_t bodyLimit = kBodyLimit) {
+// request_parser_test::kParsed, request_parser_test::kIncomplete, or the error
+// status code.
+int statusOf(const std::string& text,
+             std::size_t bodyLimit = request_parser_test::kBodyLimit) {
   RequestParser parser(defaultParserLimits());
   std::string buffer(text);
   const RequestParser::Result result = parse(parser, buffer, bodyLimit);
-  if (result == RequestParser::DONE) return kParsed;
+  if (result == RequestParser::DONE) return request_parser_test::kParsed;
   if (result == RequestParser::ERROR) return parser.errorStatus();
-  return kIncomplete;
+  return request_parser_test::kIncomplete;
 }
 
 std::string get(const std::string& target) {
@@ -50,18 +49,21 @@ TEST_CASE(p01_sameResultWhereverTheInputIsSplit) {
   for (std::string::size_type split = 0; split <= text.size(); ++split) {
     RequestParser parser(defaultParserLimits());
     std::string buffer = text.substr(0, split);
-    RequestParser::Result result = parse(parser, buffer, kBodyLimit);
+    RequestParser::Result result =
+        parse(parser, buffer, request_parser_test::kBodyLimit);
     buffer += text.substr(split);
     if (result != RequestParser::DONE)
-      result = parse(parser, buffer, kBodyLimit);
+      result = parse(parser, buffer, request_parser_test::kBodyLimit);
     CHECK_EQ(static_cast<int>(RequestParser::DONE), static_cast<int>(result));
     CHECK_EQ(std::string("abcde"), parser.request().body);
   }
 }
 
 TEST_CASE(p01_incompleteInputAsksForMore) {
-  CHECK_EQ(kIncomplete, statusOf("GET / HTTP/1.1\r\nHost: x\r\n"));
-  CHECK_EQ(kIncomplete, statusOf(post("Content-Length: 5\r\n", "abc")));
+  CHECK_EQ(request_parser_test::kIncomplete,
+           statusOf("GET / HTTP/1.1\r\nHost: x\r\n"));
+  CHECK_EQ(request_parser_test::kIncomplete,
+           statusOf(post("Content-Length: 5\r\n", "abc")));
   RequestParser parser(defaultParserLimits());
   std::string empty;
   CHECK(!parser.hasStarted());
@@ -75,19 +77,22 @@ TEST_CASE(p01_incompleteInputAsksForMore) {
 TEST_CASE(p02_leavesTheNextRequestInTheBuffer) {
   RequestParser parser(defaultParserLimits());
   std::string buffer = post("Content-Length: 2\r\n", "hi") + get("/next");
-  CHECK_EQ(static_cast<int>(RequestParser::DONE),
-           static_cast<int>(parse(parser, buffer, kBodyLimit)));
+  CHECK_EQ(
+      static_cast<int>(RequestParser::DONE),
+      static_cast<int>(parse(parser, buffer, request_parser_test::kBodyLimit)));
   CHECK_EQ(std::string("hi"), parser.request().body);
   CHECK_EQ(get("/next"), buffer);
   parser.reset();
-  CHECK_EQ(static_cast<int>(RequestParser::DONE),
-           static_cast<int>(parse(parser, buffer, kBodyLimit)));
+  CHECK_EQ(
+      static_cast<int>(RequestParser::DONE),
+      static_cast<int>(parse(parser, buffer, request_parser_test::kBodyLimit)));
   CHECK_EQ(std::string("/next"), parser.request().path);
   CHECK(buffer.empty());
 }
 
 TEST_CASE(p03_lineEndings) {
-  CHECK_EQ(kParsed, statusOf("GET / HTTP/1.1\nHost: x\n\n"));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf("GET / HTTP/1.1\nHost: x\n\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1.1\rX\r\nHost: x\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1.1\r\nHost: a\rb\r\n\r\n"));
   // Chunk extensions are ignored, so only the line check sees this CR.
@@ -96,7 +101,7 @@ TEST_CASE(p03_lineEndings) {
 }
 
 TEST_CASE(p04_ignoresEmptyLinesBeforeTheRequestLine) {
-  CHECK_EQ(kParsed, statusOf("\r\n\r\n" + get("/")));
+  CHECK_EQ(request_parser_test::kParsed, statusOf("\r\n\r\n" + get("/")));
   CHECK_EQ(400, statusOf(std::string(8193, '\n') + get("/")));
 }
 
@@ -110,8 +115,10 @@ TEST_CASE(p05_requestLineNeedsSingleSpaces) {
 }
 
 TEST_CASE(p06_methods) {
-  CHECK_EQ(kParsed, statusOf("DELETE /a HTTP/1.1\r\nHost: x\r\n\r\n"));
-  CHECK_EQ(kParsed, statusOf("HEAD / HTTP/1.1\r\nHost: x\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf("DELETE /a HTTP/1.1\r\nHost: x\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf("HEAD / HTTP/1.1\r\nHost: x\r\n\r\n"));
   CHECK_EQ(501, statusOf("get / HTTP/1.1\r\nHost: x\r\n\r\n"));
   CHECK_EQ(501, statusOf("PUT / HTTP/1.1\r\nHost: x\r\n\r\n"));
   CHECK_EQ(501, statusOf("UNKNOWN / HTTP/1.1\r\nHost: x\r\n\r\n"));
@@ -124,15 +131,16 @@ TEST_CASE(p07_longTargetIs414) {
   const std::string prefix = "GET /";
   const std::string suffix = " HTTP/1.1";
   const std::size_t fill = 8192 - prefix.size() - suffix.size();
-  CHECK_EQ(kParsed, statusOf(prefix + std::string(fill, 'a') + suffix +
-                             "\r\nHost: x\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf(prefix + std::string(fill, 'a') + suffix +
+                    "\r\nHost: x\r\n\r\n"));
   CHECK_EQ(414, statusOf(prefix + std::string(fill + 1, 'a') + suffix +
                          "\r\nHost: x\r\n\r\n"));
   CHECK_EQ(414, statusOf(prefix + std::string(9000, 'a')));
 }
 
 TEST_CASE(p08_versions) {
-  CHECK_EQ(kParsed, statusOf("GET / HTTP/1.0\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed, statusOf("GET / HTTP/1.0\r\n\r\n"));
   CHECK_EQ(505, statusOf("GET / HTTP/2.0\r\nHost: x\r\n\r\n"));
   CHECK_EQ(505, statusOf("GET / HTTP/0.9\r\nHost: x\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / http/1.1\r\nHost: x\r\n\r\n"));
@@ -141,27 +149,28 @@ TEST_CASE(p08_versions) {
   CHECK_EQ(400, statusOf("GET /\r\n\r\n"));
   RequestParser parser(defaultParserLimits());
   std::string buffer("GET / HTTP/1.2\r\nHost: x\r\n\r\n");
-  CHECK_EQ(static_cast<int>(RequestParser::DONE),
-           static_cast<int>(parse(parser, buffer, kBodyLimit)));
+  CHECK_EQ(
+      static_cast<int>(RequestParser::DONE),
+      static_cast<int>(parse(parser, buffer, request_parser_test::kBodyLimit)));
   CHECK_EQ(std::string("HTTP/1.1"), parser.request().version);
 }
 
 TEST_CASE(p09_targets) {
   RequestParser parser(defaultParserLimits());
   std::string buffer = get("/a/b?x=1?y");
-  parse(parser, buffer, kBodyLimit);
+  parse(parser, buffer, request_parser_test::kBodyLimit);
   CHECK_EQ(std::string("/a/b"), parser.request().path);
   CHECK_EQ(std::string("x=1?y"), parser.request().query);
 
   parser.reset();
   buffer = get("http://example.com:8080/p?q");
-  parse(parser, buffer, kBodyLimit);
+  parse(parser, buffer, request_parser_test::kBodyLimit);
   CHECK_EQ(std::string("/p"), parser.request().path);
   CHECK_EQ(std::string("q"), parser.request().query);
 
   parser.reset();
   buffer = get("HTTP://example.com?q");
-  parse(parser, buffer, kBodyLimit);
+  parse(parser, buffer, request_parser_test::kBodyLimit);
   CHECK_EQ(std::string("/"), parser.request().path);
   CHECK_EQ(std::string("q"), parser.request().query);
 
@@ -176,7 +185,7 @@ TEST_CASE(p09_targets) {
 TEST_CASE(p10_headerFieldSyntax) {
   RequestParser parser(defaultParserLimits());
   std::string buffer("GET / HTTP/1.1\r\nhost:  x  \r\nX-A:\t1\r\n\r\n");
-  parse(parser, buffer, kBodyLimit);
+  parse(parser, buffer, request_parser_test::kBodyLimit);
   const std::string* host = parser.request().headers.first("HOST");
   CHECK(host != 0);
   if (host != 0) CHECK_EQ(std::string("x"), *host);
@@ -193,13 +202,15 @@ TEST_CASE(p11_linesStartingWithWhitespace) {
 
 TEST_CASE(p12_hostRules) {
   CHECK_EQ(400, statusOf("GET / HTTP/1.1\r\n\r\n"));
-  CHECK_EQ(kParsed, statusOf("GET / HTTP/1.0\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed, statusOf("GET / HTTP/1.0\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1.1\r\nHost: a\r\nHost: a\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1.0\r\nHost: a\r\nhost: b\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1.1\r\nHost: a b\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1.1\r\nHost: u@h\r\n\r\n"));
-  CHECK_EQ(kParsed, statusOf("GET / HTTP/1.1\r\nHost: [::1]:8080\r\n\r\n"));
-  CHECK_EQ(kParsed, statusOf("GET / HTTP/1.1\r\nHost:\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf("GET / HTTP/1.1\r\nHost: [::1]:8080\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf("GET / HTTP/1.1\r\nHost:\r\n\r\n"));
 }
 
 TEST_CASE(p13_largeHeaderSectionIs431) {
@@ -207,8 +218,9 @@ TEST_CASE(p13_largeHeaderSectionIs431) {
   CHECK_EQ(431,
            statusOf("GET / HTTP/1.1\r\nHost: x\r\nX: " + big + "\r\n\r\n"));
   CHECK_EQ(431, statusOf("GET / HTTP/1.1\r\nHost: x\r\nX: " + big));
-  CHECK_EQ(kParsed, statusOf("GET / HTTP/1.1\r\nHost: x\r\nX: " +
-                             std::string(16000, 'a') + "\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf("GET / HTTP/1.1\r\nHost: x\r\nX: " +
+                    std::string(16000, 'a') + "\r\n\r\n"));
 }
 
 TEST_CASE(p14_bodyLengthRules) {
@@ -226,13 +238,15 @@ TEST_CASE(p14_bodyLengthRules) {
   CHECK_EQ(400, statusOf(post("Content-Length: 3, 4\r\n", "abc")));
   CHECK_EQ(400,
            statusOf(post("Content-Length: 3\r\nContent-Length: 4\r\n", "abc")));
-  CHECK_EQ(kParsed, statusOf(post("Content-Length: 3, 3\r\n", "abc")));
-  CHECK_EQ(kParsed,
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf(post("Content-Length: 3, 3\r\n", "abc")));
+  CHECK_EQ(request_parser_test::kParsed,
            statusOf(post("Content-Length: 3\r\nContent-Length: 3\r\n", "abc")));
-  CHECK_EQ(kParsed, statusOf(post("", "")));
+  CHECK_EQ(request_parser_test::kParsed, statusOf(post("", "")));
   CHECK_EQ(400, statusOf("POST / HTTP/1.0\r\n\r\n"));
-  CHECK_EQ(kParsed, statusOf("POST / HTTP/1.0\r\nContent-Length: 0\r\n\r\n"));
-  CHECK_EQ(kParsed,
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf("POST / HTTP/1.0\r\nContent-Length: 0\r\n\r\n"));
+  CHECK_EQ(request_parser_test::kParsed,
            statusOf(post("Transfer-Encoding: Chunked\r\n", "0\r\n\r\n")));
 }
 
@@ -242,7 +256,7 @@ TEST_CASE(p15_hugeContentLengthDoesNotOverflow) {
 }
 
 TEST_CASE(p16_contentLengthOverTheLimitIs413) {
-  CHECK_EQ(kParsed,
+  CHECK_EQ(request_parser_test::kParsed,
            statusOf(post("Content-Length: 100\r\n", std::string(100, 'a'))));
   CHECK_EQ(413, statusOf(post("Content-Length: 101\r\n", "")));
   RequestParser parser(defaultParserLimits());
@@ -256,10 +270,12 @@ TEST_CASE(p16_contentLengthOverTheLimitIs413) {
 }
 
 TEST_CASE(p17_chunkedBodies) {
-  CHECK_EQ(kParsed, statusOf(post("Transfer-Encoding: chunked\r\n",
-                                  "A\r\n0123456789\r\n0\r\n\r\n")));
-  CHECK_EQ(kParsed, statusOf(post("Transfer-Encoding: chunked\r\n",
-                                  "1 ; a=b\r\nx\r\n000\r\n\r\n")));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf(post("Transfer-Encoding: chunked\r\n",
+                         "A\r\n0123456789\r\n0\r\n\r\n")));
+  CHECK_EQ(request_parser_test::kParsed,
+           statusOf(post("Transfer-Encoding: chunked\r\n",
+                         "1 ; a=b\r\nx\r\n000\r\n\r\n")));
   CHECK_EQ(400, statusOf(post("Transfer-Encoding: chunked\r\n",
                               "g\r\nx\r\n0\r\n\r\n")));
   CHECK_EQ(400, statusOf(post("Transfer-Encoding: chunked\r\n",
@@ -274,6 +290,6 @@ TEST_CASE(p17_chunkedBodies) {
                               "64\r\n" + std::string(100, 'a') + "\r\n1\r\n")));
   CHECK_EQ(400, statusOf(post("Transfer-Encoding: chunked\r\n",
                               "0\r\nBad Trailer\r\n\r\n")));
-  CHECK_EQ(kIncomplete,
+  CHECK_EQ(request_parser_test::kIncomplete,
            statusOf(post("Transfer-Encoding: chunked\r\n", "1\r\nx\r\n")));
 }

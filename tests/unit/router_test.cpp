@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include "config/ConfigLoader.hpp"
+#include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
 // Test IDs (R-xx) refer to the test plan in the wiki (analysis/test-plan).
@@ -12,8 +13,6 @@
 namespace {
 
 // Relative to the repository root, where "make test" runs the tests.
-const char* const kTree = "obj/router-www";
-const mode_t kDirectoryMode = 0755;
 
 std::string matchedPath(const ServerConfig& server, const std::string& path) {
   const LocationConfig* location = Router(server).matchLocation(path);
@@ -42,18 +41,21 @@ void writeFile(const std::string& path, const std::string& content) {
 // are not checked: the directories may exist from an earlier run, and a
 // real failure shows up as failing checks.
 void makeTree() {
-  const std::string root(kTree);
-  static_cast<void>(mkdir(root.c_str(), kDirectoryMode));
-  static_cast<void>(mkdir((root + "/dir").c_str(), kDirectoryMode));
-  static_cast<void>(mkdir((root + "/idx").c_str(), kDirectoryMode));
-  static_cast<void>(mkdir((root + "/list").c_str(), kDirectoryMode));
+  const std::string root(router_test::kTree);
+  static_cast<void>(mkdir(root.c_str(), router_test::kDirectoryMode));
+  static_cast<void>(
+      mkdir((root + "/dir").c_str(), router_test::kDirectoryMode));
+  static_cast<void>(
+      mkdir((root + "/idx").c_str(), router_test::kDirectoryMode));
+  static_cast<void>(
+      mkdir((root + "/list").c_str(), router_test::kDirectoryMode));
   writeFile(root + "/a.txt", "a");
   writeFile(root + "/idx/index.html", "index");
   writeFile(root + "/list/x.txt", "x");
 }
 
 std::string treeConfig() {
-  const std::string root(kTree);
+  const std::string root(router_test::kTree);
   return "server { listen 8080; root " + root +
          "; index index.html;"
          "  location /list/ { autoindex on; }"
@@ -94,7 +96,7 @@ TEST_CASE(r01_r02_routesTheNormalizedPath) {
   CHECK_EQ(400, router.route(requestFor("GET", "/a%2Fb")).status);
   const RouteResult file = router.route(requestFor("GET", "/x/../a%2etxt"));
   CHECK_EQ(static_cast<int>(RouteResult::STATIC_FILE), kindOf(file));
-  CHECK_EQ(std::string(kTree) + "/a.txt", file.fsPath);
+  CHECK_EQ(std::string(router_test::kTree) + "/a.txt", file.fsPath);
   // "/old/../list/" is "/list/" once normalized, not the /old/ location.
   CHECK_EQ(static_cast<int>(RouteResult::DIRECTORY_LISTING),
            kindOf(router.route(requestFor("GET", "/old/../list/"))));
@@ -104,11 +106,11 @@ TEST_CASE(r03_rootAndAliasMapping) {
   makeTree();
   const ServerConfig server = serverFrom(treeConfig());
   const Router router(server);
-  CHECK_EQ(std::string(kTree) + "/a.txt",
+  CHECK_EQ(std::string(router_test::kTree) + "/a.txt",
            router.route(requestFor("GET", "/ro/a.txt")).fsPath);
   std::string fsPath;
   CHECK(router.mapToFile("/idx/index.html", fsPath));
-  CHECK_EQ(std::string(kTree) + "/idx/index.html", fsPath);
+  CHECK_EQ(std::string(router_test::kTree) + "/idx/index.html", fsPath);
   CHECK(!router.mapToFile("/../x", fsPath));
 }
 
@@ -152,7 +154,7 @@ TEST_CASE(r10_r11_r12_r13_directories) {
   CHECK_EQ(std::string("/list/?a=1"), result.redirectTo);
   result = router.route(requestFor("GET", "/idx/"));
   CHECK_EQ(static_cast<int>(RouteResult::STATIC_FILE), kindOf(result));
-  CHECK_EQ(std::string(kTree) + "/idx/index.html", result.fsPath);
+  CHECK_EQ(std::string(router_test::kTree) + "/idx/index.html", result.fsPath);
   result = router.route(requestFor("GET", "/list/"));
   CHECK_EQ(static_cast<int>(RouteResult::DIRECTORY_LISTING), kindOf(result));
   CHECK_EQ(std::string("/list/"), result.urlPath);
@@ -170,12 +172,12 @@ TEST_CASE(r02_locationForNormalizesFirst) {
 
 TEST_CASE(r20_aliasCoversOnlyWholeSegments) {
   makeTree();
-  const ServerConfig server =
-      serverFrom(std::string("server { listen 8080; root ") + kTree +
-                 "; location /k { alias " + kTree + "/idx/; } }");
+  const ServerConfig server = serverFrom(
+      std::string("server { listen 8080; root ") + router_test::kTree +
+      "; location /k { alias " + router_test::kTree + "/idx/; } }");
   const Router router(server);
   // "dir/" + "/index.html": the doubled slash names the same file.
-  CHECK_EQ(std::string(kTree) + "/idx//index.html",
+  CHECK_EQ(std::string(router_test::kTree) + "/idx//index.html",
            router.route(requestFor("GET", "/k/index.html")).fsPath);
   CHECK_EQ(404, router.route(requestFor("GET", "/k../a.txt")).status);
   CHECK_EQ(404, router.route(requestFor("GET", "/kx")).status);

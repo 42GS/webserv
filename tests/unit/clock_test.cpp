@@ -1,17 +1,16 @@
 #include "core/Clock.hpp"
 
+#include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
 namespace {
 
 // Relative to the repository root, where "make test" runs the tests.
-const char* const kWritableClockPath = "obj/.test_clock";
-const char* const kUnwritableClockPath = "/nonexistent/dir/clock";
 
 }  // namespace
 
 TEST_CASE(clockReadsTimeFromFile) {
-  Clock clock(kWritableClockPath);
+  Clock clock(test_paths::kClockFile);
   CHECK(clock.refresh());
   const std::time_t first = clock.now();
   CHECK(first > 0);
@@ -20,7 +19,7 @@ TEST_CASE(clockReadsTimeFromFile) {
 }
 
 TEST_CASE(clockReportsFailureAndKeepsOldValue) {
-  Clock clock(kUnwritableClockPath);
+  Clock clock(clock_test::kUnwritableClockPath);
   CHECK(!clock.refresh());
   CHECK_EQ(static_cast<std::time_t>(0), clock.now());
 }

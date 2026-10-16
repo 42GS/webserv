@@ -2,20 +2,20 @@
 #include <string>
 
 #include "http/ResponseStream.hpp"
+#include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
 namespace {
 
 // Relative to the repository root, where "make test" runs the tests.
-const char* const kBigFile = "obj/stream-test.bin";
-const std::size_t kBigFileSize = 200000;  // several 64 KiB pieces
-const std::size_t kSendSize = 1000;       // a short send() each time
 
 // Sends everything the way Connection does: a short write each time.
 std::string drain(ResponseStream& stream) {
   std::string sent;
   while (stream.hasPending()) {
-    const std::size_t n = stream.size() < kSendSize ? stream.size() : kSendSize;
+    const std::size_t n = stream.size() < response_stream_test::kSendSize
+                              ? stream.size()
+                              : response_stream_test::kSendSize;
     sent.append(stream.data(), n);
     if (!stream.consume(n)) return sent + "(read failed)";
   }
@@ -73,16 +73,16 @@ TEST_CASE(responseDropsFieldsWithLineBreaks) {
 
 TEST_CASE(r16_streamsLargeFileInPieces) {
   std::string content;
-  for (std::size_t i = 0; i < kBigFileSize; ++i)
+  for (std::size_t i = 0; i < response_stream_test::kBigFileSize; ++i)
     content += static_cast<char>('a' + i % 26);
   {
-    std::ofstream out(kBigFile, std::ios::binary);
+    std::ofstream out(response_stream_test::kBigFile, std::ios::binary);
     out << content;
   }
   Response response;
   response.status = 200;
-  response.bodyFile = kBigFile;
-  response.bodyFileSize = kBigFileSize;
+  response.bodyFile = response_stream_test::kBigFile;
+  response.bodyFileSize = response_stream_test::kBigFileSize;
   ResponseStream stream;
   CHECK(stream.reset(response));
   const std::string sent = drain(stream);
@@ -100,10 +100,10 @@ TEST_CASE(responseReportsMissingAndShrunkFiles) {
   ResponseStream stream;
   CHECK(!stream.reset(response));
   {
-    std::ofstream out(kBigFile, std::ios::binary);
+    std::ofstream out(response_stream_test::kBigFile, std::ios::binary);
     out << "short";
   }
-  response.bodyFile = kBigFile;
+  response.bodyFile = response_stream_test::kBigFile;
   CHECK(stream.reset(response));
   const std::string sent = drain(stream);
   CHECK(sent.find("(read failed)") != std::string::npos);
