@@ -27,6 +27,8 @@ CORE_SRCS	:= core/Clock.cpp \
 			   core/Signals.cpp \
 			   core/SocketAddress.cpp
 
+ROUTE_SRCS	:= route/PathResolver.cpp
+
 HTTP_SRCS	:= http/Connection.cpp \
 			   http/HeaderMap.cpp \
 			   http/MimeTypes.cpp \
@@ -35,7 +37,7 @@ HTTP_SRCS	:= http/Connection.cpp \
 			   http/Router.cpp \
 			   http/StatusText.cpp
 
-LIB_SRCS	:= $(CONFIG_SRCS) $(CORE_SRCS) $(HTTP_SRCS)
+LIB_SRCS	:= $(CONFIG_SRCS) $(CORE_SRCS) $(HTTP_SRCS) $(ROUTE_SRCS)
 SRCS		:= main.cpp $(LIB_SRCS)
 
 OBJS		:= $(addprefix $(OBJ_DIR)/, $(SRCS:.cpp=.o))
@@ -50,7 +52,8 @@ TEST_SRCS	:= tests/unit/test_main.cpp \
 			   tests/unit/header_map_test.cpp \
 			   tests/unit/request_parser_test.cpp \
 			   tests/unit/router_test.cpp \
-			   tests/unit/http_date_test.cpp
+			   tests/unit/http_date_test.cpp \
+			   tests/unit/path_resolver_test.cpp
 TEST_OBJS	:= $(addprefix $(OBJ_DIR)/, $(TEST_SRCS:.cpp=.o))
 
 DEPS		:= $(OBJS:.o=.d) $(TEST_OBJS:.o=.d)
