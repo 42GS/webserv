@@ -301,7 +301,7 @@ bool RequestParser::parseRequestLine(const std::string& line, Result& result) {
       !std::isdigit(static_cast<unsigned char>(version[kMinorIndex])))
     return fail(kBadRequest, result);
   if (version[kMajorIndex] != '1') return fail(kVersionNotSupported, result);
-  // A higher 1.x minor version is handled as 1.1 (RFC 9110 2.5).
+  // A higher 1.x minor version is handled as 1.1 (RFC 9110 section 6.2).
   request_.version = (version[kMinorIndex] == '0') ? kHttp10 : kHttp11;
   if (!isKnownMethod(method)) return fail(kNotImplemented, result);
   request_.method = method;

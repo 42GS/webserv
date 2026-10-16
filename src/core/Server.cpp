@@ -32,12 +32,10 @@ bool Server::openListeners(std::string& error) {
   return true;
 }
 
-// The request handling that uses "where" (server block, addresses) comes
-// with the request parser; the fixed response does not need it yet.
-void Server::adopt(int clientFd, const ListenContext& /* where */) {
+void Server::adopt(int clientFd, const ListenContext& where) {
   Connection* connection = 0;
   try {
-    connection = new Connection(clientFd, now_);
+    connection = new Connection(clientFd, where, now_);
     connections_[clientFd] = connection;
   } catch (const std::exception&) {
     delete connection;  // closes clientFd if construction succeeded

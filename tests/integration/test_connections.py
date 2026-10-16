@@ -116,25 +116,22 @@ class ConnectionTest(unittest.TestCase):
                           % (self.server.open_fd_count(), expected))
             time.sleep(harness.RETRY_INTERVAL_SECONDS)
 
-    def test_n09_oversized_head_is_closed(self):
+    def test_n09_oversized_head_gets_431(self):
         with harness.connect(self.ports[0]) as sock:
             sock.sendall(b"GET / HTTP/1.1\r\nX: " + b"a" * HEAD_LIMIT_BYTES)
-            try:
-                received = harness.read_until_closed(sock)
-            except ConnectionResetError:
-                received = b""
-        self.assertEqual(b"", received)
+            received = harness.read_until_closed(sock)
+        self.assertTrue(received.startswith(b"HTTP/1.1 431 "), received[:40])
         self.assert_still_serving()
 
     @unittest.skipUnless(RUN_SLOW, "set WEBSERV_SLOW_TESTS=1 (takes ~35s)")
-    def test_n08_unfinished_head_times_out(self):
+    def test_n08_unfinished_head_gets_408(self):
         with harness.connect(self.ports[0]) as sock:
             sock.settimeout(HEADER_TIMEOUT_SECONDS + TIMEOUT_MARGIN_SECONDS)
             sock.sendall(b"GET / HTTP/1.1\r\n")
             started = time.monotonic()
             received = harness.read_until_closed(sock)
             waited = time.monotonic() - started
-        self.assertEqual(b"", received)
+        self.assertTrue(received.startswith(b"HTTP/1.1 408 "), received)
         self.assertGreaterEqual(waited, HEADER_TIMEOUT_SECONDS - 1)
 
 
