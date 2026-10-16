@@ -1,3 +1,6 @@
+#include <map>
+#include <stdexcept>
+
 #include "config/ConfigError.hpp"
 #include "config/ConfigLimits.hpp"
 #include "config/ConfigLoader.hpp"
@@ -17,6 +20,16 @@ std::string loadError(const std::string& text) {
     return error.what();
   }
   return "";
+}
+
+// Throws instead of dereferencing end(), so a missing key fails only the
+// current test.
+template <typename Key>
+std::string valueAt(const std::map<Key, std::string>& values, const Key& key) {
+  const typename std::map<Key, std::string>::const_iterator it =
+      values.find(key);
+  if (it == values.end()) throw std::out_of_range("key not found");
+  return it->second;
 }
 
 bool contains(const std::string& text, const std::string& part) {
@@ -64,12 +77,11 @@ const char* const kDesignExample =
 TEST_CASE(parsesDesignExample) {
   const std::vector<ServerConfig> servers = load(kDesignExample);
   CHECK_EQ(1u, servers.size());
-  const ServerConfig& server = servers[0];
+  const ServerConfig& server = servers.at(0);
   CHECK_EQ(1u, server.listens.size());
-  CHECK_EQ(std::string("127.0.0.1"), server.listens[0].host);
-  CHECK_EQ(8080, server.listens[0].port);
-  CHECK_EQ(std::string("/errors/404.html"),
-           server.errorPages.find(404)->second);
+  CHECK_EQ(std::string("127.0.0.1"), server.listens.at(0).host);
+  CHECK_EQ(8080, server.listens.at(0).port);
+  CHECK_EQ(std::string("/errors/404.html"), valueAt(server.errorPages, 404));
   CHECK_EQ(5u, server.locations.size());
 
   const LocationConfig* root = findLocation(server, "/");
@@ -90,7 +102,7 @@ TEST_CASE(parsesDesignExample) {
   if (cgi != 0) {
     CHECK_EQ(2u, cgi->cgiByExtension.size());
     CHECK_EQ(std::string("/usr/bin/php-cgi"),
-             cgi->cgiByExtension.find(".php")->second);
+             valueAt(cgi->cgiByExtension, std::string(".php")));
     CHECK(cgi->allowedMethods.empty());
   }
   const LocationConfig* kapouet = findLocation(server, "/kapouet/");
@@ -108,17 +120,19 @@ TEST_CASE(parsesDesignExample) {
 }
 
 TEST_CASE(locationsAreSortedLongestFirst) {
-  const ServerConfig server = load(kDesignExample)[0];
+  const ServerConfig server = load(kDesignExample).at(0);
   for (std::size_t i = 1; i < server.locations.size(); ++i)
     CHECK(server.locations[i - 1].path.size() >=
           server.locations[i].path.size());
 }
 
 TEST_CASE(locationInheritsServerSettings) {
-  const ServerConfig server = load(
-      "server { listen 8080; root /srv; index a.html b.html; autoindex on; "
-      "client_max_body_size 2k;"
-      "  location /x/ { } }")[0];
+  const ServerConfig server =
+      load(
+          "server { listen 8080; root /srv; index a.html b.html; autoindex on; "
+          "client_max_body_size 2k;"
+          "  location /x/ { } }")
+          .at(0);
   const LocationConfig* x = findLocation(server, "/x/");
   CHECK(x != 0);
   if (x != 0) {
@@ -131,18 +145,18 @@ TEST_CASE(locationInheritsServerSettings) {
 
 TEST_CASE(serverRootCreatesImplicitRootLocation) {
   const ServerConfig server =
-      load("server { listen 8080; root /srv; location /x/ { } }")[0];
+      load("server { listen 8080; root /srv; location /x/ { } }").at(0);
   const LocationConfig* root = findLocation(server, "/");
   CHECK(root != 0);
   if (root != 0) CHECK_EQ(std::string("/srv"), root->root);
 }
 
 TEST_CASE(defaultsWhenNotConfigured) {
-  const ServerConfig server = load("server { listen 8080; root /srv; }")[0];
-  CHECK_EQ(std::string("0.0.0.0"), server.listens[0].host);
-  const LocationConfig& root = server.locations[0];
+  const ServerConfig server = load("server { listen 8080; root /srv; }").at(0);
+  CHECK_EQ(std::string("0.0.0.0"), server.listens.at(0).host);
+  const LocationConfig& root = server.locations.at(0);
   CHECK_EQ(1u, root.indexFiles.size());
-  CHECK_EQ(std::string("index.html"), root.indexFiles[0]);
+  CHECK_EQ(std::string("index.html"), root.indexFiles.at(0));
   CHECK(!root.autoindex);
   CHECK_EQ(config_limits::kDefaultMaxBodySize, root.maxBodySize);
 }
@@ -282,7 +296,8 @@ TEST_CASE(rejectsBadErrorPages) {
                            "/a.html; error_page 404 /b.html; }"),
                  "duplicate error_page"));
   const ServerConfig server =
-      load("server { listen 8080; root /a; error_page 500 502 /50x.html; }")[0];
+      load("server { listen 8080; root /a; error_page 500 502 /50x.html; }")
+          .at(0);
   CHECK_EQ(2u, server.errorPages.size());
 }
 
@@ -302,4 +317,70 @@ TEST_CASE(rejectsDirectoryAsFile) {
   } catch (const ConfigError& error) {
     CHECK(contains(error.what(), "not a regular file"));
   }
+}
+
+TEST_CASE(acceptsSeveralListensInOneServer) {
+  const ServerConfig server =
+      load("server { listen 127.0.0.1:8080; listen 8081; root /a; }").at(0);
+  CHECK_EQ(2u, server.listens.size());
+  if (server.listens.size() == 2) {
+    CHECK_EQ(8080, server.listens.at(0).port);
+    CHECK_EQ(std::string("0.0.0.0"), server.listens[1].host);
+    CHECK_EQ(8081, server.listens[1].port);
+  }
+}
+
+TEST_CASE(acceptsPortBoundaries) {
+  CHECK(loadError("server { listen 1; root /a; }").empty());
+  CHECK(loadError("server { listen 65535; root /a; }").empty());
+  CHECK(contains(loadError("server { listen 65536; root /a; }"),
+                 "invalid listen"));
+}
+
+TEST_CASE(rejectsDuplicateListenInOneServer) {
+  CHECK(contains(loadError("server { listen 8080; listen 8080; root /a; }"),
+                 "duplicate listen 0.0.0.0:8080"));
+}
+
+TEST_CASE(rejectsWildcardAfterSpecificAddress) {
+  CHECK(contains(loadError("server { listen 127.0.0.1:8080; root /a; }\n"
+                           "server { listen 8080; root /b; }"),
+                 "conflicts with"));
+}
+
+TEST_CASE(acceptsBodySizeWithoutUnitAndLowerBound) {
+  const ServerConfig server =
+      load(
+          "server { listen 8080; root /a; client_max_body_size 1; "
+          "location /x/ { client_max_body_size 4096; } }")
+          .at(0);
+  const LocationConfig* root = findLocation(server, "/");
+  const LocationConfig* x = findLocation(server, "/x/");
+  CHECK(root != 0 && x != 0);
+  if (root != 0) CHECK_EQ(static_cast<std::size_t>(1), root->maxBodySize);
+  if (x != 0) CHECK_EQ(static_cast<std::size_t>(4096), x->maxBodySize);
+}
+
+TEST_CASE(locationOverridesServerSettings) {
+  const ServerConfig server =
+      load(
+          "server { listen 8080; root /srv; index a.html; autoindex on;"
+          "  location /x/ { root /other; index b.html; autoindex off; } }")
+          .at(0);
+  const LocationConfig* x = findLocation(server, "/x/");
+  CHECK(x != 0);
+  if (x != 0) {
+    CHECK_EQ(std::string("/other"), x->root);
+    CHECK_EQ(1u, x->indexFiles.size());
+    if (!x->indexFiles.empty())
+      CHECK_EQ(std::string("b.html"), x->indexFiles.at(0));
+    CHECK(!x->autoindex);
+  }
+}
+
+TEST_CASE(noImplicitRootLocationWithoutServerRoot) {
+  const ServerConfig server =
+      load("server { listen 8080; location /x/ { return 301 /y/; } }").at(0);
+  CHECK(findLocation(server, "/") == 0);
+  CHECK_EQ(1u, server.locations.size());
 }

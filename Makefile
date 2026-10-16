@@ -37,7 +37,9 @@ LIB_OBJS	:= $(addprefix $(OBJ_DIR)/, $(LIB_SRCS:.cpp=.o))
 TEST_NAME	:= run_tests
 TEST_SRCS	:= tests/unit/test_main.cpp \
 			   tests/unit/config_test.cpp \
-			   tests/unit/socket_address_test.cpp
+			   tests/unit/socket_address_test.cpp \
+			   tests/unit/clock_test.cpp \
+			   tests/unit/event_loop_test.cpp
 TEST_OBJS	:= $(addprefix $(OBJ_DIR)/, $(TEST_SRCS:.cpp=.o))
 
 DEPS		:= $(OBJS:.o=.d) $(TEST_OBJS:.o=.d)
