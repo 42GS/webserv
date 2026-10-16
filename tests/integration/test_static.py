@@ -40,6 +40,7 @@ class StaticTest(unittest.TestCase):
                   "    location /list/ { autoindex on; }\n"
                   "    location /old/ { return 301 /new/; }\n"
                   "    location /kapouet { alias tmp-www; }\n"
+                  "    location /slashed { alias tmp-www/; }\n"
                   "    location /ro/ { alias www/; "
                   "limit_except GET { deny all; } }\n"
                   "}\n"
@@ -117,6 +118,14 @@ class StaticTest(unittest.TestCase):
         status, _, body = self.fetch(harness.get("/kapouet/pouic/toto/pouet"))
         self.assertEqual(200, status)
         self.assertEqual(b"kapouet\n", body)
+
+    def test_r20_alias_cannot_reach_outside(self):
+        self.workspace.write("secret/s.txt", "SECRET\n")
+        status, _, body = self.fetch(harness.get("/slashed../secret/s.txt"))
+        self.assertEqual(404, status)
+        self.assertNotIn(b"SECRET", body)
+        status, _, body = self.fetch(harness.get("/slashed/pouic/toto/pouet"))
+        self.assertEqual(200, status)
 
     def test_r04_return_redirects(self):
         status, headers, _ = self.fetch(harness.get("/old/anything"))

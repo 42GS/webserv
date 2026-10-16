@@ -61,6 +61,18 @@ std::string mapPath(const LocationConfig& location, const std::string& path) {
   return location.root + path;
 }
 
+// An alias location covers a path only at a segment boundary: what is left
+// after the location must be empty or start with "/". Otherwise
+// "location /k { alias dir/; }" would map "/k../x" to "dir/../x", outside
+// dir (design decision 14). root appends the whole normalized path and
+// cannot leave its directory.
+bool coversPath(const LocationConfig& location, const std::string& path) {
+  if (location.alias.empty()) return true;
+  const std::string::size_type end = location.path.size();
+  return path.size() == end || path[end] == '/' ||
+         location.path[end - 1] == '/';
+}
+
 std::string withQuery(const std::string& path, const std::string& query) {
   return query.empty() ? path : path + "?" + query;
 }
@@ -104,14 +116,15 @@ bool Router::resolve(const std::string& encodedPath, std::string& path,
                      const LocationConfig*& location) const {
   if (!normalizePath(encodedPath, path)) return false;
   location = matchLocation(path);
-  return location != 0;
+  return location != 0 && coversPath(*location, path);
 }
 
 // Order of design 7: location, return, limit_except, then the file system.
 RouteResult Router::routePath(const std::string& path, const Request& request,
                               int internalRedirects) const {
   const LocationConfig* location = matchLocation(path);
-  if (location == 0) return error(http_status::kNotFound);
+  if (location == 0 || !coversPath(*location, path))
+    return error(http_status::kNotFound);
   if (location->returnCode != 0)
     return redirect(location->returnCode, location->returnUrl);
   if (!locationAllows(*location, request.method) ||

@@ -167,3 +167,19 @@ TEST_CASE(r02_locationForNormalizesFirst) {
   if (location != 0) CHECK_EQ(std::string("/list/"), location->path);
   CHECK(router.locationFor("/../x") == 0);
 }
+
+TEST_CASE(r20_aliasCoversOnlyWholeSegments) {
+  makeTree();
+  const ServerConfig server =
+      serverFrom(std::string("server { listen 8080; root ") + kTree +
+                 "; location /k { alias " + kTree + "/idx/; } }");
+  const Router router(server);
+  // "dir/" + "/index.html": the doubled slash names the same file.
+  CHECK_EQ(std::string(kTree) + "/idx//index.html",
+           router.route(requestFor("GET", "/k/index.html")).fsPath);
+  CHECK_EQ(404, router.route(requestFor("GET", "/k../a.txt")).status);
+  CHECK_EQ(404, router.route(requestFor("GET", "/kx")).status);
+  std::string fsPath;
+  CHECK(!router.mapToFile("/k../a.txt", fsPath));
+  CHECK(router.locationFor("/k../a.txt") == 0);
+}
