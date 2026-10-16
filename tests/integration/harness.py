@@ -152,3 +152,25 @@ def exchange(port, request=SIMPLE_GET):
 
 def status_line(response):
     return response.split(b"\r\n", 1)[0].decode("latin-1")
+
+
+def request(head_lines, body=b""):
+    """A raw request from its head lines and body."""
+    return ("\r\n".join(head_lines) + "\r\n\r\n").encode("latin-1") + body
+
+
+def get(path, method="GET"):
+    """A body-less HTTP/1.1 request for path."""
+    return request(["%s %s HTTP/1.1" % (method, path), "Host: x"])
+
+
+def parse(response):
+    """(status code, {lower-case name: value}, body)."""
+    head, _, body = response.partition(b"\r\n\r\n")
+    lines = head.decode("latin-1").split("\r\n")
+    status = int(lines[0].split(" ")[1])
+    headers = {}
+    for line in lines[1:]:
+        name, _, value = line.partition(":")
+        headers[name.strip().lower()] = value.strip()
+    return status, headers, body
