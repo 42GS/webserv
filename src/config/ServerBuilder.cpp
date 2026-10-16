@@ -21,9 +21,12 @@ bool longerPathFirst(const LocationConfig& a, const LocationConfig& b) {
 void applyListen(const BuildContext& context, const Directive& directive,
                  BuiltServer& server) {
   ListenAddr addr;
+  // Only "IPv4:port" and "port" are accepted: every port is written in the
+  // file, unlike NGINX's address-only form that implies port 80.
   if (!parseListenAddr(directive.args[0], addr))
     failAt(context, directive,
-           "invalid listen address \"" + directive.args[0] + "\"");
+           "invalid listen address \"" + directive.args[0] +
+               "\" (expected IPv4:port or port, e.g. 127.0.0.1:8080)");
   server.config.listens.push_back(addr);
   server.listenLines.push_back(directive.line);
 }

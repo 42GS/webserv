@@ -337,6 +337,15 @@ TEST_CASE(acceptsPortBoundaries) {
                  "invalid listen"));
 }
 
+// NGINX also accepts these; this server requires an explicit port and a
+// dotted IPv4 address (design decision 13).
+TEST_CASE(rejectsListenWithoutPortOrWithWildcard) {
+  CHECK(contains(loadError("server { listen 127.0.0.1; root /a; }"),
+                 "expected IPv4:port or port"));
+  CHECK(contains(loadError("server { listen *:8000; root /a; }"),
+                 "expected IPv4:port or port"));
+}
+
 TEST_CASE(rejectsDuplicateListenInOneServer) {
   CHECK(contains(loadError("server { listen 8080; listen 8080; root /a; }"),
                  "duplicate listen 0.0.0.0:8080"));
