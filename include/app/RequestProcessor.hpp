@@ -28,6 +28,8 @@ class RequestProcessor {
 
  private:
   Response respond(const RouteResult& route) const;
+  // buildStatusPage() with this server's error pages.
+  Response statusPage(int status) const;
   void finish(Response& response, const std::string& method,
               std::time_t now) const;
 
