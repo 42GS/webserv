@@ -4,14 +4,9 @@
 #include <cstring>
 #include <vector>
 
-namespace {
+#include "http/Hex.hpp"
 
-int hexValue(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'a' && c <= 'f') return c - 'a' + path_resolver::kHexLetterValue;
-  if (c >= 'A' && c <= 'F') return c - 'A' + path_resolver::kHexLetterValue;
-  return path_resolver::kNotHex;
-}
+namespace {
 
 // Decodes %XX once. Fails on a malformed escape, NUL, or "/".
 bool decodeSegment(const std::string& segment, std::string& decoded) {
@@ -22,11 +17,10 @@ bool decodeSegment(const std::string& segment, std::string& decoded) {
       continue;
     }
     if (i + path_resolver::kEscapeDigits >= segment.size()) return false;
-    const int high = hexValue(segment[i + 1]);
-    const int low = hexValue(segment[i + path_resolver::kEscapeDigits]);
-    if (high == path_resolver::kNotHex || low == path_resolver::kNotHex)
-      return false;
-    const char c = static_cast<char>(high * path_resolver::kHexBase + low);
+    const int high = hexDigitValue(segment[i + 1]);
+    const int low = hexDigitValue(segment[i + path_resolver::kEscapeDigits]);
+    if (high == hex::kNotHex || low == hex::kNotHex) return false;
+    const char c = static_cast<char>(high * hex::kBase + low);
     if (c == '\0' || c == '/') return false;
     decoded += c;
     i += path_resolver::kEscapeDigits;
@@ -73,8 +67,8 @@ std::string encodePath(const std::string& decodedPath) {
       encoded += static_cast<char>(c);
     } else {
       encoded += '%';
-      encoded += path_resolver::kHexDigits[c / path_resolver::kHexBase];
-      encoded += path_resolver::kHexDigits[c % path_resolver::kHexBase];
+      encoded += hex::kUpperDigits[c / hex::kBase];
+      encoded += hex::kUpperDigits[c % hex::kBase];
     }
   }
   return encoded;

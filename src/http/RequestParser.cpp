@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "core/Limits.hpp"
+#include "http/Hex.hpp"
 #include "http/Methods.hpp"
 #include "http/StatusCodes.hpp"
 
@@ -114,15 +115,6 @@ bool parseDecimal(const std::string& text, std::size_t& value) {
       return false;
   }
   return true;
-}
-
-int hexDigitValue(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  const char lower =
-      static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  if (lower >= 'a' && lower <= 'f')
-    return lower - 'a' + request_parser::kDecimalBase;
-  return -1;
 }
 
 // A request line that does not end within the limit: a method longer than
@@ -461,8 +453,8 @@ bool RequestParser::readChunkLine(std::string& buffer, Result& result) {
 bool RequestParser::readChunkSize(const std::string& line, Result& result) {
   std::size_t size = 0;
   std::string::size_type i = 0;
-  for (; i < line.size() && hexDigitValue(line[i]) >= 0; ++i) {
-    if (!appendDigit(size, request_parser::kHexBase, hexDigitValue(line[i])))
+  for (; i < line.size() && hexDigitValue(line[i]) != hex::kNotHex; ++i) {
+    if (!appendDigit(size, hex::kBase, hexDigitValue(line[i])))
       return fail(http_status::kBadRequest, result);
   }
   if (i == 0) return fail(http_status::kBadRequest, result);

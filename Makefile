@@ -32,6 +32,7 @@ ROUTE_SRCS	:= route/PathResolver.cpp \
 
 HTTP_SRCS	:= http/Connection.cpp \
 			   http/HeaderMap.cpp \
+			   http/Hex.cpp \
 			   http/MimeTypes.cpp \
 			   http/Methods.cpp \
 			   http/RequestParser.cpp \

@@ -27,7 +27,6 @@ const char* const kTokenSymbols = "!#$%&'*+-.^_`|~";
 const char* const kHostSymbols = "-._~%!$&'()*+,;=:[]";
 
 const int kDecimalBase = 10;
-const int kHexBase = 16;
 const std::size_t kMaxSize = std::numeric_limits<std::size_t>::max();
 
 }  // namespace request_parser
