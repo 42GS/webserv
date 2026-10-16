@@ -228,6 +228,32 @@ int overlongRequestLineStatus(const std::string& text) {
              : http_status::kUriTooLong;
 }
 
+/**
+ * @brief Whether the connection persists after this request (RFC 9112
+ *        section 9.3).
+ *        이 요청 뒤에 연결을 유지하는지 (RFC 9112 9.3절).
+ *
+ * HTTP/1.1 persists unless the "close" option is listed; connection
+ * options are case-insensitive (RFC 9110 section 7.6.1). HTTP/1.0 always
+ * closes: section 9.3 leaves its "keep-alive" to the recipient, and this
+ * server does not take it up.
+ * HTTP/1.1은 "close" 옵션이 없으면 유지한다. 연결 옵션은 대소문자를 구분하지
+ * 않는다 (RFC 9110 7.6.1절). HTTP/1.0은 항상 닫는다. 9.3절은 1.0의
+ * "keep-alive"를 받아들일지 수신자에게 맡기고, 이 서버는 받아들이지 않는다.
+ *
+ * @param[in] request A request with its head complete. / 머리가 끝난 요청.
+ * @return True to keep the connection. / 연결을 유지하면 true.
+ */
+bool keepsConnection(const Request& request) {
+  if (request.version != request_parser::kHttp11) return false;
+  const std::vector<std::string> options =
+      splitList(request.headers.all(header_name::kConnection));
+  for (std::size_t i = 0; i < options.size(); ++i) {
+    if (toLower(options[i]) == header_value::kClose) return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 RequestParser::RequestParser() : consumed_(0) { reset(); }
@@ -534,6 +560,7 @@ bool RequestParser::finishHead() {
       (hosts == 1 && !isHostValue(*headers.first(header_name::kHost))))
     return fail(http_status::kBadRequest);
   if (!decideBodyLength()) return false;
+  request_.persistent = keepsConnection(request_);
   // Stop here: feed() reports HEAD_DONE so that the caller can set the
   // body limit of the chosen location before the body is read.
   // 여기서 멈춘다. feed()가 HEAD_DONE을 알려서, 본문을 읽기 전에 호출자가

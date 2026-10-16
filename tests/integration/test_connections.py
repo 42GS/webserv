@@ -43,11 +43,15 @@ class ConnectionTest(unittest.TestCase):
                                             self.ports)
         self.addCleanup(self.server.stop)
 
+    # SIMPLE_GET asks the server to close, so once this returns the server
+    # holds no descriptor for these requests (N-04 counts them).
     def assert_still_serving(self):
         self.assertTrue(self.server.is_running())
         for port in self.ports:
-            self.assertIn("200",
-                          harness.status_line(harness.exchange(port)))
+            with harness.connect(port) as sock:
+                sock.sendall(SIMPLE_GET)
+                response = harness.read_until_closed(sock)
+            self.assertIn("200", harness.status_line(response))
 
     def test_n05_concurrent_clients_on_two_ports(self):
         statuses = []

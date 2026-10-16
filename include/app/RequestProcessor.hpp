@@ -49,6 +49,12 @@ class RequestProcessor {
   /**
    * @brief Builds the response to a complete request.
    *        완성된 요청의 응답을 만든다.
+   *
+   * The connection stays open if the request allows it and the response
+   * is not a 400: a bad path closes it, as NGINX does (design decision 2).
+   * 요청이 허용하고 응답이 400이 아니면 연결을 유지한다. 잘못된 경로는
+   * NGINX처럼 연결을 닫는다 (설계 결정 2).
+   *
    * @param[in] request The request. / 요청.
    * @param[in] now     Time for the Date field. / Date 필드에 쓸 시각.
    * @return The response. / 응답.
@@ -59,6 +65,12 @@ class RequestProcessor {
    * @brief Response for a request that could not be processed (parse
    *        error, timeout).
    *        처리할 수 없었던 요청(파싱 오류, 시간 초과)의 응답.
+   *
+   * The rest of such a request cannot be trusted, so the connection
+   * closes after it (RFC 9112 section 9.3).
+   * 그런 요청의 나머지는 믿을 수 없으므로 응답 뒤 연결을 닫는다 (RFC 9112
+   * 9.3절).
+   *
    * @param[in] status Status code. / 상태 코드.
    * @param[in] method Request method, empty if the request line was not
    *                   understood.
@@ -91,11 +103,13 @@ class RequestProcessor {
    * @brief Adds the fields every response has, and drops the body for
    *        HEAD.
    *        모든 응답에 붙는 필드를 넣고, HEAD면 본문을 뺀다.
-   * @param[in,out] response Response to finish. / 마무리할 응답.
-   * @param[in]     method   Request method. / 요청 메서드.
-   * @param[in]     now      Time for the Date field. / Date 필드에 쓸 시각.
+   * @param[in,out] response  Response to finish. / 마무리할 응답.
+   * @param[in]     method    Request method. / 요청 메서드.
+   * @param[in]     keepAlive Keep the connection open after it.
+   *                          응답 뒤에 연결을 유지할지.
+   * @param[in]     now       Time for the Date field. / Date 필드에 쓸 시각.
    */
-  void finish(Response& response, const std::string& method,
+  void finish(Response& response, const std::string& method, bool keepAlive,
               std::time_t now) const;
 
   /** Settings of the server block. / server 블록의 설정. */

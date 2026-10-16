@@ -20,18 +20,22 @@
  * @brief One client socket. Owns the fd and closes it in the destructor.
  *        클라이언트 소켓 하나. fd를 소유하고 소멸자에서 닫는다.
  *
- * Reads and parses one request, lets RequestProcessor build the response,
- * sends it and closes. Keep-alive comes in step 5.
- * 요청 하나를 읽어 파싱하고, RequestProcessor가 만든 응답을 보낸 뒤
- * 닫는다. keep-alive는 5단계에서 넣는다.
+ * Reads requests one after another, lets RequestProcessor build each
+ * response and sends them in order (keep-alive, pipelining). After a
+ * response that ends the connection it closes, first draining the rest of
+ * a request that was not read completely (concepts/connection-management).
+ * 요청을 차례로 읽고, RequestProcessor가 만든 응답을 순서대로 보낸다
+ * (keep-alive, pipelining). 연결을 끝내는 응답 뒤에는 닫는다. 요청을 다
+ * 읽지 못했으면 남은 것을 먼저 읽어 버린다
+ * (concepts/connection-management).
  */
 class Connection : public IoHandler {
  public:
   /**
    * @brief Starts reading a request on an accepted socket.
    *        accept한 소켓에서 요청 읽기를 시작한다.
-   * @param[in] fd    Non-blocking socket, now owned. / non-blocking 소켓. 이제
-   * 소유한다.
+   * @param[in] fd    Non-blocking socket, now owned.
+   *                  non-blocking 소켓. 이제 소유한다.
    * @param[in] where The listening server block. / 연결을 받은 server 블록.
    * @param[in] now   Current time. / 현재 시각.
    */
@@ -88,6 +92,11 @@ class Connection : public IoHandler {
     READ_BODY,
     /** Sending the response. / 응답을 보내는 중. */
     WRITE,
+    /**
+     * @brief Discarding the rest of an unread request before closing.
+     *        닫기 전에 다 읽지 않은 요청의 나머지를 버리는 중.
+     */
+    DRAIN,
     /** Finished. / 끝남. */
     CLOSED
   };
@@ -100,8 +109,8 @@ class Connection : public IoHandler {
   /// @endcond
 
   /**
-   * @brief One recv() into inBuffer_, then parsing.
-   *        inBuffer_로 recv() 한 번, 그다음 파싱.
+   * @brief One recv(); the bytes are parsed, or discarded in DRAIN.
+   *        recv() 한 번. 받은 바이트는 파싱하거나, DRAIN이면 버린다.
    */
   void receiveOnce();
 
@@ -110,6 +119,13 @@ class Connection : public IoHandler {
    *        남은 응답 바이트를 send() 한 번.
    */
   void sendOnce();
+
+  /**
+   * @brief After the last byte of a response: the next request, DRAIN or
+   *        CLOSED.
+   *        응답의 마지막 바이트 뒤: 다음 요청, DRAIN, CLOSED 중 하나로 간다.
+   */
+  void finishResponse();
 
   /**
    * @brief Feeds inBuffer_ to the parser and acts on the result.
@@ -129,8 +145,9 @@ class Connection : public IoHandler {
   void startResponse(const Response& response);
 
   /**
-   * @brief Starts sending an error page for @p status.
-   *        @p status의 오류 페이지 전송을 시작한다.
+   * @brief Starts sending an error page for @p status, for a request that
+   *        was not read completely.
+   *        다 읽지 못한 요청에 @p status의 오류 페이지 전송을 시작한다.
    * @param[in] status Status code. / 상태 코드.
    */
   void startErrorResponse(int status);
@@ -163,6 +180,17 @@ class Connection : public IoHandler {
   ResponseStream stream_;
   /** Received bytes not yet parsed. / 받았지만 아직 파싱하지 않은 바이트. */
   std::string inBuffer_;
+  /**
+   * @brief Keep the connection after the response being sent.
+   *        보내고 있는 응답 뒤에 연결을 유지한다.
+   */
+  bool keepAlive_;
+  /**
+   * @brief The request being answered was read completely; if not, DRAIN
+   *        comes before closing.
+   *        응답하고 있는 요청을 다 읽었다. 아니면 닫기 전에 DRAIN을 거친다.
+   */
+  bool requestConsumed_;
   /**
    * @brief Last time seen by checkTimeout() or the constructor.
    *        checkTimeout()이나 생성자가 마지막으로 본 시각.

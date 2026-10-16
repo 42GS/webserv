@@ -22,7 +22,7 @@
  */
 struct Response {
   /** @brief An empty response with status 0. / 상태 0인 빈 응답. */
-  Response() : status(0), bodyFileSize(0), omitBody(false) {}
+  Response() : status(0), bodyFileSize(0), omitBody(false), keepAlive(false) {}
 
   /** Status code. / 상태 코드. */
   int status;
@@ -51,6 +51,13 @@ struct Response {
    *        HEAD: GET과 같은 머리, 내용 없음 (RFC 9110 9.3.2).
    */
   bool omitBody;
+  /**
+   * @brief Keep the connection open after sending; otherwise the response
+   *        carries "Connection: close".
+   *        보낸 뒤 연결을 유지한다. 아니면 응답에 "Connection: close"가
+   *        붙는다.
+   */
+  bool keepAlive;
 };
 
 #endif

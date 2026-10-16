@@ -20,6 +20,8 @@
  * router가 한다 (concepts/security, 4단계).
  */
 struct Request {
+  Request() : persistent(false) {}
+
   /** Method, one of the implemented ones. / 메서드, 구현한 것 중 하나. */
   std::string method;
   /** request-target as received. / 받은 그대로의 request-target. */
@@ -40,6 +42,13 @@ struct Request {
    *        chunked 인코딩을 푼 본문.
    */
   std::string body;
+  /**
+   * @brief Whether the connection stays open after the response (RFC 9112
+   *        section 9.3); set when the head is complete.
+   *        응답 뒤에도 연결을 유지하는지 (RFC 9112 9.3절). 머리가 끝나면
+   *        정해진다.
+   */
+  bool persistent;
 };
 
 #endif

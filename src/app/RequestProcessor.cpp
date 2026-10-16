@@ -26,14 +26,16 @@ std::size_t RequestProcessor::bodyLimitFor(const Request& request) const {
 Response RequestProcessor::process(const Request& request,
                                    std::time_t now) const {
   Response response = respond(router_.route(request));
-  finish(response, request.method, now);
+  finish(response, request.method,
+         request.persistent && response.status != http_status::kBadRequest,
+         now);
   return response;
 }
 
 Response RequestProcessor::errorResponse(int status, const std::string& method,
                                          std::time_t now) const {
   Response response = statusPage(status);
-  finish(response, method, now);
+  finish(response, method, false, now);
   return response;
 }
 
@@ -67,15 +69,18 @@ Response RequestProcessor::respond(const RouteResult& route) const {
 
 // HEAD gets the GET head without content, errors included (RFC 9110 9.3.2,
 // decision 5). Date: an origin server with a clock MUST send it (RFC 9110
-// 6.6.1, design decision 10). Every connection closes after one response
-// until keep-alive comes in step 5.
+// 6.6.1, design decision 10). In a response, "Connection: close" says that
+// the server closes the connection after it (RFC 9112 9.6).
 // HEAD는 오류 응답까지 포함해 GET의 머리만 받고 내용은 받지 않는다
 // (RFC 9110 9.3.2절, 결정 5). Date: 시계가 있는 origin server는 반드시
-// 보내야 한다 (RFC 9110 6.6.1절, 설계 결정 10). keep-alive가 들어오는
-// 5단계 전까지는 모든 연결이 응답 하나 뒤에 닫힌다.
+// 보내야 한다 (RFC 9110 6.6.1절, 설계 결정 10). 응답의
+// "Connection: close"는 서버가 그 응답 뒤에 연결을 닫는다는 뜻이다
+// (RFC 9112 9.6절).
 void RequestProcessor::finish(Response& response, const std::string& method,
-                              std::time_t now) const {
+                              bool keepAlive, std::time_t now) const {
   response.omitBody = (method == methods::kHead);
+  response.keepAlive = keepAlive;
   response.headers.add(header_name::kDate, formatHttpDate(now));
-  response.headers.add(header_name::kConnection, header_value::kClose);
+  if (!keepAlive)
+    response.headers.add(header_name::kConnection, header_value::kClose);
 }

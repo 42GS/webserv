@@ -139,11 +139,28 @@ def read_until_closed(sock):
         chunks.append(chunk)
 
 
+def read_response(stream, head_only=False):
+    """One response from sock.makefile("rb"), cut by its Content-Length.
+    A response to HEAD has no body (head_only). Returns what arrived if the
+    connection closes first."""
+    head = b""
+    while not head.endswith(b"\r\n\r\n"):
+        line = stream.readline()
+        if not line:
+            return head
+        head += line
+    if head_only:
+        return head
+    _, headers, _ = parse(head)
+    return head + stream.read(int(headers.get("content-length", "0")))
+
+
 def exchange(port, request=SIMPLE_GET):
-    """Sends one request and returns the whole response."""
-    with connect(port) as sock:
+    """Sends one request and returns its response. The connection may stay
+    open (keep-alive), so the response is cut by its length."""
+    with connect(port) as sock, sock.makefile("rb") as stream:
         sock.sendall(request)
-        return read_until_closed(sock)
+        return read_response(stream, head_only=request.startswith(b"HEAD "))
 
 
 def status_line(response):

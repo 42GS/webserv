@@ -117,8 +117,8 @@ class RequestParser {
   const Request& request() const;
 
   /**
-   * @brief Gets ready for the next request; the limits are kept.
-   *        다음 요청을 받을 준비를 한다. 상한은 유지한다.
+   * @brief Gets ready for the next request.
+   *        다음 요청을 받을 준비를 한다.
    */
   void reset();
 

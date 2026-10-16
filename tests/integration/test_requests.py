@@ -8,6 +8,7 @@ from harness import request
 from constants import (
     HEADER_TIMEOUT_SECONDS,
     HOST,
+    KEEP_ALIVE_TIMEOUT_SECONDS,
     RUN_SLOW,
     SMALL_LIMIT,
     TIMEOUT_MARGIN_SECONDS,
@@ -101,15 +102,16 @@ class RequestTest(unittest.TestCase):
             response = harness.read_until_closed(sock)
         self.assertTrue(response.startswith(b"HTTP/1.1 408 "), response)
 
-    @unittest.skipUnless(RUN_SLOW, "set WEBSERV_SLOW_TESTS=1 (takes ~35s)")
+    # A connection that has not sent a byte waits like a keep-alive one.
+    @unittest.skipUnless(RUN_SLOW, "set WEBSERV_SLOW_TESTS=1 (takes ~15s)")
     def test_p18_silent_connection_is_closed_without_response(self):
         with harness.connect(self.port) as sock:
-            sock.settimeout(HEADER_TIMEOUT_SECONDS + TIMEOUT_MARGIN_SECONDS)
+            sock.settimeout(KEEP_ALIVE_TIMEOUT_SECONDS + TIMEOUT_MARGIN_SECONDS)
             started = time.monotonic()
             received = harness.read_until_closed(sock)
             waited = time.monotonic() - started
         self.assertEqual(b"", received)
-        self.assertGreaterEqual(waited, HEADER_TIMEOUT_SECONDS - 1)
+        self.assertGreaterEqual(waited, KEEP_ALIVE_TIMEOUT_SECONDS - 1)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,9 @@ SMALL_LIMIT = 10  # client_max_body_size of the /small/ location
 # Server behaviour the tests expect (core/Limits.hpp)
 HEAD_LIMIT_BYTES = 16384  # limits::kMaxHeaderBytes
 HEADER_TIMEOUT_SECONDS = 30  # limits::kHeaderTimeoutSeconds
+KEEP_ALIVE_TIMEOUT_SECONDS = 15  # limits::kKeepAliveTimeoutSeconds
+SEND_TIMEOUT_SECONDS = 30  # limits::kSendTimeoutSeconds
+DRAIN_TOTAL_SECONDS = 5  # limits::kDrainTotalSeconds
 TIMEOUT_MARGIN_SECONDS = 5
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
@@ -42,6 +45,9 @@ FD_SETTLE_SECONDS = 3
 TRICKLE_INTERVAL_SECONDS = 5
 IDLE_CLIENTS = 10
 IDLE_SECONDS = 2
+KEEP_ALIVE_PAUSE_SECONDS = 5  # wait between a response and the next head
+DRAIN_POLL_SECONDS = 0.3  # how often the drain tests send and look
+UNREAD_FILE_SIZE = 64 * 1024 * 1024  # more than the socket buffers hold
 MAX_IDLE_CPU_SHARE = 0.1
 
 # Slow tests (header timeouts, full builds) run only when asked

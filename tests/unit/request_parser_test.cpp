@@ -40,6 +40,17 @@ std::string post(const std::string& headers, const std::string& body) {
   return "POST / HTTP/1.1\r\nHost: x\r\n" + headers + "\r\n" + body;
 }
 
+// Whether the connection stays open after the request, which is parsed
+// completely.
+bool persistentAfter(const std::string& text) {
+  RequestParser parser;
+  std::string buffer(text);
+  const RequestParser::Result result =
+      parse(parser, buffer, request_parser_test::kBodyLimit);
+  CHECK_EQ(static_cast<int>(RequestParser::DONE), static_cast<int>(result));
+  return parser.request().persistent;
+}
+
 }  // namespace
 
 TEST_CASE(p01_sameResultWhereverTheInputIsSplit) {
@@ -294,4 +305,21 @@ TEST_CASE(p17_chunkedBodies) {
                               "0\r\nBad Trailer\r\n\r\n")));
   CHECK_EQ(request_parser_test::kIncomplete,
            statusOf(post("Transfer-Encoding: chunked\r\n", "1\r\nx\r\n")));
+}
+
+TEST_CASE(k02_k03_persistence) {
+  CHECK(persistentAfter("GET / HTTP/1.1\r\nHost: x\r\n\r\n"));
+  CHECK(persistentAfter("GET / HTTP/1.2\r\nHost: x\r\n\r\n"));
+  CHECK(!persistentAfter(
+      "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n"));
+  CHECK(
+      !persistentAfter("GET / HTTP/1.1\r\nHost: x\r\n"
+                       "Connection: Keep-Alive, CLOSE\r\n\r\n"));
+  CHECK(
+      !persistentAfter("GET / HTTP/1.1\r\nHost: x\r\n"
+                       "Connection: ,\r\nConnection: x ,close\r\n\r\n"));
+  CHECK(persistentAfter(
+      "GET / HTTP/1.1\r\nHost: x\r\nConnection: closed\r\n\r\n"));
+  CHECK(!persistentAfter("GET / HTTP/1.0\r\n\r\n"));
+  CHECK(!persistentAfter("GET / HTTP/1.0\r\nConnection: keep-alive\r\n\r\n"));
 }

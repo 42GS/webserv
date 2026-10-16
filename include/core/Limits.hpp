@@ -70,6 +70,24 @@ const std::time_t kBodyTimeoutSeconds = 30;
 const std::time_t kSendTimeoutSeconds = 30;
 
 /**
+ * @brief Wait for the first byte of a request, on a new or kept-alive
+ *        connection; then it closes without a response.
+ *        새 연결이나 유지한 연결에서 요청의 첫 바이트를 기다리는 시간. 넘으면
+ *        응답 없이 닫는다.
+ */
+const std::time_t kKeepAliveTimeoutSeconds = 15;
+
+/**
+ * @brief Draining an unread request before closing: time allowed without
+ *        input (concepts/connection-management).
+ *        읽지 않은 요청을 닫기 전에 버릴 때, 입력 없이 기다리는 시간
+ *        (concepts/connection-management).
+ */
+const std::time_t kDrainIdleSeconds = 1;
+/** Total time of draining. / 버리기의 총 시간. */
+const std::time_t kDrainTotalSeconds = 5;
+
+/**
  * @brief Internal redirects per request, as NGINX (design decision 6).
  *        요청당 내부 리다이렉트 횟수, NGINX와 같다 (설계 결정 6).
  */
