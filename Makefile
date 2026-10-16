@@ -7,12 +7,17 @@ CPPFLAGS	:= -Iinclude -MMD -MP
 SRC_DIR		:= src
 OBJ_DIR		:= obj
 
-CONFIG_SRCS	:= config/ConfigBuilder.cpp \
+CONFIG_SRCS	:= config/BuildContext.cpp \
+			   config/ConfigBuilder.cpp \
 			   config/ConfigError.cpp \
 			   config/ConfigLexer.cpp \
 			   config/ConfigLoader.cpp \
 			   config/ConfigSyntax.cpp \
-			   config/ConfigValues.cpp
+			   config/ConfigValues.cpp \
+			   config/DirectiveRules.cpp \
+			   config/LocationBuilder.cpp \
+			   config/ServerBuilder.cpp \
+			   config/SharedSettings.cpp
 
 LIB_SRCS	:= $(CONFIG_SRCS)
 SRCS		:= main.cpp $(LIB_SRCS)

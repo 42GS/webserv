@@ -180,8 +180,14 @@ TEST_CASE(rejectsUnknownOrMisplacedDirectives)
 {
     CHECK(contains(loadError("http { }"), "unknown top-level directive"));
     CHECK(contains(loadError("server { listen 8080; root /a; bogus 1; }"), "unknown directive \"bogus\""));
-    CHECK(contains(loadError("server { listen 8080; alias /a; }"), "unknown directive \"alias\""));
-    CHECK(contains(loadError("server { listen 8080; root /a; location /x/ { location /y/ { } } }"), "nested"));
+    CHECK(contains(loadError("server { listen 8080; alias /a; }"), "\"alias\" is not allowed in \"server\""));
+    CHECK(contains(loadError("server { listen 8080; root /a; location /x/ { location /y/ { } } }"),
+                   "\"location\" is not allowed in \"location\""));
+    CHECK(contains(loadError("server { listen 8080; root /a; location /x/ { listen 80; } }"),
+                   "\"listen\" is not allowed in \"location\""));
+    CHECK(contains(loadError("server { listen 8080; root /a { } }"), "does not take a block"));
+    CHECK(contains(loadError("server { listen 8080; root /a /b; }"), "invalid number of arguments in \"root\""));
+    CHECK(contains(loadError("server;"), "\"server\" requires a block"));
     CHECK(contains(loadError("server { listen 8080; root /a; location = /x { } }"), "modifiers"));
     CHECK(contains(loadError("server { listen 8080; root /a; location x { } }"), "must start with"));
 }
