@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -44,7 +45,14 @@ int main(int argc, char** argv) {
   std::string error;
   if (!server.openListeners(error)) return fail(error);
   std::cout << "webserv: listening (" << configPath << ")" << std::endl;
-  loop.run(server);
+  // Exceptions from a single connection are handled inside the loop. One
+  // that still gets here (std::bad_alloc while polling) ends the server
+  // with a message instead of std::terminate().
+  try {
+    loop.run(server);
+  } catch (const std::exception& error) {
+    return fail(std::string("stopped: ") + error.what());
+  }
   std::cout << "webserv: shutting down" << std::endl;
   return EXIT_SUCCESS;
 }

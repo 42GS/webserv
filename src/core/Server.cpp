@@ -45,12 +45,18 @@ void Server::adopt(int clientFd, const ListenContext& where) {
   registry_.watch(connection);
 }
 
+// A timeout may build a 408 response; if that throws (std::bad_alloc), only
+// that connection is given up, as EventLoop does for onEvent().
 void Server::afterIteration(std::time_t now) {
   now_ = now;
   std::vector<Connection*> closed;
   for (std::map<int, Connection*>::iterator it = connections_.begin();
        it != connections_.end(); ++it) {
-    it->second->checkTimeout(now);
+    try {
+      it->second->checkTimeout(now);
+    } catch (const std::exception&) {
+      it->second->onFailure();
+    }
     if (it->second->isClosed()) closed.push_back(it->second);
   }
   for (std::size_t i = 0; i < closed.size(); ++i) closeConnection(closed[i]);
