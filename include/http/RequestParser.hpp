@@ -25,32 +25,6 @@ const char* const kHttp11 = "HTTP/1.1";
 }  // namespace request_parser
 
 /**
- * @brief Size limits that apply before a location is known (design 12).
- *        location을 알기 전에 적용하는 크기 상한 (설계 12절).
- */
-struct ParserLimits {
-  /**
-   * @brief Longer request line: 414, or 501 for a too long method.
-   *        더 긴 요청 줄은 414, 메서드가 너무 길면 501.
-   */
-  std::size_t maxRequestLine;
-  /**
-   * @brief Larger header section or trailer: 431.
-   *        더 큰 헤더 영역이나 trailer는 431.
-   */
-  std::size_t maxHeaderBytes;
-  /** Longer chunk-size line: 400. / 더 긴 chunk-size 줄은 400. */
-  std::size_t maxChunkLine;
-};
-
-/**
- * @brief The limits of core/Limits.hpp.
- *        core/Limits.hpp의 상한.
- * @return The limits. / 상한.
- */
-ParserLimits defaultParserLimits();
-
-/**
  * @brief Incremental HTTP/1.x request parser (concepts/request-parsing).
  *        조금씩 들어오는 HTTP/1.x 요청의 파서 (concepts/request-parsing).
  *
@@ -89,11 +63,11 @@ class RequestParser {
   };
 
   /**
-   * @brief A parser waiting for a request line.
-   *        요청 줄을 기다리는 파서.
-   * @param[in] limits Size limits. / 크기 상한.
+   * @brief A parser waiting for a request line, with the size limits of
+   *        core/Limits.hpp.
+   *        요청 줄을 기다리는 파서. 크기 상한은 core/Limits.hpp의 값이다.
    */
-  explicit RequestParser(const ParserLimits& limits);
+  RequestParser();
 
   /**
    * @brief Parses as much of @p buffer as possible.
@@ -369,8 +343,6 @@ class RequestParser {
    */
   bool readChunkSize(const std::string& line);
 
-  /** Size limits. / 크기 상한. */
-  ParserLimits limits_;
   /**
    * @brief Bytes of the buffer used during the current feed().
    *        이번 feed()에서 쓴 버퍼 바이트 수.

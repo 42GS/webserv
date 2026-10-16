@@ -15,7 +15,6 @@
 Connection::Connection(int fd, const ListenContext& where, std::time_t now)
     : fd_(fd),
       state_(READ_HEAD),
-      parser_(defaultParserLimits()),
       processor_(*where.server),
       now_(now),
       stateSince_(now),

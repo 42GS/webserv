@@ -24,7 +24,7 @@ RequestParser::Result parse(RequestParser& parser, std::string& buffer,
 // status code.
 int statusOf(const std::string& text,
              std::size_t bodyLimit = request_parser_test::kBodyLimit) {
-  RequestParser parser(defaultParserLimits());
+  RequestParser parser;
   std::string buffer(text);
   const RequestParser::Result result = parse(parser, buffer, bodyLimit);
   if (result == RequestParser::DONE) return request_parser_test::kParsed;
@@ -47,7 +47,7 @@ TEST_CASE(p01_sameResultWhereverTheInputIsSplit) {
       post("Transfer-Encoding: chunked\r\n",
            "3;ext=1\r\nabc\r\n2\r\nde\r\n0\r\nX-Trailer: t\r\n\r\n");
   for (std::string::size_type split = 0; split <= text.size(); ++split) {
-    RequestParser parser(defaultParserLimits());
+    RequestParser parser;
     std::string buffer = text.substr(0, split);
     RequestParser::Result result =
         parse(parser, buffer, request_parser_test::kBodyLimit);
@@ -64,7 +64,7 @@ TEST_CASE(p01_incompleteInputAsksForMore) {
            statusOf("GET / HTTP/1.1\r\nHost: x\r\n"));
   CHECK_EQ(request_parser_test::kIncomplete,
            statusOf(post("Content-Length: 5\r\n", "abc")));
-  RequestParser parser(defaultParserLimits());
+  RequestParser parser;
   std::string empty;
   CHECK(!parser.hasStarted());
   parser.feed(empty);
@@ -75,7 +75,7 @@ TEST_CASE(p01_incompleteInputAsksForMore) {
 }
 
 TEST_CASE(p02_leavesTheNextRequestInTheBuffer) {
-  RequestParser parser(defaultParserLimits());
+  RequestParser parser;
   std::string buffer = post("Content-Length: 2\r\n", "hi") + get("/next");
   CHECK_EQ(
       static_cast<int>(RequestParser::DONE),
@@ -149,7 +149,7 @@ TEST_CASE(p08_versions) {
   CHECK_EQ(400, statusOf("GET / HTTP/1x1\r\nHost: x\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/x.1\r\nHost: x\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET /\r\n\r\n"));
-  RequestParser parser(defaultParserLimits());
+  RequestParser parser;
   std::string buffer("GET / HTTP/1.2\r\nHost: x\r\n\r\n");
   CHECK_EQ(
       static_cast<int>(RequestParser::DONE),
@@ -158,7 +158,7 @@ TEST_CASE(p08_versions) {
 }
 
 TEST_CASE(p09_targets) {
-  RequestParser parser(defaultParserLimits());
+  RequestParser parser;
   std::string buffer = get("/a/b?x=1?y");
   parse(parser, buffer, request_parser_test::kBodyLimit);
   CHECK_EQ(std::string("/a/b"), parser.request().path);
@@ -185,7 +185,7 @@ TEST_CASE(p09_targets) {
 }
 
 TEST_CASE(p10_headerFieldSyntax) {
-  RequestParser parser(defaultParserLimits());
+  RequestParser parser;
   std::string buffer("GET / HTTP/1.1\r\nhost:  x  \r\nX-A:\t1\r\n\r\n");
   parse(parser, buffer, request_parser_test::kBodyLimit);
   const std::string* host = parser.request().headers.first("HOST");
@@ -261,7 +261,7 @@ TEST_CASE(p16_contentLengthOverTheLimitIs413) {
   CHECK_EQ(request_parser_test::kParsed,
            statusOf(post("Content-Length: 100\r\n", std::string(100, 'a'))));
   CHECK_EQ(413, statusOf(post("Content-Length: 101\r\n", "")));
-  RequestParser parser(defaultParserLimits());
+  RequestParser parser;
   std::string buffer = post("Content-Length: 1\r\n", "a");
   CHECK_EQ(static_cast<int>(RequestParser::HEAD_DONE),
            static_cast<int>(parser.feed(buffer)));

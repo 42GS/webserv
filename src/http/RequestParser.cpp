@@ -230,18 +230,7 @@ int overlongRequestLineStatus(const std::string& text) {
 
 }  // namespace
 
-ParserLimits defaultParserLimits() {
-  ParserLimits parserLimits;
-  parserLimits.maxRequestLine = limits::kMaxRequestLine;
-  parserLimits.maxHeaderBytes = limits::kMaxHeaderBytes;
-  parserLimits.maxChunkLine = limits::kMaxChunkLine;
-  return parserLimits;
-}
-
-RequestParser::RequestParser(const ParserLimits& limits)
-    : limits_(limits), consumed_(0) {
-  reset();
-}
+RequestParser::RequestParser() : consumed_(0) { reset(); }
 
 void RequestParser::reset() {
   maxBodySize_ = 0;
@@ -337,13 +326,13 @@ bool RequestParser::takeHeaderLine(const std::string& buffer,
                                    std::string& line) {
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
-    if (headerBytes_ + unread(buffer) > limits_.maxHeaderBytes)
+    if (headerBytes_ + unread(buffer) > limits::kMaxHeaderBytes)
       return fail(http_status::kRequestHeaderFieldsTooLarge);
     return false;
   }
   if (status == LINE_INVALID) return fail(http_status::kBadRequest);
   headerBytes_ += line.size() + 1;
-  if (headerBytes_ > limits_.maxHeaderBytes)
+  if (headerBytes_ > limits::kMaxHeaderBytes)
     return fail(http_status::kRequestHeaderFieldsTooLarge);
   return true;
 }
@@ -356,7 +345,7 @@ bool RequestParser::readRequestLine(std::string& buffer) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
-    if (unread(buffer) > limits_.maxRequestLine)
+    if (unread(buffer) > limits::kMaxRequestLine)
       return fail(overlongRequestLineStatus(buffer.substr(consumed_)));
     return false;
   }
@@ -367,11 +356,11 @@ bool RequestParser::readRequestLine(std::string& buffer) {
     // 요청 줄 앞의 빈 줄은 무시하지만 (2.2절), 요청 줄 하나에 들어갈
     // 만큼만 받는다.
     preambleBytes_ += 1;
-    if (preambleBytes_ > limits_.maxRequestLine)
+    if (preambleBytes_ > limits::kMaxRequestLine)
       return fail(http_status::kBadRequest);
     return true;
   }
-  if (line.size() > limits_.maxRequestLine)
+  if (line.size() > limits::kMaxRequestLine)
     return fail(overlongRequestLineStatus(line));
   if (!parseRequestLine(line)) return false;
   state_ = HEADERS;
@@ -422,11 +411,11 @@ bool RequestParser::readChunkLine(std::string& buffer) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
-    if (unread(buffer) > limits_.maxChunkLine)
+    if (unread(buffer) > limits::kMaxChunkLine)
       return fail(http_status::kBadRequest);
     return false;
   }
-  if (status == LINE_INVALID || line.size() > limits_.maxChunkLine)
+  if (status == LINE_INVALID || line.size() > limits::kMaxChunkLine)
     return fail(http_status::kBadRequest);
   return readChunkSize(line);
 }
