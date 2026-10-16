@@ -1,4 +1,4 @@
-"""Connection handling (test plan N-04, N-05, N-07..N-09, N-19)."""
+"""Connection handling (test plan N-04, N-05, N-07..N-09, N-19, N-24)."""
 
 import os
 import socket
@@ -15,6 +15,7 @@ HEAD_LIMIT_BYTES = 16384
 HEADER_TIMEOUT_SECONDS = 30
 TIMEOUT_MARGIN_SECONDS = 5
 FD_SETTLE_SECONDS = 3
+TRICKLE_INTERVAL_SECONDS = 5
 IDLE_CLIENTS = 10
 IDLE_SECONDS = 2
 MAX_IDLE_CPU_SHARE = 0.1
@@ -107,6 +108,28 @@ class ConnectionTest(unittest.TestCase):
         time.sleep(IDLE_SECONDS)
         used = self.server.cpu_seconds() - before
         self.assertLess(used, IDLE_SECONDS * MAX_IDLE_CPU_SHARE)
+
+    @unittest.skipUnless(RUN_SLOW, "set WEBSERV_SLOW_TESTS=1 (takes ~35s)")
+    def test_n24_trickled_head_still_times_out(self):
+        # One byte every few seconds must not extend the header timeout.
+        head = b"GET / HTTP/1.1\r\nX: " + b"a" * 100
+        with harness.connect(self.ports[0]) as sock:
+            started = time.monotonic()
+            sent = 0
+            sock.settimeout(TRICKLE_INTERVAL_SECONDS)
+            response = b""
+            while time.monotonic() - started < (HEADER_TIMEOUT_SECONDS
+                                                + TIMEOUT_MARGIN_SECONDS):
+                sock.sendall(head[sent:sent + 1])
+                sent += 1
+                try:
+                    response = sock.recv(harness.RECV_SIZE)
+                    break
+                except socket.timeout:
+                    continue
+            waited = time.monotonic() - started
+        self.assertTrue(response.startswith(b"HTTP/1.1 408 "), response)
+        self.assertLess(waited, HEADER_TIMEOUT_SECONDS + TIMEOUT_MARGIN_SECONDS)
 
     def wait_for_fd_count(self, expected):
         deadline = time.monotonic() + FD_SETTLE_SECONDS

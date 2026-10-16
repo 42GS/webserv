@@ -50,8 +50,9 @@ class Connection : public IoHandler {
   std::string inBuffer_;
   std::string outBuffer_;
   std::string::size_type outSent_;
-  std::time_t now_;  // last time seen by checkTimeout or the constructor
-  std::time_t lastProgress_;
+  std::time_t now_;         // last time seen by checkTimeout or the constructor
+  std::time_t stateSince_;  // when the current state began
+  std::time_t lastProgress_;  // last state change or successful I/O
 };
 
 #endif

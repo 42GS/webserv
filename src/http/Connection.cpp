@@ -50,6 +50,7 @@ Connection::Connection(int fd, const ListenContext& where, std::time_t now)
       parser_(defaultParserLimits()),
       outSent_(0),
       now_(now),
+      stateSince_(now),
       lastProgress_(now) {}
 
 // The connection is over; a close() error leaves nothing to do.
@@ -81,12 +82,15 @@ void Connection::onEvent(short revents) {
 
 void Connection::onFailure() { changeState(CLOSED); }
 
-// An unfinished request gets 408 before closing (RFC 9112 section 8
-// allows it); a connection that never sent anything is just closed.
+// The head must arrive within kHeaderTimeoutSeconds in total, so a client
+// that sends a byte now and then cannot hold the connection (design 12).
+// Body and send timeouts count only time without progress. An unfinished
+// request gets 408 before closing (RFC 9112 section 8 allows it); a
+// connection that never sent anything is just closed.
 void Connection::checkTimeout(std::time_t now) {
   now_ = now;
   const std::time_t idle = now - lastProgress_;
-  if ((state_ == READ_HEAD && idle >= kHeaderTimeoutSeconds) ||
+  if ((state_ == READ_HEAD && now - stateSince_ >= kHeaderTimeoutSeconds) ||
       (state_ == READ_BODY && idle >= kBodyTimeoutSeconds)) {
     if (parser_.hasStarted())
       startErrorResponse(kRequestTimeout);
@@ -166,5 +170,6 @@ void Connection::startErrorResponse(int status) {
 
 void Connection::changeState(State next) {
   state_ = next;
+  stateSince_ = now_;
   lastProgress_ = now_;
 }
