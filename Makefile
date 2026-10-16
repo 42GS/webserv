@@ -27,14 +27,14 @@ CORE_SRCS	:= core/Clock.cpp \
 			   core/Signals.cpp \
 			   core/SocketAddress.cpp
 
-ROUTE_SRCS	:= route/PathResolver.cpp
+ROUTE_SRCS	:= route/PathResolver.cpp \
+			   route/Router.cpp
 
 HTTP_SRCS	:= http/Connection.cpp \
 			   http/HeaderMap.cpp \
 			   http/MimeTypes.cpp \
 			   http/Methods.cpp \
 			   http/RequestParser.cpp \
-			   http/Router.cpp \
 			   http/StatusText.cpp
 
 LIB_SRCS	:= $(CONFIG_SRCS) $(CORE_SRCS) $(HTTP_SRCS) $(ROUTE_SRCS)
