@@ -28,6 +28,7 @@ CORE_SRCS	:= core/Clock.cpp \
 
 HTTP_SRCS	:= http/Connection.cpp \
 			   http/HeaderMap.cpp \
+			   http/Methods.cpp \
 			   http/RequestParser.cpp \
 			   http/Router.cpp \
 			   http/StatusText.cpp

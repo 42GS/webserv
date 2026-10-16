@@ -2,6 +2,7 @@
 
 #include "config/ConfigValues.hpp"
 #include "config/DirectiveRules.hpp"
+#include "http/Methods.hpp"
 
 namespace {
 
@@ -10,11 +11,6 @@ const unsigned long kMaxStatusCode = 999;
 bool isRedirectCode(unsigned long code) {
   return code == 301 || code == 302 || code == 303 || code == 307 ||
          code == 308;
-}
-
-bool isKnownMethod(const std::string& method) {
-  return method == "GET" || method == "HEAD" || method == "POST" ||
-         method == "DELETE";
 }
 
 LocationConfig makeLocation(const std::string& path,
@@ -41,7 +37,7 @@ void applyReturn(const BuildContext& context, const Directive& directive,
 void applyLimitExcept(const BuildContext& context, const Directive& directive,
                       LocationConfig& location) {
   for (std::size_t i = 0; i < directive.args.size(); ++i) {
-    if (!isKnownMethod(directive.args[i]))
+    if (!isImplementedMethod(directive.args[i]))
       failAt(context, directive,
              "unsupported method \"" + directive.args[i] +
                  "\" in \"limit_except\"");

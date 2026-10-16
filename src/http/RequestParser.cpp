@@ -5,6 +5,8 @@
 #include <limits>
 #include <vector>
 
+#include "http/Methods.hpp"
+
 // Section numbers in comments refer to RFC 9112 unless noted otherwise.
 // The choices where the RFC allows several behaviours are listed in
 // analysis/design section 6 of the wiki.
@@ -21,9 +23,6 @@ const int kUriTooLong = 414;
 const int kHeaderFieldsTooLarge = 431;
 const int kNotImplemented = 501;
 const int kVersionNotSupported = 505;
-
-const char* const kKnownMethods[] = {"GET", "HEAD", "POST", "DELETE"};
-const std::size_t kLongestMethod = 6;  // "DELETE"
 
 const char* const kHttp10 = "HTTP/1.0";
 const char* const kHttp11 = "HTTP/1.1";
@@ -87,14 +86,6 @@ std::vector<std::string> splitList(const std::vector<std::string>& lines) {
     }
   }
   return items;
-}
-
-bool isKnownMethod(const std::string& method) {
-  for (std::size_t i = 0; i < sizeof(kKnownMethods) / sizeof(kKnownMethods[0]);
-       ++i) {
-    if (method == kKnownMethods[i]) return true;
-  }
-  return false;
 }
 
 // Visible ASCII only: no whitespace, control or non-ASCII octet, and no
@@ -161,7 +152,8 @@ int overlongRequestLineStatus(const std::string& text) {
   const std::string::size_type space = text.find(' ');
   const std::string::size_type methodLength =
       (space == std::string::npos) ? text.size() : space;
-  return methodLength > kLongestMethod ? kNotImplemented : kUriTooLong;
+  return methodLength > longestImplementedMethod() ? kNotImplemented
+                                                   : kUriTooLong;
 }
 
 }  // namespace
@@ -311,7 +303,7 @@ bool RequestParser::parseRequestLine(const std::string& line, Result& result) {
   if (version[kMajorIndex] != '1') return fail(kVersionNotSupported, result);
   // A higher 1.x minor version is handled as 1.1 (RFC 9110 section 6.2).
   request_.version = (version[kMinorIndex] == '0') ? kHttp10 : kHttp11;
-  if (!isKnownMethod(method)) return fail(kNotImplemented, result);
+  if (!isImplementedMethod(method)) return fail(kNotImplemented, result);
   request_.method = method;
   if (!parseTarget(target)) return fail(kBadRequest, result);
   return true;
