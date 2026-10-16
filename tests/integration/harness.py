@@ -89,6 +89,17 @@ class RunningServer:
             return None
         return len(os.listdir(fd_dir))
 
+    def cpu_seconds(self):
+        """User + system CPU time of the server, or None without /proc."""
+        stat_path = "/proc/%d/stat" % self.process.pid
+        if not os.path.exists(stat_path):
+            return None
+        with open(stat_path) as stat:
+            # Fields after the command name, which is in parentheses.
+            fields = stat.read().rsplit(")", 1)[1].split()
+        user_ticks, system_ticks = int(fields[11]), int(fields[12])
+        return (user_ticks + system_ticks) / os.sysconf("SC_CLK_TCK")
+
     def is_running(self):
         return self.process.poll() is None
 

@@ -1,4 +1,4 @@
-"""Connection handling (test plan N-04, N-05, N-07..N-09)."""
+"""Connection handling (test plan N-04, N-05, N-07..N-09, N-19)."""
 
 import os
 import socket
@@ -15,6 +15,9 @@ HEAD_LIMIT_BYTES = 16384
 HEADER_TIMEOUT_SECONDS = 30
 TIMEOUT_MARGIN_SECONDS = 5
 FD_SETTLE_SECONDS = 3
+IDLE_CLIENTS = 10
+IDLE_SECONDS = 2
+MAX_IDLE_CPU_SHARE = 0.1
 RUN_SLOW = os.environ.get("WEBSERV_SLOW_TESTS") == "1"
 
 
@@ -91,6 +94,19 @@ class ConnectionTest(unittest.TestCase):
         for sock in clients:
             sock.close()
         self.wait_for_fd_count(baseline)
+
+    @unittest.skipUnless(os.path.isdir("/proc/self/fd"),
+                         "needs /proc (run on Linux)")
+    def test_n19_idle_connections_do_not_spin(self):
+        # With POLLOUT requested while there is nothing to send, poll()
+        # would return at once every time and the loop would burn CPU.
+        clients = [harness.connect(self.ports[0])
+                   for _ in range(IDLE_CLIENTS)]
+        self.addCleanup(lambda: [sock.close() for sock in clients])
+        before = self.server.cpu_seconds()
+        time.sleep(IDLE_SECONDS)
+        used = self.server.cpu_seconds() - before
+        self.assertLess(used, IDLE_SECONDS * MAX_IDLE_CPU_SHARE)
 
     def wait_for_fd_count(self, expected):
         deadline = time.monotonic() + FD_SETTLE_SECONDS
