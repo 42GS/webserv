@@ -19,8 +19,12 @@ class HeaderMap {
   std::size_t count(const std::string& name) const;
   void clear();
 
- private:
+  // Fields in arrival order, for writing a response head.
   typedef std::pair<std::string, std::string> Field;
+  std::size_t size() const;
+  const Field& at(std::size_t index) const;
+
+ private:
   std::vector<Field> fields_;
 };
 
