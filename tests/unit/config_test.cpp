@@ -293,6 +293,16 @@ TEST_CASE(rejectsBadLocationDirectives) {
       "\"on\" or \"off\""));
 }
 
+TEST_CASE(c29_rejectsIndexNamesWithSlash) {
+  CHECK(contains(
+      loadError("server { listen 8080; root /a; index ../secret.txt; }"),
+      "must not contain"));
+  CHECK(contains(loadError("server { listen 8080; root /a; location /x/ { "
+                           "index a.html sub/b.html; } }"),
+                 "must not contain"));
+  CHECK(loadError("server { listen 8080; root /a; index a.html .b; }").empty());
+}
+
 TEST_CASE(rejectsBadErrorPages) {
   CHECK(contains(
       loadError(

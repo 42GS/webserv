@@ -32,6 +32,13 @@ bool applySharedDirective(const BuildContext& context,
   if (directive.name == "root") {
     settings.root = directive.args[0];
   } else if (directive.name == "index") {
+    // A name with "/" (such as "../x") could point outside the root
+    // (design decision 14).
+    for (std::size_t i = 0; i < directive.args.size(); ++i) {
+      if (directive.args[i].find('/') != std::string::npos)
+        failAt(context, directive,
+               "\"index\" file name must not contain \"/\"");
+    }
     settings.indexFiles = directive.args;
   } else if (directive.name == "autoindex") {
     if (directive.args[0] != "on" && directive.args[0] != "off")
