@@ -43,7 +43,6 @@ class Connection : public IoHandler {
   void changeState(State next);
 
   int fd_;
-  ListenContext where_;
   State state_;
   RequestParser parser_;
   RequestProcessor processor_;

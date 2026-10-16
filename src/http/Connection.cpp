@@ -9,7 +9,6 @@
 
 Connection::Connection(int fd, const ListenContext& where, std::time_t now)
     : fd_(fd),
-      where_(where),
       state_(READ_HEAD),
       parser_(defaultParserLimits()),
       processor_(*where.server),
