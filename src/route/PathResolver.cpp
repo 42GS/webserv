@@ -1,5 +1,7 @@
 #include "route/PathResolver.hpp"
 
+#include <cctype>
+#include <cstring>
 #include <vector>
 
 namespace {
@@ -62,4 +64,22 @@ bool normalizePath(const std::string& encodedPath, std::string& normalized) {
     if (i + 1 < kept.size() || endsAsDirectory) normalized += '/';
   }
   return true;
+}
+
+std::string encodePath(const std::string& decodedPath) {
+  static const char kHexDigits[] = "0123456789ABCDEF";
+  std::string encoded;
+  for (std::string::size_type i = 0; i < decodedPath.size(); ++i) {
+    const unsigned char c = static_cast<unsigned char>(decodedPath[i]);
+    // strchr() would also find the terminating NUL, so c == 0 is excluded.
+    if (std::isalnum(c) ||
+        (c != 0 && std::strchr("-._~!$&'()*+,;=:@/", c) != 0)) {
+      encoded += static_cast<char>(c);
+    } else {
+      encoded += '%';
+      encoded += kHexDigits[c / kHexBase];
+      encoded += kHexDigits[c % kHexBase];
+    }
+  }
+  return encoded;
 }

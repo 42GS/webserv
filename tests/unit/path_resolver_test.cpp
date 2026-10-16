@@ -44,6 +44,13 @@ TEST_CASE(r01_mergesSlashesAndResolvesDots) {
   CHECK_EQ(std::string("/..a/b."), normalized("/..a/b."));
 }
 
+TEST_CASE(r01_encodesPathsForUris) {
+  CHECK_EQ(std::string("/a%20b/c%3Fd%23%25"), encodePath("/a b/c?d#%"));
+  CHECK_EQ(std::string("/x-y_z.~!$&'()*+,;=:@"),
+           encodePath("/x-y_z.~!$&'()*+,;=:@"));
+  CHECK_EQ(std::string("/%FF%00"), encodePath(std::string("/\xff\0", 3)));
+}
+
 TEST_CASE(r01_rejectsGoingAboveTheRoot) {
   CHECK_EQ(std::string(kRejected), normalized("/.."));
   CHECK_EQ(std::string(kRejected), normalized("/../etc/passwd"));

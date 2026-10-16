@@ -13,4 +13,8 @@
 // directory, as in RFC 3986 remove_dot_segments.
 bool normalizePath(const std::string& encodedPath, std::string& normalized);
 
+// Percent-encodes a decoded path for use in a URI (Location, links):
+// unreserved characters, sub-delims, ":", "@" and "/" stay as they are.
+std::string encodePath(const std::string& decodedPath);
+
 #endif

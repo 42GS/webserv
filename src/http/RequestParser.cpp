@@ -108,7 +108,8 @@ bool isFieldValue(const std::string& value) {
 }
 
 // Host = uri-host [ ":" port ] (RFC 9110 7.2). Only the character set is
-// checked; an empty value is allowed by the grammar.
+// checked; an empty value is allowed by the grammar. strchr() would accept
+// NUL, but header values reach here only after isFieldValue() rejected it.
 bool isHostValue(const std::string& value) {
   for (std::string::size_type i = 0; i < value.size(); ++i) {
     const char c = value[i];
