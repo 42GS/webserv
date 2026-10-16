@@ -1,6 +1,5 @@
 #include "core/Listener.hpp"
 
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/socket.h>
@@ -57,10 +56,8 @@ short Listener::wantedEvents() const { return POLLIN; }
 
 void Listener::onEvent(short revents) {
   if ((revents & POLLIN) == 0) return;
-  sockaddr_in peer;
-  socklen_t peerLength = sizeof(peer);
-  const int clientFd =
-      accept(fd_, reinterpret_cast<sockaddr*>(&peer), &peerLength);
+  // The peer address is not needed yet (CGI, step 7).
+  const int clientFd = accept(fd_, 0, 0);
   // A failed accept (for example the client already gave up) is not an
   // error for the server; the next readiness will try again.
   if (clientFd < 0) return;
@@ -70,8 +67,6 @@ void Listener::onEvent(short revents) {
   }
   ListenContext where;
   where.server = &server_;
-  where.local = addr_;
-  where.remoteAddress = formatIpv4(ntohl(peer.sin_addr.s_addr));
   acceptor_.adopt(clientFd, where);
 }
 

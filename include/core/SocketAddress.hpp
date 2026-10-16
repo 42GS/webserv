@@ -9,9 +9,7 @@
 
 namespace socket_address {
 
-const int kOctetCount = 4;
 const int kBitsPerOctet = 8;
-const unsigned long kOctetMask = 0xff;
 const unsigned long kDecimalBase = 10;
 
 }  // namespace socket_address
@@ -22,9 +20,7 @@ const unsigned long kDecimalBase = 10;
 // be valid (the configuration parser checks it).
 unsigned long parseIpv4(const std::string& text);
 
-// Host-order address to dotted text.
-std::string formatIpv4(unsigned long address);
-
+// A listen address as sockaddr_in, port and address in network order.
 sockaddr_in toSockaddr(const ListenAddr& addr);
 
 #endif

@@ -2,8 +2,6 @@
 
 #include <arpa/inet.h>
 
-#include <sstream>
-
 unsigned long parseIpv4(const std::string& text) {
   unsigned long address = 0;
   unsigned long octet = 0;
@@ -17,16 +15,6 @@ unsigned long parseIpv4(const std::string& text) {
     }
   }
   return (address << socket_address::kBitsPerOctet) | octet;
-}
-
-std::string formatIpv4(unsigned long address) {
-  std::ostringstream out;
-  for (int i = socket_address::kOctetCount - 1; i >= 0; --i) {
-    out << ((address >> (i * socket_address::kBitsPerOctet)) &
-            socket_address::kOctetMask);
-    if (i > 0) out << '.';
-  }
-  return out.str();
 }
 
 sockaddr_in toSockaddr(const ListenAddr& addr) {

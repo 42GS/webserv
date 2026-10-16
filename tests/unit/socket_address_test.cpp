@@ -1,12 +1,11 @@
 #include "core/SocketAddress.hpp"
 #include "unit/TestFramework.hpp"
 
-TEST_CASE(convertsIpv4BothWays) {
+TEST_CASE(parsesIpv4) {
   CHECK_EQ(0x7f000001ul, parseIpv4("127.0.0.1"));
   CHECK_EQ(0ul, parseIpv4("0.0.0.0"));
   CHECK_EQ(0xfffffffful, parseIpv4("255.255.255.255"));
-  CHECK_EQ(std::string("127.0.0.1"), formatIpv4(0x7f000001ul));
-  CHECK_EQ(std::string("10.20.30.40"), formatIpv4(parseIpv4("10.20.30.40")));
+  CHECK_EQ(0x0a141e28ul, parseIpv4("10.20.30.40"));
 }
 
 TEST_CASE(buildsSockaddrInNetworkOrder) {
