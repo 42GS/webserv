@@ -7,11 +7,13 @@ import tempfile
 import unittest
 
 import harness
-
-SOURCE_ENTRIES = ["Makefile", "include", "src"]
-COMPILER = "c++ "
-BUILD_TIMEOUT_SECONDS = 600
-RUN_SLOW = os.environ.get("WEBSERV_SLOW_TESTS") == "1"
+from constants import (
+    BUILD_TIMEOUT_SECONDS,
+    COMPILER,
+    REPO_ROOT,
+    RUN_SLOW,
+    SOURCE_ENTRIES,
+)
 
 
 @unittest.skipUnless(RUN_SLOW, "set WEBSERV_SLOW_TESTS=1 (full builds)")
@@ -20,7 +22,7 @@ class BuildTest(unittest.TestCase):
         self.tree = tempfile.mkdtemp(prefix="webserv-build-")
         self.addCleanup(shutil.rmtree, self.tree)
         for entry in SOURCE_ENTRIES:
-            source = os.path.join(harness.REPO_ROOT, entry)
+            source = os.path.join(REPO_ROOT, entry)
             target = os.path.join(self.tree, entry)
             if os.path.isdir(source):
                 shutil.copytree(source, target)

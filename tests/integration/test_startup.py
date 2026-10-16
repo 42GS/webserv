@@ -1,14 +1,18 @@
-"""Startup and shutdown (test plan C-01..C-03, C-12, C-28, N-06, N-10, N-13)."""
+"""Startup and shutdown.
+
+Test plan C-01..C-03, C-12, C-28, N-06, N-10, N-13.
+"""
 
 import os
 import signal
 import unittest
 
 import harness
-
-EXIT_FAILURE = 1
-EXIT_SUCCESS = 0
-DEEP_NESTING = 100000  # crashed the recursive parser before the depth limit
+from constants import (
+    DEEP_NESTING,
+    EXIT_FAILURE,
+    EXIT_SUCCESS,
+)
 
 
 class StartupTest(unittest.TestCase):
@@ -56,7 +60,8 @@ class StartupTest(unittest.TestCase):
     def test_c12_duplicate_listen_stops_startup(self):
         port = harness.free_port()
         path = self.workspace.write(
-            "dup.conf", harness.server_block(port) + harness.server_block(port))
+            "dup.conf",
+            harness.server_block(port) + harness.server_block(port))
         code, stderr = harness.run_to_exit([path], self.workspace.path)
         self.assertEqual(EXIT_FAILURE, code)
         self.assertIn("duplicate listen", stderr)

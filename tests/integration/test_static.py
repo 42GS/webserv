@@ -1,17 +1,16 @@
 """Routing, static files and responses (test plan R-xx, step 4)."""
 
 import os
-import re
 import unittest
 
 import harness
-
-BIG_FILE_SIZE = 10 * 1024 * 1024
-IMF_FIXDATE = re.compile(
-    r"^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d\d "
-    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} "
-    r"\d\d:\d\d:\d\d GMT$")
-CUSTOM_404 = "<p>custom not found</p>\n"
+from constants import (
+    BIG_FILE_SIZE,
+    CUSTOM_404,
+    DEFAULT_PAGE,
+    HOST,
+    IMF_FIXDATE,
+)
 
 
 class StaticTest(unittest.TestCase):
@@ -47,8 +46,8 @@ class StaticTest(unittest.TestCase):
                   "server {\n"
                   "    listen %s:%d;\n"
                   "    root other;\n"
-                  "}\n" % (harness.HOST, self.port,
-                           harness.HOST, self.other_port))
+                  "}\n" % (HOST, self.port,
+                           HOST, self.other_port))
         path = w.write("test.conf", config)
         self.server = harness.RunningServer(
             [path], w.path, [self.port, self.other_port])
@@ -160,7 +159,7 @@ class StaticTest(unittest.TestCase):
     def test_r17_ports_serve_different_sites(self):
         _, _, first = self.fetch(harness.get("/"))
         _, _, second = self.fetch(harness.get("/"), self.other_port)
-        self.assertEqual(harness.DEFAULT_PAGE.encode(), first)
+        self.assertEqual(DEFAULT_PAGE.encode(), first)
         self.assertEqual(b"other site\n", second)
 
 

@@ -1,16 +1,17 @@
 """Responses to parsed and malformed requests (test plan P-xx, step 3)."""
 
-import os
-import socket
 import time
 import unittest
 
 import harness
-
-SMALL_LIMIT = 10
-HEADER_TIMEOUT_SECONDS = 30
-TIMEOUT_MARGIN_SECONDS = 5
-RUN_SLOW = os.environ.get("WEBSERV_SLOW_TESTS") == "1"
+from harness import request
+from constants import (
+    HEADER_TIMEOUT_SECONDS,
+    HOST,
+    RUN_SLOW,
+    SMALL_LIMIT,
+    TIMEOUT_MARGIN_SECONDS,
+)
 
 
 class RequestTest(unittest.TestCase):
@@ -22,7 +23,7 @@ class RequestTest(unittest.TestCase):
                   "    listen %s:%d;\n"
                   "    root www;\n"
                   "    location /small/ { client_max_body_size %d; }\n"
-                  "}\n" % (harness.HOST, self.port, SMALL_LIMIT))
+                  "}\n" % (HOST, self.port, SMALL_LIMIT))
         path = self.workspace.write("test.conf", config)
         self.server = harness.RunningServer([path], self.workspace.path,
                                             [self.port])
@@ -37,21 +38,21 @@ class RequestTest(unittest.TestCase):
         self.assertTrue(self.server.is_running())
 
     def test_p06_unknown_method_is_501(self):
-        self.assert_status(501, harness.request(["UNKNOWN / HTTP/1.1", "Host: x"]))
-        self.assert_status(501, harness.request(["PUT / HTTP/1.1", "Host: x"]))
+        self.assert_status(501, request(["UNKNOWN / HTTP/1.1", "Host: x"]))
+        self.assert_status(501, request(["PUT / HTTP/1.1", "Host: x"]))
 
     def test_p07_long_target_is_414(self):
-        self.assert_status(414, harness.request(["GET /" + "a" * 9000 + " HTTP/1.1",
+        self.assert_status(414, request(["GET /" + "a" * 9000 + " HTTP/1.1",
                                          "Host: x"]))
 
     def test_p08_unsupported_major_version_is_505(self):
-        self.assert_status(505, harness.request(["GET / HTTP/2.0", "Host: x"]))
+        self.assert_status(505, request(["GET / HTTP/2.0", "Host: x"]))
 
     def test_p12_missing_host_is_400(self):
-        self.assert_status(400, harness.request(["GET / HTTP/1.1"]))
+        self.assert_status(400, request(["GET / HTTP/1.1"]))
 
     def test_p13_large_header_section_is_431(self):
-        self.assert_status(431, harness.request(["GET / HTTP/1.1", "Host: x",
+        self.assert_status(431, request(["GET / HTTP/1.1", "Host: x",
                                          "X: " + "a" * 17000]))
 
     def test_p03_lf_only_request_is_accepted(self):
@@ -60,21 +61,21 @@ class RequestTest(unittest.TestCase):
     # A body within the limit is read completely and then routed. Static
     # resources answer POST with 405 until uploads come in step 6.
     def test_p16_body_limit_follows_the_location(self):
-        self.assert_status(413, harness.request(["POST /small/a HTTP/1.1", "Host: x",
+        self.assert_status(413, request(["POST /small/a HTTP/1.1", "Host: x",
                                          "Content-Length: 11"]))
-        self.assert_status(405, harness.request(["POST /small/a HTTP/1.1", "Host: x",
+        self.assert_status(405, request(["POST /small/a HTTP/1.1", "Host: x",
                                          "Content-Length: 10"], b"0123456789"))
-        self.assert_status(405, harness.request(["POST /other HTTP/1.1", "Host: x",
+        self.assert_status(405, request(["POST /other HTTP/1.1", "Host: x",
                                          "Content-Length: 11"], b"x" * 11))
 
     def test_p17_chunked_body_limit(self):
         chunked = ["POST /small/a HTTP/1.1", "Host: x",
                    "Transfer-Encoding: chunked"]
-        self.assert_status(405, harness.request(chunked, b"5\r\nhello\r\n0\r\n\r\n"))
-        self.assert_status(413, harness.request(chunked, b"B\r\n"))
+        self.assert_status(405, request(chunked, b"5\r\nhello\r\n0\r\n\r\n"))
+        self.assert_status(413, request(chunked, b"B\r\n"))
 
     def test_r21_head_error_has_no_body(self):
-        response = harness.exchange(self.port, harness.request(
+        response = harness.exchange(self.port, request(
             ["HEAD /small/a HTTP/1.1", "Host: x", "Content-Length: 11"]))
         status, headers, body = harness.parse(response)
         self.assertEqual(413, status)
@@ -83,7 +84,7 @@ class RequestTest(unittest.TestCase):
 
     def test_p19_error_response_format_and_close(self):
         with harness.connect(self.port) as sock:
-            sock.sendall(harness.request(["GET / HTTP/1.1"]))
+            sock.sendall(request(["GET / HTTP/1.1"]))
             response = harness.read_until_closed(sock)
         head = response.split(b"\r\n\r\n", 1)[0].split(b"\r\n")
         self.assertEqual(b"HTTP/1.1 400 Bad Request", head[0])
@@ -95,7 +96,7 @@ class RequestTest(unittest.TestCase):
     def test_p18_unfinished_body_gets_408(self):
         with harness.connect(self.port) as sock:
             sock.settimeout(HEADER_TIMEOUT_SECONDS + TIMEOUT_MARGIN_SECONDS)
-            sock.sendall(harness.request(["POST / HTTP/1.1", "Host: x",
+            sock.sendall(request(["POST / HTTP/1.1", "Host: x",
                                   "Content-Length: 5"], b"ab"))
             response = harness.read_until_closed(sock)
         self.assertTrue(response.startswith(b"HTTP/1.1 408 "), response)

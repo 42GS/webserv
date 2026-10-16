@@ -9,18 +9,17 @@ import socket
 import subprocess
 import tempfile
 import time
-
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-WEBSERV = os.path.join(REPO_ROOT, "webserv")
-HOST = "127.0.0.1"
-
-STARTUP_TIMEOUT_SECONDS = 5.0
-EXIT_TIMEOUT_SECONDS = 5.0
-SOCKET_TIMEOUT_SECONDS = 5.0
-RETRY_INTERVAL_SECONDS = 0.05
-RECV_SIZE = 65536
-
-SIMPLE_GET = b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+from constants import (
+    DEFAULT_PAGE,
+    EXIT_TIMEOUT_SECONDS,
+    HOST,
+    RECV_SIZE,
+    RETRY_INTERVAL_SECONDS,
+    SIMPLE_GET,
+    SOCKET_TIMEOUT_SECONDS,
+    STARTUP_TIMEOUT_SECONDS,
+    WEBSERV,
+)
 
 
 def free_port():
@@ -33,9 +32,6 @@ def free_port():
 def server_block(*ports):
     listens = "".join("    listen %s:%d;\n" % (HOST, port) for port in ports)
     return "server {\n%s    root www;\n}\n" % listens
-
-
-DEFAULT_PAGE = "hello from www\n"
 
 
 class Workspace:

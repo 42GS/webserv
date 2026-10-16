@@ -8,18 +8,22 @@ import time
 import unittest
 
 import harness
-
-CONCURRENT_CLIENTS = 50
-ABORTED_CLIENTS = 50
-HEAD_LIMIT_BYTES = 16384
-HEADER_TIMEOUT_SECONDS = 30
-TIMEOUT_MARGIN_SECONDS = 5
-FD_SETTLE_SECONDS = 3
-TRICKLE_INTERVAL_SECONDS = 5
-IDLE_CLIENTS = 10
-IDLE_SECONDS = 2
-MAX_IDLE_CPU_SHARE = 0.1
-RUN_SLOW = os.environ.get("WEBSERV_SLOW_TESTS") == "1"
+from constants import (
+    ABORTED_CLIENTS,
+    CONCURRENT_CLIENTS,
+    FD_SETTLE_SECONDS,
+    HEADER_TIMEOUT_SECONDS,
+    HEAD_LIMIT_BYTES,
+    IDLE_CLIENTS,
+    IDLE_SECONDS,
+    MAX_IDLE_CPU_SHARE,
+    RECV_SIZE,
+    RETRY_INTERVAL_SECONDS,
+    RUN_SLOW,
+    SIMPLE_GET,
+    TIMEOUT_MARGIN_SECONDS,
+    TRICKLE_INTERVAL_SECONDS,
+)
 
 
 def reset_on_close(sock):
@@ -78,7 +82,7 @@ class ConnectionTest(unittest.TestCase):
         for _ in range(ABORTED_CLIENTS):
             sock = harness.connect(self.ports[0])
             reset_on_close(sock)
-            sock.sendall(harness.SIMPLE_GET)
+            sock.sendall(SIMPLE_GET)
             sock.close()
         self.assert_still_serving()
 
@@ -123,13 +127,14 @@ class ConnectionTest(unittest.TestCase):
                 sock.sendall(head[sent:sent + 1])
                 sent += 1
                 try:
-                    response = sock.recv(harness.RECV_SIZE)
+                    response = sock.recv(RECV_SIZE)
                     break
                 except socket.timeout:
                     continue
             waited = time.monotonic() - started
         self.assertTrue(response.startswith(b"HTTP/1.1 408 "), response)
-        self.assertLess(waited, HEADER_TIMEOUT_SECONDS + TIMEOUT_MARGIN_SECONDS)
+        self.assertLess(waited,
+                        HEADER_TIMEOUT_SECONDS + TIMEOUT_MARGIN_SECONDS)
 
     def wait_for_fd_count(self, expected):
         deadline = time.monotonic() + FD_SETTLE_SECONDS
@@ -137,7 +142,7 @@ class ConnectionTest(unittest.TestCase):
             if time.monotonic() > deadline:
                 self.fail("server has %d descriptors open, expected %d"
                           % (self.server.open_fd_count(), expected))
-            time.sleep(harness.RETRY_INTERVAL_SECONDS)
+            time.sleep(RETRY_INTERVAL_SECONDS)
 
     def test_n09_oversized_head_gets_431(self):
         with harness.connect(self.ports[0]) as sock:

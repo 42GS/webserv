@@ -4,17 +4,14 @@ Only the form is checked here; whether the sections say enough is read
 by hand before the evaluation (step 9).
 """
 
-import os
-import re
 import unittest
 
 import harness
-
-README = os.path.join(harness.REPO_ROOT, "README.md")
-FIRST_LINE = re.compile(
-    r"^\*This project has been created as part of the 42 curriculum by "
-    r"[a-z0-9-]+(, [a-z0-9-]+)*\.\*$")
-REQUIRED_SECTIONS = ["## Description", "## Instructions", "## Resources"]
+from constants import (
+    README,
+    README_FIRST_LINE,
+    README_SECTIONS,
+)
 
 
 class ReadmeTest(unittest.TestCase):
@@ -23,10 +20,10 @@ class ReadmeTest(unittest.TestCase):
             self.lines = readme.read().splitlines()
 
     def test_b06_first_line_is_the_italic_credit(self):
-        self.assertRegex(self.lines[0], FIRST_LINE)
+        self.assertRegex(self.lines[0], README_FIRST_LINE)
 
     def test_b06_required_sections_exist(self):
-        for section in REQUIRED_SECTIONS:
+        for section in README_SECTIONS:
             self.assertIn(section, self.lines)
 
 
