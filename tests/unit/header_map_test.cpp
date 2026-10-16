@@ -23,6 +23,4 @@ TEST_CASE(headerKeepsRepeatedLinesInOrder) {
     CHECK_EQ(std::string("a=1"), cookies[0]);
     CHECK_EQ(std::string("b=2"), cookies[1]);
   }
-  headers.clear();
-  CHECK_EQ(0u, headers.count("Host"));
 }

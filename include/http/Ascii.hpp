@@ -4,7 +4,7 @@
 #include <string>
 
 // Character and number tests for HTTP and configuration text, built on the
-// C++ standard library (std::string, std::char_traits, <locale>) instead
+// C++ standard library (std::string, <locale>) instead
 // of <cctype> and <cstring>: those C functions are not on the subject's
 // list of allowed functions (raw/subject.md:113). HTTP is parsed as octets
 // of a US-ASCII superset (RFC 9112 section 2.2), so the classic locale is

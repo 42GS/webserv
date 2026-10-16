@@ -39,8 +39,6 @@ std::size_t HeaderMap::count(const std::string& name) const {
   return all(name).size();
 }
 
-void HeaderMap::clear() { fields_.clear(); }
-
 std::size_t HeaderMap::size() const { return fields_.size(); }
 
 const HeaderMap::Field& HeaderMap::at(std::size_t index) const {

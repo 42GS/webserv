@@ -1,19 +1,11 @@
 #include "config/ConfigBuilder.hpp"
 
-#include <sstream>
-
 #include "config/BuildContext.hpp"
 #include "config/ConfigError.hpp"
 #include "config/ConfigValues.hpp"
 #include "config/ServerBuilder.hpp"
 
 namespace {
-
-std::string describe(const ListenAddr& addr) {
-  std::ostringstream out;
-  out << addr.host << ":" << addr.port;
-  return out.str();
-}
 
 // The same interface:port twice, or 0.0.0.0 and a specific address on the
 // same port, cannot both be bound (design decision 4).
@@ -26,12 +18,12 @@ void checkListenConflicts(const std::vector<ListenEntry>& listens,
       if (a.port != b.port) continue;
       if (a.host == b.host)
         throw ConfigError(source, listens[i].line,
-                          "duplicate listen " + describe(a));
+                          "duplicate listen " + formatListenAddr(a));
       if (a.host == config_values::kAnyAddress ||
           b.host == config_values::kAnyAddress)
-        throw ConfigError(
-            source, listens[i].line,
-            "listen " + describe(a) + " conflicts with " + describe(b));
+        throw ConfigError(source, listens[i].line,
+                          "listen " + formatListenAddr(a) + " conflicts with " +
+                              formatListenAddr(b));
     }
   }
 }

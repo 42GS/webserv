@@ -184,4 +184,5 @@ TEST_CASE(r20_aliasCoversOnlyWholeSegments) {
   std::string fsPath;
   CHECK(!router.mapToFile("/k../a.txt", fsPath));
   CHECK(router.locationFor("/k../a.txt") == 0);
+  CHECK_EQ(std::string("(none)"), matchedPath(server, "/k../a.txt"));
 }

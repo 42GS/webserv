@@ -27,13 +27,9 @@ Response RequestProcessor::process(const Request& request,
 
 Response RequestProcessor::errorResponse(int status, const std::string& method,
                                          std::time_t now) const {
-  Response response = statusPage(status);
+  Response response = buildStatusPage(status, server_.errorPages, router_);
   finish(response, method, now);
   return response;
-}
-
-Response RequestProcessor::statusPage(int status) const {
-  return buildStatusPage(status, server_.errorPages, router_);
 }
 
 Response RequestProcessor::respond(const RouteResult& route) const {
@@ -41,18 +37,20 @@ Response RequestProcessor::respond(const RouteResult& route) const {
   switch (route.kind) {
     case RouteResult::STATIC_FILE:
       if (serveStaticFile(route, response)) return response;
-      return statusPage(http_status::kInternalServerError);
+      return buildStatusPage(http_status::kInternalServerError,
+                             server_.errorPages, router_);
     case RouteResult::DIRECTORY_LISTING:
       if (listDirectory(route, response)) return response;
-      return statusPage(http_status::kForbidden);
+      return buildStatusPage(http_status::kForbidden, server_.errorPages,
+                             router_);
     case RouteResult::REDIRECT:
-      response = statusPage(route.status);
+      response = buildStatusPage(route.status, server_.errorPages, router_);
       response.headers.add(header_name::kLocation, route.redirectTo);
       return response;
     case RouteResult::ERROR:
       break;
   }
-  response = statusPage(route.status);
+  response = buildStatusPage(route.status, server_.errorPages, router_);
   // 405 must list what the resource supports (RFC 9110 15.5.6).
   if (route.status == http_status::kMethodNotAllowed)
     response.headers.add(header_name::kAllow, route.allow);

@@ -27,7 +27,9 @@ class Router {
   explicit Router(const ServerConfig& server);
 
   // The location with the longest path that is a prefix of "path", or 0.
-  // Locations are sorted longest first by the configuration loader.
+  // Locations are sorted longest first by the configuration loader. An
+  // alias location that does not cover the path at a segment boundary
+  // also gives 0 (design decision 14).
   const LocationConfig* matchLocation(const std::string& path) const;
 
   // The location for a percent-encoded request path, or 0 if the path

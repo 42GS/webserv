@@ -7,19 +7,9 @@
 
 #include <cerrno>
 #include <cstring>
-#include <sstream>
 
+#include "config/ConfigValues.hpp"
 #include "core/SocketAddress.hpp"
-
-namespace {
-
-std::string describe(const ListenAddr& addr) {
-  std::ostringstream out;
-  out << addr.host << ":" << addr.port;
-  return out.str();
-}
-
-}  // namespace
 
 Listener::Listener(const ServerConfig& server, const ListenAddr& addr,
                    AcceptHandler& acceptor)
@@ -46,7 +36,8 @@ bool Listener::open(std::string& error) {
   // errno is read only to build the startup error message, never after a
   // read or write on a client socket.
   if (!ok)
-    error = "cannot listen on " + describe(addr_) + ": " + std::strerror(errno);
+    error = "cannot listen on " + formatListenAddr(addr_) + ": " +
+            std::strerror(errno);
   return ok;
 }
 

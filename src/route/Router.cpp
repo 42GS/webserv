@@ -84,7 +84,7 @@ const LocationConfig* Router::matchLocation(const std::string& path) const {
   for (std::size_t i = 0; i < server_.locations.size(); ++i) {
     const std::string& prefix = server_.locations[i].path;
     if (path.compare(0, prefix.size(), prefix) == 0)
-      return &server_.locations[i];
+      return coversPath(server_.locations[i], path) ? &server_.locations[i] : 0;
   }
   return 0;
 }
@@ -115,15 +115,14 @@ bool Router::resolve(const std::string& encodedPath, std::string& path,
                      const LocationConfig*& location) const {
   if (!normalizePath(encodedPath, path)) return false;
   location = matchLocation(path);
-  return location != 0 && coversPath(*location, path);
+  return location != 0;
 }
 
 // Order of design 7: location, return, limit_except, then the file system.
 RouteResult Router::routePath(const std::string& path, const Request& request,
                               int internalRedirects) const {
   const LocationConfig* location = matchLocation(path);
-  if (location == 0 || !coversPath(*location, path))
-    return error(http_status::kNotFound);
+  if (location == 0) return error(http_status::kNotFound);
   if (location->returnCode != 0)
     return redirect(location->returnCode, location->returnUrl);
   if (!locationAllows(*location, request.method) ||

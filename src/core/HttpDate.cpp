@@ -39,7 +39,11 @@ void appendTwoDigits(std::ostringstream& out, long value) {
   out << value;
 }
 
-std::string format(std::time_t secondsSinceEpoch) {
+}  // namespace
+}  // namespace http_date
+
+std::string formatHttpDate(std::time_t secondsSinceEpoch) {
+  using namespace http_date;
   const long seconds = static_cast<long>(secondsSinceEpoch);
   long days = seconds / kSecondsPerDay;
   long secondOfDay = seconds % kSecondsPerDay;
@@ -62,11 +66,4 @@ std::string format(std::time_t secondsSinceEpoch) {
   appendTwoDigits(out, secondOfDay % kSecondsPerMinute);
   out << " GMT";
   return out.str();
-}
-
-}  // namespace
-}  // namespace http_date
-
-std::string formatHttpDate(std::time_t secondsSinceEpoch) {
-  return http_date::format(secondsSinceEpoch);
 }

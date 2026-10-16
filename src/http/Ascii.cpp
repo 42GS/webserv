@@ -2,18 +2,7 @@
 
 #include <locale>
 
-namespace {
-
-// True if c is one of the characters of "set". NUL never matches.
-bool isOneOf(char c, const char* set) {
-  typedef std::char_traits<char> Traits;
-  // length() stops before the terminating NUL, so NUL is never found.
-  return Traits::find(set, Traits::length(set), c) != 0;
-}
-
-}  // namespace
-
-bool isAsciiDigit(char c) { return isOneOf(c, ascii::kDigits); }
+bool isAsciiDigit(char c) { return c >= '0' && c <= '9'; }
 
 char toAsciiLower(char c) { return std::tolower(c, std::locale::classic()); }
 

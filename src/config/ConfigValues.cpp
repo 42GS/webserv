@@ -1,5 +1,6 @@
 #include "config/ConfigValues.hpp"
 
+#include <sstream>
 #include <vector>
 
 #include "http/Ascii.hpp"
@@ -65,4 +66,10 @@ bool parseListenAddr(const std::string& text, ListenAddr& out) {
   out.host = host;
   out.port = static_cast<unsigned short>(port);
   return true;
+}
+
+std::string formatListenAddr(const ListenAddr& addr) {
+  std::ostringstream out;
+  out << addr.host << ":" << addr.port;
+  return out.str();
 }

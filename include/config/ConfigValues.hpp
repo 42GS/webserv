@@ -26,4 +26,7 @@ bool parseSize(const std::string& text, std::size_t& out);
 // "port" or "a.b.c.d:port". A missing address means "0.0.0.0".
 bool parseListenAddr(const std::string& text, ListenAddr& out);
 
+// "a.b.c.d:port", for error messages.
+std::string formatListenAddr(const ListenAddr& addr);
+
 #endif
