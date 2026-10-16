@@ -1,3 +1,8 @@
+/**
+ * @file  FileReader.cpp
+ * @brief Whole-file reading.
+ *        파일 전체 읽기.
+ */
 #include "fs/FileReader.hpp"
 
 #include <fcntl.h>
@@ -21,6 +26,8 @@ bool readWholeFile(const std::string& path, std::size_t maxSize,
     }
     content.append(buffer, static_cast<std::size_t>(got));
   }
-  close(fd);  // read-only descriptor: a close() error loses nothing
+  // Read-only descriptor: a close() error loses nothing.
+  // 읽기 전용 디스크립터라 close()가 실패해도 잃는 것이 없다.
+  close(fd);
   return ok;
 }

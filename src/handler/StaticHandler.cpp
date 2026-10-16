@@ -1,3 +1,8 @@
+/**
+ * @file  StaticHandler.cpp
+ * @brief Static file responses.
+ *        정적 파일 응답.
+ */
 #include "handler/StaticHandler.hpp"
 
 #include "core/Limits.hpp"

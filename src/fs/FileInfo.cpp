@@ -1,3 +1,8 @@
+/**
+ * @file  FileInfo.cpp
+ * @brief stat() and access() wrappers.
+ *        stat()과 access()를 감싼 함수.
+ */
 #include "fs/FileInfo.hpp"
 
 #include <sys/stat.h>

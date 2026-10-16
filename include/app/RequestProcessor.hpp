@@ -1,3 +1,8 @@
+/**
+ * @file  RequestProcessor.hpp
+ * @brief From a complete request to a response.
+ *        완성된 요청에서 응답까지.
+ */
 #ifndef APP_REQUESTPROCESSOR_HPP
 #define APP_REQUESTPROCESSOR_HPP
 
@@ -10,30 +15,92 @@
 #include "http/Response.hpp"
 #include "route/Router.hpp"
 
-// One complete request to one response (design 2 "app"): Router decides,
-// a handler builds the response, and the common fields are added.
+/**
+ * @brief One complete request to one response (design 2 "app").
+ *        완성된 요청 하나를 응답 하나로 바꾼다 (설계 2절 "app").
+ *
+ * Router decides, a handler builds the response, and the common fields
+ * are added.
+ * Router가 정하고, handler가 응답을 만들고, 공통 필드를 붙인다.
+ */
 class RequestProcessor {
  public:
+  /**
+   * @brief A processor for one server block.
+   *        server 블록 하나의 processor.
+   * @param[in] server Settings; kept by reference. / 설정. 참조로 보관한다.
+   */
   explicit RequestProcessor(const ServerConfig& server);
 
-  // client_max_body_size of the location for this request. A path that
-  // cannot be normalized or matched gets the default; routing answers it
-  // with 400 or 404 after the body.
+  /**
+   * @brief client_max_body_size of the location for this request.
+   *        이 요청의 location에 정한 client_max_body_size.
+   *
+   * A path that cannot be normalized or matched gets the default; routing
+   * answers it with 400 or 404 after the body.
+   * 정규화하거나 매칭할 수 없는 경로는 기본값을 받는다. 그런 요청은 본문
+   * 뒤에 라우팅이 400이나 404로 답한다.
+   *
+   * @param[in] request Request whose head is parsed. / 머리를 파싱한 요청.
+   * @return Limit in bytes. / 바이트 단위 상한.
+   */
   std::size_t bodyLimitFor(const Request& request) const;
+
+  /**
+   * @brief Builds the response to a complete request.
+   *        완성된 요청의 응답을 만든다.
+   * @param[in] request The request. / 요청.
+   * @param[in] now     Time for the Date field. / Date 필드에 쓸 시각.
+   * @return The response. / 응답.
+   */
   Response process(const Request& request, std::time_t now) const;
-  // For a request that could not be processed (parse error, timeout).
-  // "method" is empty if the request line was not understood.
+
+  /**
+   * @brief Response for a request that could not be processed (parse
+   *        error, timeout).
+   *        처리할 수 없었던 요청(파싱 오류, 시간 초과)의 응답.
+   * @param[in] status Status code. / 상태 코드.
+   * @param[in] method Request method, empty if the request line was not
+   *                   understood.
+   *                   요청 메서드. 요청 줄을 이해하지 못했으면 빈 값.
+   * @param[in] now    Time for the Date field. / Date 필드에 쓸 시각.
+   * @return The response. / 응답.
+   */
   Response errorResponse(int status, const std::string& method,
                          std::time_t now) const;
 
  private:
+  /**
+   * @brief Calls the handler for a routing decision.
+   *        라우팅 결정에 맞는 handler를 부른다.
+   * @param[in] route The decision. / 결정.
+   * @return The response before the common fields. / 공통 필드를 붙이기 전의
+   * 응답.
+   */
   Response respond(const RouteResult& route) const;
-  // buildStatusPage() with this server's error pages.
+
+  /**
+   * @brief buildStatusPage() with this server's error pages.
+   *        이 server의 오류 페이지로 buildStatusPage()를 부른다.
+   * @param[in] status Status code. / 상태 코드.
+   * @return The response. / 응답.
+   */
   Response statusPage(int status) const;
+
+  /**
+   * @brief Adds the fields every response has, and drops the body for
+   *        HEAD.
+   *        모든 응답에 붙는 필드를 넣고, HEAD면 본문을 뺀다.
+   * @param[in,out] response Response to finish. / 마무리할 응답.
+   * @param[in]     method   Request method. / 요청 메서드.
+   * @param[in]     now      Time for the Date field. / Date 필드에 쓸 시각.
+   */
   void finish(Response& response, const std::string& method,
               std::time_t now) const;
 
+  /** Settings of the server block. / server 블록의 설정. */
   const ServerConfig& server_;
+  /** Router of the server block. / server 블록의 router. */
   Router router_;
 };
 

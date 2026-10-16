@@ -1,3 +1,8 @@
+/**
+ * @file  AutoindexHandler.cpp
+ * @brief HTML directory listings.
+ *        HTML 디렉토리 목록.
+ */
 #include "handler/AutoindexHandler.hpp"
 
 #include <dirent.h>
@@ -14,6 +19,13 @@
 
 namespace {
 
+/**
+ * @brief Escapes the five HTML special characters.
+ *        HTML 특수 문자 다섯 개를 이스케이프한다.
+ * @param[in] text Text. / 텍스트.
+ * @return Text safe in HTML content and attribute values.
+ *         HTML 본문과 속성 값에 넣어도 안전한 텍스트.
+ */
 std::string escapeHtml(const std::string& text) {
   std::string escaped;
   for (std::string::size_type i = 0; i < text.size(); ++i) {
@@ -40,8 +52,19 @@ std::string escapeHtml(const std::string& text) {
   return escaped;
 }
 
-// Names in the directory except "." and "..", sorted, with "/" appended to
-// subdirectories.
+/**
+ * @brief Names in the directory except "." and "..", sorted.
+ *        "."과 ".."을 뺀 디렉토리 안의 이름, 정렬한 것.
+ *
+ * Subdirectories get a trailing "/".
+ * 하위 디렉토리에는 끝에 "/"를 붙인다.
+ *
+ * @param[in]  directory Directory path ending in "/". / "/"로 끝나는 디렉토리
+ * 경로.
+ * @param[out] names     The names. / 이름 목록.
+ * @return False if the directory cannot be opened. / 디렉토리를 열 수 없으면
+ * false.
+ */
 bool readNames(const std::string& directory, std::vector<std::string>& names) {
   DIR* stream = opendir(directory.c_str());
   if (stream == 0) return false;
@@ -51,13 +74,24 @@ bool readNames(const std::string& directory, std::vector<std::string>& names) {
     names.push_back(fileKind(directory + name) == FILE_DIRECTORY ? name + "/"
                                                                  : name);
   }
-  closedir(stream);  // nothing to recover if closing fails
+  // Nothing to recover if closing fails. / 닫기에 실패해도 되돌릴 것이 없다.
+  closedir(stream);
   std::sort(names.begin(), names.end());
   return true;
 }
 
-// "./" keeps a name like "a:b" from being read as a URI scheme
-// (RFC 3986 section 4.2).
+/**
+ * @brief One list item linking to @p name.
+ *        @p name으로 가는 링크 하나의 목록 항목.
+ *
+ * "./" keeps a name like "a:b" from being read as a URI scheme (RFC 3986
+ * section 4.2).
+ * "./"를 붙여서 "a:b" 같은 이름이 URI scheme으로 읽히지 않게 한다
+ * (RFC 3986 4.2절).
+ *
+ * @param[in] name Entry name. / 항목 이름.
+ * @return The HTML line. / HTML 한 줄.
+ */
 std::string listItem(const std::string& name) {
   return "<li><a href=\"./" + escapeHtml(encodePath(name)) + "\">" +
          escapeHtml(name) + "</a></li>\n";
