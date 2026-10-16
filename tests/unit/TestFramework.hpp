@@ -36,14 +36,27 @@ struct TestRegistrar {
     if (!(condition)) reportFailure(__FILE__, __LINE__, #condition); \
   } while (0)
 
-#define CHECK_EQ(expected, actual)                               \
-  do {                                                           \
-    if (!((expected) == (actual))) {                             \
-      std::ostringstream message_;                               \
-      message_ << #actual << " == " << (actual) << ", expected " \
-               << (expected);                                    \
-      reportFailure(__FILE__, __LINE__, message_.str());         \
-    }                                                            \
-  } while (0)
+// Where a check was written; keeps checkEqual within four parameters.
+struct CheckSite {
+  CheckSite(const char* sourceFile, int sourceLine, const char* text)
+      : file(sourceFile), line(sourceLine), expression(text) {}
+  const char* file;
+  int line;
+  const char* expression;
+};
+
+// A function, not a macro body, so each argument is evaluated exactly once
+// and the message shows the value that was actually compared.
+template <typename Expected, typename Actual>
+void checkEqual(const Expected& expected, const Actual& actual,
+                const CheckSite& site) {
+  if (expected == actual) return;
+  std::ostringstream message;
+  message << site.expression << ": got " << actual << ", expected " << expected;
+  reportFailure(site.file, site.line, message.str());
+}
+
+#define CHECK_EQ(expected, actual) \
+  checkEqual((expected), (actual), CheckSite(__FILE__, __LINE__, #actual))
 
 #endif
