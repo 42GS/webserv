@@ -41,6 +41,7 @@ class Connection : public IoHandler {
   void startResponse(const Response& response);
   void startErrorResponse(int status);
   void changeState(State next);
+  bool hasTimedOut() const;
 
   int fd_;
   State state_;

@@ -146,6 +146,8 @@ TEST_CASE(p08_versions) {
   CHECK_EQ(400, statusOf("GET / http/1.1\r\nHost: x\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1\r\nHost: x\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1.10\r\nHost: x\r\n\r\n"));
+  CHECK_EQ(400, statusOf("GET / HTTP/1x1\r\nHost: x\r\n\r\n"));
+  CHECK_EQ(400, statusOf("GET / HTTP/x.1\r\nHost: x\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET /\r\n\r\n"));
   RequestParser parser(defaultParserLimits());
   std::string buffer("GET / HTTP/1.2\r\nHost: x\r\n\r\n");

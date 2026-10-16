@@ -54,6 +54,13 @@ std::vector<std::string> splitList(const std::vector<std::string>& lines) {
   return items;
 }
 
+// HTTP-version = "HTTP/" DIGIT "." DIGIT, case-sensitive (section 2.3).
+bool isHttpVersion(const std::string& version) {
+  return version.size() == 8 && version.compare(0, 5, "HTTP/") == 0 &&
+         isAsciiDigit(version[5]) && version[6] == '.' &&
+         isAsciiDigit(version[7]);
+}
+
 // Visible ASCII only: no whitespace, control or non-ASCII octet, and no
 // fragment, which is not part of a request-target (section 3.2).
 bool isTargetText(const std::string& target) {
@@ -343,20 +350,14 @@ bool RequestParser::parseRequestLine(const std::string& line) {
   const std::string method = line.substr(0, first);
   const std::string target = line.substr(first + 1, second - first - 1);
   const std::string version = line.substr(second + 1);
-  if (!isToken(method) || !isTargetText(target) ||
-      version.size() != request_parser::kVersionLength ||
-      version.compare(0, std::string(request_parser::kVersionPrefix).size(),
-                      request_parser::kVersionPrefix) != 0 ||
-      !isAsciiDigit(version[request_parser::kMajorIndex]) ||
-      version[request_parser::kDotIndex] != '.' ||
-      !isAsciiDigit(version[request_parser::kMinorIndex]))
+  if (!isToken(method) || !isTargetText(target) || !isHttpVersion(version))
     return fail(http_status::kBadRequest);
-  if (version[request_parser::kMajorIndex] != '1')
-    return fail(http_status::kHttpVersionNotSupported);
+  const char major = version[5];  // "HTTP/x.y"
+  const char minor = version[7];
+  if (major != '1') return fail(http_status::kHttpVersionNotSupported);
   // A higher 1.x minor version is handled as 1.1 (RFC 9110 section 6.2).
-  request_.version = (version[request_parser::kMinorIndex] == '0')
-                         ? request_parser::kHttp10
-                         : request_parser::kHttp11;
+  request_.version =
+      (minor == '0') ? request_parser::kHttp10 : request_parser::kHttp11;
   if (!isImplementedMethod(method)) return fail(http_status::kNotImplemented);
   request_.method = method;
   if (!parseTarget(target)) return fail(http_status::kBadRequest);

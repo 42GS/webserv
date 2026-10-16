@@ -45,24 +45,33 @@ void Connection::onEvent(short revents) {
 
 void Connection::onFailure() { changeState(CLOSED); }
 
-// The head must arrive within limits::kHeaderTimeoutSeconds in total, so a
-// client that sends a byte now and then cannot hold the connection (design 12).
-// Body and send timeouts count only time without progress. An unfinished
-// request gets 408 before closing (RFC 9112 section 8 allows it); a
-// connection that never sent anything is just closed.
+// An unfinished request gets 408 before closing (RFC 9112 section 8 allows
+// it); a connection that never sent anything is just closed.
 void Connection::checkTimeout(std::time_t now) {
   now_ = now;
-  const std::time_t idle = now - lastProgress_;
-  if ((state_ == READ_HEAD &&
-       now - stateSince_ >= limits::kHeaderTimeoutSeconds) ||
-      (state_ == READ_BODY && idle >= limits::kBodyTimeoutSeconds)) {
-    if (parser_.hasStarted())
-      startErrorResponse(http_status::kRequestTimeout);
-    else
-      changeState(CLOSED);
-  } else if (state_ == WRITE && idle >= limits::kSendTimeoutSeconds) {
+  if (!hasTimedOut()) return;
+  if (state_ == WRITE || !parser_.hasStarted())
     changeState(CLOSED);
+  else
+    startErrorResponse(http_status::kRequestTimeout);
+}
+
+// The head must arrive within limits::kHeaderTimeoutSeconds in total, so a
+// client that sends a byte now and then cannot hold the connection (design
+// 12). Body and send timeouts count only time without progress.
+bool Connection::hasTimedOut() const {
+  const std::time_t idle = now_ - lastProgress_;
+  switch (state_) {
+    case READ_HEAD:
+      return now_ - stateSince_ >= limits::kHeaderTimeoutSeconds;
+    case READ_BODY:
+      return idle >= limits::kBodyTimeoutSeconds;
+    case WRITE:
+      return idle >= limits::kSendTimeoutSeconds;
+    case CLOSED:
+      break;
   }
+  return false;
 }
 
 bool Connection::isClosed() const { return state_ == CLOSED; }

@@ -12,11 +12,6 @@ namespace request_parser {
 
 const char* const kHttp10 = "HTTP/1.0";
 const char* const kHttp11 = "HTTP/1.1";
-const char* const kVersionPrefix = "HTTP/";
-const std::string::size_type kVersionLength = 8;  // "HTTP/x.y"
-const std::string::size_type kMajorIndex = 5;
-const std::string::size_type kDotIndex = 6;
-const std::string::size_type kMinorIndex = 7;
 const char* const kAbsoluteFormPrefix = "http://";
 const char* const kChunked = "chunked";
 
