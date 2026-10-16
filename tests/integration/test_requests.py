@@ -61,18 +61,20 @@ class RequestTest(unittest.TestCase):
     def test_p03_lf_only_request_is_accepted(self):
         self.assert_status(200, b"GET / HTTP/1.1\nHost: x\n\n")
 
+    # A body within the limit is read completely and then routed. Static
+    # resources answer POST with 405 until uploads come in step 6.
     def test_p16_body_limit_follows_the_location(self):
         self.assert_status(413, request(["POST /small/a HTTP/1.1", "Host: x",
                                          "Content-Length: 11"]))
-        self.assert_status(200, request(["POST /small/a HTTP/1.1", "Host: x",
+        self.assert_status(405, request(["POST /small/a HTTP/1.1", "Host: x",
                                          "Content-Length: 10"], b"0123456789"))
-        self.assert_status(200, request(["POST /other HTTP/1.1", "Host: x",
+        self.assert_status(405, request(["POST /other HTTP/1.1", "Host: x",
                                          "Content-Length: 11"], b"x" * 11))
 
     def test_p17_chunked_body_limit(self):
         chunked = ["POST /small/a HTTP/1.1", "Host: x",
                    "Transfer-Encoding: chunked"]
-        self.assert_status(200, request(chunked, b"5\r\nhello\r\n0\r\n\r\n"))
+        self.assert_status(405, request(chunked, b"5\r\nhello\r\n0\r\n\r\n"))
         self.assert_status(413, request(chunked, b"B\r\n"))
 
     def test_p19_error_response_format_and_close(self):

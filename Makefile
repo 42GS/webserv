@@ -38,7 +38,15 @@ HTTP_SRCS	:= http/Connection.cpp \
 			   http/ResponseStream.cpp \
 			   http/StatusText.cpp
 
-LIB_SRCS	:= $(CONFIG_SRCS) $(CORE_SRCS) $(HTTP_SRCS) $(ROUTE_SRCS)
+HANDLER_SRCS	:= handler/AutoindexHandler.cpp \
+			   handler/ErrorPageBuilder.cpp \
+			   handler/FileReader.cpp \
+			   handler/StaticHandler.cpp
+
+APP_SRCS	:= app/RequestProcessor.cpp
+
+LIB_SRCS	:= $(CONFIG_SRCS) $(CORE_SRCS) $(HTTP_SRCS) $(ROUTE_SRCS) \
+			   $(HANDLER_SRCS) $(APP_SRCS)
 SRCS		:= main.cpp $(LIB_SRCS)
 
 OBJS		:= $(addprefix $(OBJ_DIR)/, $(SRCS:.cpp=.o))

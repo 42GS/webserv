@@ -1,0 +1,30 @@
+#include "handler/FileReader.hpp"
+
+#include <fcntl.h>
+#include <unistd.h>
+
+namespace {
+
+const std::size_t kReadSize = 65536;
+
+}  // namespace
+
+bool readWholeFile(const std::string& path, std::size_t maxSize,
+                   std::string& content) {
+  const int fd = open(path.c_str(), O_RDONLY);
+  if (fd < 0) return false;
+  content.clear();
+  char buffer[kReadSize];
+  bool ok = true;
+  for (;;) {
+    const ssize_t got = read(fd, buffer, sizeof(buffer));
+    if (got == 0) break;
+    if (got < 0 || content.size() + static_cast<std::size_t>(got) > maxSize) {
+      ok = false;
+      break;
+    }
+    content.append(buffer, static_cast<std::size_t>(got));
+  }
+  close(fd);  // read-only descriptor: a close() error loses nothing
+  return ok;
+}

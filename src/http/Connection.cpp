@@ -4,12 +4,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <sstream>
-
-#include "config/ConfigLimits.hpp"
-#include "http/StatusText.hpp"
-#include "route/Router.hpp"
-
 namespace {
 
 const std::size_t kRecvBufferSize = 65536;
@@ -17,29 +11,7 @@ const std::time_t kHeaderTimeoutSeconds = 30;
 const std::time_t kBodyTimeoutSeconds = 30;
 const std::time_t kSendTimeoutSeconds = 30;
 const int kRequestTimeout = 408;
-
-const char* const kFixedResponse =
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: text/plain\r\n"
-    "Content-Length: 13\r\n"
-    "Connection: close\r\n"
-    "\r\n"
-    "Hello, world\n";
-
-// A minimal error response until the error pages of step 4. The status
-// line keeps its SP even without a reason phrase (RFC 9112 section 4).
-std::string errorResponse(int status) {
-  std::ostringstream body;
-  body << status << " " << reasonPhrase(status) << "\n";
-  std::ostringstream out;
-  out << "HTTP/1.1 " << status << " " << reasonPhrase(status) << "\r\n"
-      << "Content-Type: text/plain\r\n"
-      << "Content-Length: " << body.str().size() << "\r\n"
-      << "Connection: close\r\n"
-      << "\r\n"
-      << body.str();
-  return out.str();
-}
+const int kInternalServerError = 500;
 
 }  // namespace
 
@@ -48,7 +20,7 @@ Connection::Connection(int fd, const ListenContext& where, std::time_t now)
       where_(where),
       state_(READ_HEAD),
       parser_(defaultParserLimits()),
-      outSent_(0),
+      processor_(*where.server),
       now_(now),
       stateSince_(now),
       lastProgress_(now) {}
@@ -122,11 +94,11 @@ void Connection::parseInput() {
       case RequestParser::NEED_MORE:
         return;
       case RequestParser::HEAD_DONE:
-        parser_.setMaxBodySize(bodyLimitFor(parser_.request()));
+        parser_.setMaxBodySize(processor_.bodyLimitFor(parser_.request()));
         changeState(READ_BODY);
         break;
       case RequestParser::DONE:
-        startResponse(kFixedResponse);
+        startResponse(processor_.process(parser_.request(), now_));
         return;
       case RequestParser::ERROR:
         startErrorResponse(parser_.errorStatus());
@@ -135,37 +107,30 @@ void Connection::parseInput() {
   }
 }
 
-// The limit of the matching location. The path is matched before
-// percent-decoding and dot-segment removal, which come with the router in
-// step 4. Without a matching location the request will be 404, and the
-// NGINX default limit applies to its body.
-std::size_t Connection::bodyLimitFor(const Request& request) const {
-  const LocationConfig* location =
-      Router(*where_.server).matchLocation(request.path);
-  return location == 0 ? config_limits::kDefaultMaxBodySize
-                       : location->maxBodySize;
-}
-
 void Connection::sendOnce() {
-  const ssize_t sent =
-      send(fd_, outBuffer_.data() + outSent_, outBuffer_.size() - outSent_, 0);
+  const ssize_t sent = send(fd_, stream_.data(), stream_.size(), 0);
   if (sent <= 0) {
     changeState(CLOSED);
     return;
   }
   lastProgress_ = now_;
-  outSent_ += static_cast<std::string::size_type>(sent);
-  if (outSent_ == outBuffer_.size()) changeState(CLOSED);
+  // A file body that cannot be read further cannot match the
+  // Content-Length already sent: the connection has to end.
+  if (!stream_.consume(static_cast<std::size_t>(sent)) || !stream_.hasPending())
+    changeState(CLOSED);
 }
 
-void Connection::startResponse(const std::string& bytes) {
-  outBuffer_ = bytes;
-  outSent_ = 0;
+// A file that vanished between routing and opening becomes a 500, which
+// is built in memory and always starts.
+void Connection::startResponse(const Response& response) {
+  if (!stream_.reset(response))
+    static_cast<void>(
+        stream_.reset(processor_.errorResponse(kInternalServerError, now_)));
   changeState(WRITE);
 }
 
 void Connection::startErrorResponse(int status) {
-  startResponse(errorResponse(status));
+  startResponse(processor_.errorResponse(status, now_));
 }
 
 void Connection::changeState(State next) {

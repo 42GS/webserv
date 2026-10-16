@@ -35,12 +35,17 @@ def server_block(*ports):
     return "server {\n%s    root www;\n}\n" % listens
 
 
+DEFAULT_PAGE = "hello from www\n"
+
+
 class Workspace:
-    """A temporary directory used as the server's working directory."""
+    """A temporary directory used as the server's working directory, with
+    www/index.html so that "root www" serves "/"."""
 
     def __init__(self):
         self._dir = tempfile.TemporaryDirectory(prefix="webserv-test-")
         self.path = self._dir.name
+        self.write("www/index.html", DEFAULT_PAGE)
 
     def write(self, relative_path, text):
         full_path = os.path.join(self.path, relative_path)
