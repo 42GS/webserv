@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "fs/FileInfo.hpp"
+#include "http/MimeTypes.hpp"
 #include "http/StatusCodes.hpp"
 #include "route/PathResolver.hpp"
 
@@ -75,7 +76,7 @@ bool listDirectory(const RouteResult& route, Response& response) {
   for (std::size_t i = 0; i < names.size(); ++i) html += listItem(names[i]);
   html += "</ul>\n</body></html>\n";
   response.status = http_status::kOk;
-  response.headers.add("Content-Type", "text/html");
+  response.headers.add("Content-Type", mime_types::kHtmlType);
   response.body = html;
   return true;
 }

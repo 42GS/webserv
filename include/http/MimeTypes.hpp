@@ -23,6 +23,7 @@ const MimeEntry kMimeTypes[] = {
 };
 
 const char* const kDefaultType = "application/octet-stream";
+const char* const kHtmlType = "text/html";  // generated pages
 
 const std::size_t kMimeTypeCount = sizeof(kMimeTypes) / sizeof(kMimeTypes[0]);
 

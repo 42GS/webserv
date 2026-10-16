@@ -1,6 +1,5 @@
-#include "handler/ErrorPageBuilder.hpp"
+#include "handler/StatusPage.hpp"
 
-#include <map>
 #include <sstream>
 
 #include "core/Limits.hpp"
@@ -8,7 +7,6 @@
 #include "fs/FileReader.hpp"
 #include "http/MimeTypes.hpp"
 #include "http/StatusText.hpp"
-#include "route/Router.hpp"
 
 namespace {
 
@@ -20,28 +18,29 @@ std::string defaultPage(int status) {
   return html.str();
 }
 
-// The configured page as a regular file, or false.
-bool readConfiguredPage(int status, const ServerConfig& server,
+// The page at "uri" as a regular file, or false.
+bool readConfiguredPage(const std::string& uri, const Router& router,
                         std::string& fsPath, std::string& content) {
-  const std::map<int, std::string>::const_iterator page =
-      server.errorPages.find(status);
-  if (page == server.errorPages.end()) return false;
-  if (!Router(server).mapToFile(page->second, fsPath)) return false;
-  return fileKind(fsPath) == FILE_REGULAR &&
+  return router.mapToFile(uri, fsPath) && fileKind(fsPath) == FILE_REGULAR &&
          readWholeFile(fsPath, limits::kMaxErrorPageSize, content);
 }
 
 }  // namespace
 
-Response buildErrorPage(int status, const ServerConfig& server) {
+Response buildStatusPage(int status,
+                         const std::map<int, std::string>& configuredPages,
+                         const Router& router) {
   Response response;
   response.status = status;
+  const std::map<int, std::string>::const_iterator page =
+      configuredPages.find(status);
   std::string fsPath;
-  if (readConfiguredPage(status, server, fsPath, response.body)) {
+  if (page != configuredPages.end() &&
+      readConfiguredPage(page->second, router, fsPath, response.body)) {
     response.headers.add("Content-Type", mimeTypeFor(fsPath));
   } else {
     response.body = defaultPage(status);
-    response.headers.add("Content-Type", "text/html");
+    response.headers.add("Content-Type", mime_types::kHtmlType);
   }
   return response;
 }

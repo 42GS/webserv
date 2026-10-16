@@ -3,8 +3,8 @@
 #include "config/ConfigLimits.hpp"
 #include "core/HttpDate.hpp"
 #include "handler/AutoindexHandler.hpp"
-#include "handler/ErrorPageBuilder.hpp"
 #include "handler/StaticHandler.hpp"
+#include "handler/StatusPage.hpp"
 #include "http/StatusCodes.hpp"
 
 RequestProcessor::RequestProcessor(const ServerConfig& server)
@@ -26,9 +26,13 @@ Response RequestProcessor::process(const Request& request,
 }
 
 Response RequestProcessor::errorResponse(int status, std::time_t now) const {
-  Response response = buildErrorPage(status, server_);
+  Response response = statusPage(status);
   addCommonFields(response, now);
   return response;
+}
+
+Response RequestProcessor::statusPage(int status) const {
+  return buildStatusPage(status, server_.errorPages, router_);
 }
 
 Response RequestProcessor::respond(const RouteResult& route) const {
@@ -36,18 +40,18 @@ Response RequestProcessor::respond(const RouteResult& route) const {
   switch (route.kind) {
     case RouteResult::STATIC_FILE:
       if (serveStaticFile(route, response)) return response;
-      return buildErrorPage(http_status::kInternalServerError, server_);
+      return statusPage(http_status::kInternalServerError);
     case RouteResult::DIRECTORY_LISTING:
       if (listDirectory(route, response)) return response;
-      return buildErrorPage(http_status::kForbidden, server_);
+      return statusPage(http_status::kForbidden);
     case RouteResult::REDIRECT:
-      response = buildErrorPage(route.status, server_);
+      response = statusPage(route.status);
       response.headers.add("Location", route.redirectTo);
       return response;
     case RouteResult::ERROR:
       break;
   }
-  response = buildErrorPage(route.status, server_);
+  response = statusPage(route.status);
   // 405 must list what the resource supports (RFC 9110 15.5.6).
   if (route.status == http_status::kMethodNotAllowed)
     response.headers.add("Allow", route.allow);

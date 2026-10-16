@@ -43,8 +43,8 @@ FS_SRCS		:= fs/FileInfo.cpp \
 			   fs/FileReader.cpp
 
 HANDLER_SRCS	:= handler/AutoindexHandler.cpp \
-			   handler/ErrorPageBuilder.cpp \
-			   handler/StaticHandler.cpp
+			   handler/StaticHandler.cpp \
+			   handler/StatusPage.cpp
 
 APP_SRCS	:= app/RequestProcessor.cpp
 

@@ -24,6 +24,7 @@ class RequestProcessor {
 
  private:
   Response respond(const RouteResult& route) const;
+  Response statusPage(int status) const;
   void addCommonFields(Response& response, std::time_t now) const;
 
   const ServerConfig& server_;
