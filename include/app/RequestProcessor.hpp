@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <ctime>
+#include <string>
 
 #include "config/ServerConfig.hpp"
 #include "http/Request.hpp"
@@ -20,12 +21,16 @@ class RequestProcessor {
   // with 400 or 404 after the body.
   std::size_t bodyLimitFor(const Request& request) const;
   Response process(const Request& request, std::time_t now) const;
-  Response errorResponse(int status, std::time_t now) const;
+  // For a request that could not be processed (parse error, timeout).
+  // "method" is empty if the request line was not understood.
+  Response errorResponse(int status, const std::string& method,
+                         std::time_t now) const;
 
  private:
   Response respond(const RouteResult& route) const;
   Response statusPage(int status) const;
-  void addCommonFields(Response& response, std::time_t now) const;
+  void finish(Response& response, const std::string& method,
+              std::time_t now) const;
 
   const ServerConfig& server_;
   Router router_;

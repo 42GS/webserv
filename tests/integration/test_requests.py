@@ -73,6 +73,14 @@ class RequestTest(unittest.TestCase):
         self.assert_status(405, harness.request(chunked, b"5\r\nhello\r\n0\r\n\r\n"))
         self.assert_status(413, harness.request(chunked, b"B\r\n"))
 
+    def test_r21_head_error_has_no_body(self):
+        response = harness.exchange(self.port, harness.request(
+            ["HEAD /small/a HTTP/1.1", "Host: x", "Content-Length: 11"]))
+        status, headers, body = harness.parse(response)
+        self.assertEqual(413, status)
+        self.assertNotEqual("0", headers["content-length"])
+        self.assertEqual(b"", body)
+
     def test_p19_error_response_format_and_close(self):
         with harness.connect(self.port) as sock:
             sock.sendall(harness.request(["GET / HTTP/1.1"]))

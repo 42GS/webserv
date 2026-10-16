@@ -19,15 +19,14 @@ std::size_t RequestProcessor::bodyLimitFor(const Request& request) const {
 Response RequestProcessor::process(const Request& request,
                                    std::time_t now) const {
   Response response = respond(router_.route(request));
-  // HEAD gets the GET head without content (RFC 9110 9.3.2, decision 5).
-  response.omitBody = (request.method == "HEAD");
-  addCommonFields(response, now);
+  finish(response, request.method, now);
   return response;
 }
 
-Response RequestProcessor::errorResponse(int status, std::time_t now) const {
+Response RequestProcessor::errorResponse(int status, const std::string& method,
+                                         std::time_t now) const {
   Response response = statusPage(status);
-  addCommonFields(response, now);
+  finish(response, method, now);
   return response;
 }
 
@@ -58,11 +57,13 @@ Response RequestProcessor::respond(const RouteResult& route) const {
   return response;
 }
 
-// Date: an origin server with a clock MUST send it (RFC 9110 6.6.1,
-// design decision 10). Every connection closes after one response until
-// keep-alive comes in step 5.
-void RequestProcessor::addCommonFields(Response& response,
-                                       std::time_t now) const {
+// HEAD gets the GET head without content, errors included (RFC 9110 9.3.2,
+// decision 5). Date: an origin server with a clock MUST send it (RFC 9110
+// 6.6.1, design decision 10). Every connection closes after one response
+// until keep-alive comes in step 5.
+void RequestProcessor::finish(Response& response, const std::string& method,
+                              std::time_t now) const {
+  response.omitBody = (method == "HEAD");
   response.headers.add("Date", formatHttpDate(now));
   response.headers.add("Connection", "close");
 }

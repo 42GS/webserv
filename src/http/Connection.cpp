@@ -116,13 +116,14 @@ void Connection::sendOnce() {
 // is built in memory and always starts.
 void Connection::startResponse(const Response& response) {
   if (!stream_.reset(response))
-    static_cast<void>(stream_.reset(
-        processor_.errorResponse(http_status::kInternalServerError, now_)));
+    static_cast<void>(stream_.reset(processor_.errorResponse(
+        http_status::kInternalServerError, parser_.request().method, now_)));
   changeState(WRITE);
 }
 
 void Connection::startErrorResponse(int status) {
-  startResponse(processor_.errorResponse(status, now_));
+  startResponse(
+      processor_.errorResponse(status, parser_.request().method, now_));
 }
 
 void Connection::changeState(State next) {
