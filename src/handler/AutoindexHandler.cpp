@@ -7,11 +7,10 @@
 #include <string>
 #include <vector>
 
+#include "http/StatusCodes.hpp"
 #include "route/PathResolver.hpp"
 
 namespace {
-
-const int kOk = 200;
 
 std::string escapeHtml(const std::string& text) {
   std::string escaped;
@@ -79,7 +78,7 @@ bool listDirectory(const RouteResult& route, Response& response) {
   if (route.urlPath != "/") html += "<li><a href=\"../\">../</a></li>\n";
   for (std::size_t i = 0; i < names.size(); ++i) html += listItem(names[i]);
   html += "</ul>\n</body></html>\n";
-  response.status = kOk;
+  response.status = http_status::kOk;
   response.headers.add("Content-Type", "text/html");
   response.body = html;
   return true;

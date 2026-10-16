@@ -5,13 +5,11 @@
 
 #include <sstream>
 
+#include "core/Limits.hpp"
+#include "http/StatusCodes.hpp"
 #include "http/StatusText.hpp"
 
 namespace {
-
-const std::size_t kFileChunkSize = 65536;
-const int kNoContent = 204;
-const int kNoFile = -1;
 
 // RFC 9112 section 11.1: no CR or LF may reach the header section from
 // anywhere but this function, so a field value holding one is dropped.
@@ -30,7 +28,7 @@ std::string serializeHead(const Response& response) {
       head << field.first << ": " << field.second << "\r\n";
   }
   // Never for 204 (RFC 9110 8.6); for HEAD it is the GET value.
-  if (response.status != kNoContent) {
+  if (response.status != http_status::kNoContent) {
     const std::size_t length = response.bodyFile.empty()
                                    ? response.body.size()
                                    : response.bodyFileSize;
@@ -43,7 +41,7 @@ std::string serializeHead(const Response& response) {
 }  // namespace
 
 ResponseStream::ResponseStream()
-    : offset_(0), fileFd_(kNoFile), fileRemaining_(0) {}
+    : offset_(0), fileFd_(response_stream::kNoFile), fileRemaining_(0) {}
 
 ResponseStream::~ResponseStream() { closeFile(); }
 
@@ -82,9 +80,10 @@ bool ResponseStream::consume(std::size_t n) {
 // A regular file: read() needs no readiness (raw/subject.md:134). A short
 // file (changed since stat) cannot match the Content-Length already sent.
 bool ResponseStream::readFilePiece() {
-  char buffer[kFileChunkSize];
-  const std::size_t wanted =
-      fileRemaining_ < kFileChunkSize ? fileRemaining_ : kFileChunkSize;
+  char buffer[limits::kFileChunkSize];
+  const std::size_t wanted = fileRemaining_ < limits::kFileChunkSize
+                                 ? fileRemaining_
+                                 : limits::kFileChunkSize;
   const ssize_t got = read(fileFd_, buffer, wanted);
   if (got <= 0) {
     closeFile();
@@ -100,6 +99,6 @@ bool ResponseStream::readFilePiece() {
 
 // The descriptor is given up either way; a close() error changes nothing.
 void ResponseStream::closeFile() {
-  if (fileFd_ != kNoFile) close(fileFd_);
-  fileFd_ = kNoFile;
+  if (fileFd_ != response_stream::kNoFile) close(fileFd_);
+  fileFd_ = response_stream::kNoFile;
 }

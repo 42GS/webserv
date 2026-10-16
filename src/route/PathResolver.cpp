@@ -6,15 +6,11 @@
 
 namespace {
 
-const int kHexBase = 16;
-const int kHexLetterValue = 10;  // value of 'a' / 'A'
-const int kNotHex = -1;
-
 int hexValue(char c) {
   if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'a' && c <= 'f') return c - 'a' + kHexLetterValue;
-  if (c >= 'A' && c <= 'F') return c - 'A' + kHexLetterValue;
-  return kNotHex;
+  if (c >= 'a' && c <= 'f') return c - 'a' + path_resolver::kHexLetterValue;
+  if (c >= 'A' && c <= 'F') return c - 'A' + path_resolver::kHexLetterValue;
+  return path_resolver::kNotHex;
 }
 
 // Decodes %XX once. Fails on a malformed escape, NUL, or "/".
@@ -25,14 +21,15 @@ bool decodeSegment(const std::string& segment, std::string& decoded) {
       decoded += segment[i];
       continue;
     }
-    if (i + 2 >= segment.size()) return false;  // needs two hex digits
+    if (i + path_resolver::kEscapeDigits >= segment.size()) return false;
     const int high = hexValue(segment[i + 1]);
-    const int low = hexValue(segment[i + 2]);
-    if (high == kNotHex || low == kNotHex) return false;
-    const char c = static_cast<char>(high * kHexBase + low);
+    const int low = hexValue(segment[i + path_resolver::kEscapeDigits]);
+    if (high == path_resolver::kNotHex || low == path_resolver::kNotHex)
+      return false;
+    const char c = static_cast<char>(high * path_resolver::kHexBase + low);
     if (c == '\0' || c == '/') return false;
     decoded += c;
-    i += 2;
+    i += path_resolver::kEscapeDigits;
   }
   return true;
 }
@@ -67,18 +64,17 @@ bool normalizePath(const std::string& encodedPath, std::string& normalized) {
 }
 
 std::string encodePath(const std::string& decodedPath) {
-  static const char kHexDigits[] = "0123456789ABCDEF";
   std::string encoded;
   for (std::string::size_type i = 0; i < decodedPath.size(); ++i) {
     const unsigned char c = static_cast<unsigned char>(decodedPath[i]);
     // strchr() would also find the terminating NUL, so c == 0 is excluded.
     if (std::isalnum(c) ||
-        (c != 0 && std::strchr("-._~!$&'()*+,;=:@/", c) != 0)) {
+        (c != 0 && std::strchr(path_resolver::kPathSymbols, c) != 0)) {
       encoded += static_cast<char>(c);
     } else {
       encoded += '%';
-      encoded += kHexDigits[c / kHexBase];
-      encoded += kHexDigits[c % kHexBase];
+      encoded += path_resolver::kHexDigits[c / path_resolver::kHexBase];
+      encoded += path_resolver::kHexDigits[c % path_resolver::kHexBase];
     }
   }
   return encoded;

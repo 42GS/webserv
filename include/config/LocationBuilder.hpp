@@ -5,6 +5,12 @@
 #include "config/ServerConfig.hpp"
 #include "config/SharedSettings.hpp"
 
+namespace location_builder {
+
+const std::string::size_type kMinCgiExtensionLength = 2;  // ".x"
+
+}  // namespace location_builder
+
 // Builds one "location PATH { ... }" block on top of the server's settings.
 LocationConfig buildLocation(const BuildContext& context,
                              const Directive& block,

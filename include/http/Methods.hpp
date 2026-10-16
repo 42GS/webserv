@@ -1,7 +1,17 @@
 #ifndef HTTP_METHODS_HPP
 #define HTTP_METHODS_HPP
 
+#include <cstddef>
 #include <string>
+
+namespace methods {
+
+const char* const kImplementedMethods[] = {"GET", "HEAD", "POST", "DELETE"};
+
+const std::size_t kMethodCount =
+    sizeof(kImplementedMethods) / sizeof(kImplementedMethods[0]);
+
+}  // namespace methods
 
 // The request methods this server implements. The request parser answers
 // 501 to any other method, and "limit_except" accepts only these, so both

@@ -1,48 +1,13 @@
 #include "config/DirectiveRules.hpp"
 
-#include <cstddef>
-
 #include "config/ConfigError.hpp"
 
 namespace {
 
-const std::size_t kAnyCount = static_cast<std::size_t>(-1);
-
-const int kInServer = 1 << CONTEXT_SERVER;
-const int kInLocation = 1 << CONTEXT_LOCATION;
-
-struct DirectiveRule {
-  const char* name;
-  int contexts;  // bit set of kInServer / kInLocation
-  std::size_t minArgs;
-  std::size_t maxArgs;
-  bool takesBlock;
-  bool repeatable;
-};
-
-// "location" accepts any argument count here so that LocationBuilder can
-// report modifiers ("location = /x") with a specific message.
-// clang-format off
-const DirectiveRule kRules[] = {
-    // name                    contexts                 min  max        block  repeat
-    {"listen",               kInServer,               1,   1,         false, true},
-    {"error_page",           kInServer,               2,   kAnyCount, false, true},
-    {"location",             kInServer,               0,   kAnyCount, true,  true},
-    {"root",                 kInServer | kInLocation, 1,   1,         false, false},
-    {"index",                kInServer | kInLocation, 1,   kAnyCount, false, false},
-    {"autoindex",            kInServer | kInLocation, 1,   1,         false, false},
-    {"client_max_body_size", kInServer | kInLocation, 1,   1,         false, false},
-    {"alias",                kInLocation,             1,   1,         false, false},
-    {"return",               kInLocation,             2,   2,         false, false},
-    {"limit_except",         kInLocation,             1,   kAnyCount, true,  false},
-    {"upload_store",         kInLocation,             1,   1,         false, false},
-    {"cgi",                  kInLocation,             2,   2,         false, true},
-};
-// clang-format on
-
 const DirectiveRule* findRule(const std::string& name) {
-  for (std::size_t i = 0; i < sizeof(kRules) / sizeof(kRules[0]); ++i) {
-    if (name == kRules[i].name) return &kRules[i];
+  for (std::size_t i = 0; i < directive_rules::kRuleCount; ++i) {
+    if (name == directive_rules::kRules[i].name)
+      return &directive_rules::kRules[i];
   }
   return 0;
 }

@@ -4,16 +4,10 @@
 
 #include "config/BuildContext.hpp"
 #include "config/ConfigError.hpp"
+#include "config/ConfigValues.hpp"
 #include "config/ServerBuilder.hpp"
 
 namespace {
-
-const char* const kAnyAddress = "0.0.0.0";
-
-struct ListenEntry {
-  ListenAddr addr;
-  int line;
-};
 
 std::string describe(const ListenAddr& addr) {
   std::ostringstream out;
@@ -33,7 +27,8 @@ void checkListenConflicts(const std::vector<ListenEntry>& listens,
       if (a.host == b.host)
         throw ConfigError(source, listens[i].line,
                           "duplicate listen " + describe(a));
-      if (a.host == kAnyAddress || b.host == kAnyAddress)
+      if (a.host == config_values::kAnyAddress ||
+          b.host == config_values::kAnyAddress)
         throw ConfigError(
             source, listens[i].line,
             "listen " + describe(a) + " conflicts with " + describe(b));

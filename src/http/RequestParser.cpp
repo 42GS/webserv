@@ -2,10 +2,11 @@
 
 #include <cctype>
 #include <cstring>
-#include <limits>
 #include <vector>
 
+#include "core/Limits.hpp"
 #include "http/Methods.hpp"
+#include "http/StatusCodes.hpp"
 
 // Section numbers in comments refer to RFC 9112 unless noted otherwise.
 // The choices where the RFC allows several behaviours are listed in
@@ -13,35 +14,9 @@
 
 namespace {
 
-const std::size_t kMaxRequestLine = 8192;  // at least 8000 (section 3)
-const std::size_t kMaxHeaderBytes = 16384;
-const std::size_t kMaxChunkLine = 4096;
-
-const int kBadRequest = 400;
-const int kContentTooLarge = 413;
-const int kUriTooLong = 414;
-const int kHeaderFieldsTooLarge = 431;
-const int kNotImplemented = 501;
-const int kVersionNotSupported = 505;
-
-const char* const kHttp10 = "HTTP/1.0";
-const char* const kHttp11 = "HTTP/1.1";
-const char* const kVersionPrefix = "HTTP/";
-const std::string::size_type kVersionLength = 8;  // "HTTP/x.y"
-const std::string::size_type kMajorIndex = 5;
-const std::string::size_type kDotIndex = 6;
-const std::string::size_type kMinorIndex = 7;
-const unsigned char kDeleteChar = 0x7f;
-const char* const kAbsoluteFormPrefix = "http://";
-const char* const kChunked = "chunked";
-
-const int kDecimalBase = 10;
-const int kHexBase = 16;
-const std::size_t kMaxSize = std::numeric_limits<std::size_t>::max();
-
 bool isTokenChar(char c) {
   return std::isalnum(static_cast<unsigned char>(c)) ||
-         (c != '\0' && std::strchr("!#$%&'*+-.^_`|~", c) != 0);
+         (c != '\0' && std::strchr(request_parser::kTokenSymbols, c) != 0);
 }
 
 bool isToken(const std::string& text) {
@@ -93,7 +68,7 @@ std::vector<std::string> splitList(const std::vector<std::string>& lines) {
 bool isTargetText(const std::string& target) {
   for (std::string::size_type i = 0; i < target.size(); ++i) {
     const unsigned char c = static_cast<unsigned char>(target[i]);
-    if (c <= ' ' || c >= kDeleteChar || c == '#') return false;
+    if (c <= ' ' || c >= request_parser::kDeleteChar || c == '#') return false;
   }
   return !target.empty();
 }
@@ -102,7 +77,8 @@ bool isTargetText(const std::string& target) {
 bool isFieldValue(const std::string& value) {
   for (std::string::size_type i = 0; i < value.size(); ++i) {
     const unsigned char c = static_cast<unsigned char>(value[i]);
-    if ((c < ' ' && c != '\t') || c == kDeleteChar) return false;
+    if ((c < ' ' && c != '\t') || c == request_parser::kDeleteChar)
+      return false;
   }
   return true;
 }
@@ -114,7 +90,7 @@ bool isHostValue(const std::string& value) {
   for (std::string::size_type i = 0; i < value.size(); ++i) {
     const char c = value[i];
     if (!std::isalnum(static_cast<unsigned char>(c)) &&
-        std::strchr("-._~%!$&'()*+,;=:[]", c) == 0)
+        std::strchr(request_parser::kHostSymbols, c) == 0)
       return false;
   }
   return true;
@@ -124,7 +100,7 @@ bool isHostValue(const std::string& value) {
 bool appendDigit(std::size_t& value, int base, int digit) {
   const std::size_t factor = static_cast<std::size_t>(base);
   const std::size_t add = static_cast<std::size_t>(digit);
-  if (value > (kMaxSize - add) / factor) return false;
+  if (value > (request_parser::kMaxSize - add) / factor) return false;
   value = value * factor + add;
   return true;
 }
@@ -134,7 +110,8 @@ bool parseDecimal(const std::string& text, std::size_t& value) {
   value = 0;
   for (std::string::size_type i = 0; i < text.size(); ++i) {
     if (!std::isdigit(static_cast<unsigned char>(text[i]))) return false;
-    if (!appendDigit(value, kDecimalBase, text[i] - '0')) return false;
+    if (!appendDigit(value, request_parser::kDecimalBase, text[i] - '0'))
+      return false;
   }
   return true;
 }
@@ -143,7 +120,8 @@ int hexDigitValue(char c) {
   if (c >= '0' && c <= '9') return c - '0';
   const char lower =
       static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  if (lower >= 'a' && lower <= 'f') return lower - 'a' + kDecimalBase;
+  if (lower >= 'a' && lower <= 'f')
+    return lower - 'a' + request_parser::kDecimalBase;
   return -1;
 }
 
@@ -153,18 +131,19 @@ int overlongRequestLineStatus(const std::string& text) {
   const std::string::size_type space = text.find(' ');
   const std::string::size_type methodLength =
       (space == std::string::npos) ? text.size() : space;
-  return methodLength > longestImplementedMethod() ? kNotImplemented
-                                                   : kUriTooLong;
+  return methodLength > longestImplementedMethod()
+             ? http_status::kNotImplemented
+             : http_status::kUriTooLong;
 }
 
 }  // namespace
 
 ParserLimits defaultParserLimits() {
-  ParserLimits limits;
-  limits.maxRequestLine = kMaxRequestLine;
-  limits.maxHeaderBytes = kMaxHeaderBytes;
-  limits.maxChunkLine = kMaxChunkLine;
-  return limits;
+  ParserLimits parserLimits;
+  parserLimits.maxRequestLine = limits::kMaxRequestLine;
+  parserLimits.maxHeaderBytes = limits::kMaxHeaderBytes;
+  parserLimits.maxChunkLine = limits::kMaxChunkLine;
+  return parserLimits;
 }
 
 RequestParser::RequestParser(const ParserLimits& limits)
@@ -267,13 +246,13 @@ bool RequestParser::readRequestLine(std::string& buffer, Result& result) {
       return fail(overlongRequestLineStatus(buffer.substr(consumed_)), result);
     return false;
   }
-  if (status == LINE_INVALID) return fail(kBadRequest, result);
+  if (status == LINE_INVALID) return fail(http_status::kBadRequest, result);
   if (line.empty()) {
     // Empty lines before the request line are ignored (section 2.2), but
     // only as many as would fit in a request line.
     preambleBytes_ += 1;
     if (preambleBytes_ > limits_.maxRequestLine)
-      return fail(kBadRequest, result);
+      return fail(http_status::kBadRequest, result);
     return true;
   }
   if (line.size() > limits_.maxRequestLine)
@@ -290,23 +269,31 @@ bool RequestParser::parseRequestLine(const std::string& line, Result& result) {
   const std::string::size_type first = line.find(' ');
   const std::string::size_type second =
       (first == std::string::npos) ? first : line.find(' ', first + 1);
-  if (second == std::string::npos) return fail(kBadRequest, result);
+  if (second == std::string::npos)
+    return fail(http_status::kBadRequest, result);
   const std::string method = line.substr(0, first);
   const std::string target = line.substr(first + 1, second - first - 1);
   const std::string version = line.substr(second + 1);
   if (!isToken(method) || !isTargetText(target) ||
-      version.size() != kVersionLength ||
-      version.compare(0, std::strlen(kVersionPrefix), kVersionPrefix) != 0 ||
-      !std::isdigit(static_cast<unsigned char>(version[kMajorIndex])) ||
-      version[kDotIndex] != '.' ||
-      !std::isdigit(static_cast<unsigned char>(version[kMinorIndex])))
-    return fail(kBadRequest, result);
-  if (version[kMajorIndex] != '1') return fail(kVersionNotSupported, result);
+      version.size() != request_parser::kVersionLength ||
+      version.compare(0, std::strlen(request_parser::kVersionPrefix),
+                      request_parser::kVersionPrefix) != 0 ||
+      !std::isdigit(
+          static_cast<unsigned char>(version[request_parser::kMajorIndex])) ||
+      version[request_parser::kDotIndex] != '.' ||
+      !std::isdigit(
+          static_cast<unsigned char>(version[request_parser::kMinorIndex])))
+    return fail(http_status::kBadRequest, result);
+  if (version[request_parser::kMajorIndex] != '1')
+    return fail(http_status::kHttpVersionNotSupported, result);
   // A higher 1.x minor version is handled as 1.1 (RFC 9110 section 6.2).
-  request_.version = (version[kMinorIndex] == '0') ? kHttp10 : kHttp11;
-  if (!isImplementedMethod(method)) return fail(kNotImplemented, result);
+  request_.version = (version[request_parser::kMinorIndex] == '0')
+                         ? request_parser::kHttp10
+                         : request_parser::kHttp11;
+  if (!isImplementedMethod(method))
+    return fail(http_status::kNotImplemented, result);
   request_.method = method;
-  if (!parseTarget(target)) return fail(kBadRequest, result);
+  if (!parseTarget(target)) return fail(http_status::kBadRequest, result);
   return true;
 }
 
@@ -315,10 +302,12 @@ bool RequestParser::parseRequestLine(const std::string& line, Result& result) {
 // virtual hosts (design decision 4).
 bool RequestParser::parseTarget(const std::string& target) {
   std::string pathAndQuery;
-  const std::string::size_type prefixLength = std::strlen(kAbsoluteFormPrefix);
+  const std::string::size_type prefixLength =
+      std::strlen(request_parser::kAbsoluteFormPrefix);
   if (target[0] == '/') {
     pathAndQuery = target;
-  } else if (toLower(target.substr(0, prefixLength)) == kAbsoluteFormPrefix) {
+  } else if (toLower(target.substr(0, prefixLength)) ==
+             request_parser::kAbsoluteFormPrefix) {
     const std::string rest = target.substr(prefixLength);
     const std::string::size_type authorityEnd = rest.find_first_of("/?");
     if (authorityEnd == 0) return false;
@@ -341,13 +330,13 @@ bool RequestParser::readHeaderLine(std::string& buffer, Result& result) {
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
     if (headerBytes_ + unread(buffer) > limits_.maxHeaderBytes)
-      return fail(kHeaderFieldsTooLarge, result);
+      return fail(http_status::kRequestHeaderFieldsTooLarge, result);
     return false;
   }
-  if (status == LINE_INVALID) return fail(kBadRequest, result);
+  if (status == LINE_INVALID) return fail(http_status::kBadRequest, result);
   headerBytes_ += line.size() + 1;
   if (headerBytes_ > limits_.maxHeaderBytes)
-    return fail(kHeaderFieldsTooLarge, result);
+    return fail(http_status::kRequestHeaderFieldsTooLarge, result);
   if (line.empty()) return finishHead(result);
   return parseHeaderLine(line, true, result);
 }
@@ -358,11 +347,12 @@ bool RequestParser::readHeaderLine(std::string& buffer, Result& result) {
 bool RequestParser::parseHeaderLine(const std::string& line, bool store,
                                     Result& result) {
   const std::string::size_type colon = line.find(':');
-  if (colon == std::string::npos) return fail(kBadRequest, result);
+  if (colon == std::string::npos) return fail(http_status::kBadRequest, result);
   const std::string name = line.substr(0, colon);
   const std::string value = trimWhitespace(line.substr(colon + 1));
   // A space before the colon makes the name an invalid token (section 5.1).
-  if (!isToken(name) || !isFieldValue(value)) return fail(kBadRequest, result);
+  if (!isToken(name) || !isFieldValue(value))
+    return fail(http_status::kBadRequest, result);
   if (store) request_.headers.add(name, value);
   return true;
 }
@@ -371,9 +361,9 @@ bool RequestParser::finishHead(Result& result) {
   const HeaderMap& headers = request_.headers;
   const std::size_t hosts = headers.count("Host");
   // Section 3.2: Host is required in HTTP/1.1, never repeated, and valid.
-  if ((hosts == 0 && request_.version == kHttp11) || hosts > 1 ||
-      (hosts == 1 && !isHostValue(*headers.first("Host"))))
-    return fail(kBadRequest, result);
+  if ((hosts == 0 && request_.version == request_parser::kHttp11) ||
+      hosts > 1 || (hosts == 1 && !isHostValue(*headers.first("Host"))))
+    return fail(http_status::kBadRequest, result);
   if (!decideBodyLength(result)) return false;
   state_ = BODY_START;
   result = HEAD_DONE;
@@ -389,33 +379,35 @@ bool RequestParser::decideBodyLength(Result& result) {
   if (request_.headers.has("Transfer-Encoding")) {
     // HTTP/1.0 with Transfer-Encoding is faulty framing (section 6.1);
     // with Content-Length as well it may be smuggling (section 6.3).
-    if (request_.version == kHttp10 || request_.headers.has("Content-Length"))
-      return fail(kBadRequest, result);
-    if (codings.empty() || toLower(codings.back()) != kChunked)
-      return fail(kBadRequest, result);
+    if (request_.version == request_parser::kHttp10 ||
+        request_.headers.has("Content-Length"))
+      return fail(http_status::kBadRequest, result);
+    if (codings.empty() || toLower(codings.back()) != request_parser::kChunked)
+      return fail(http_status::kBadRequest, result);
     // chunked may be applied only once; no other coding is implemented.
     for (std::size_t i = 0; i + 1 < codings.size(); ++i) {
-      if (toLower(codings[i]) == kChunked) return fail(kBadRequest, result);
+      if (toLower(codings[i]) == request_parser::kChunked)
+        return fail(http_status::kBadRequest, result);
     }
-    if (codings.size() > 1) return fail(kNotImplemented, result);
+    if (codings.size() > 1) return fail(http_status::kNotImplemented, result);
     chunked_ = true;
     return true;
   }
   if (request_.headers.has("Content-Length")) {
     // A list is allowed only if every value is the same (section 6.3).
-    if (lengths.empty()) return fail(kBadRequest, result);
+    if (lengths.empty()) return fail(http_status::kBadRequest, result);
     for (std::size_t i = 0; i < lengths.size(); ++i) {
       std::size_t value = 0;
       if (!parseDecimal(lengths[i], value) ||
           (i > 0 && value != contentLength_))
-        return fail(kBadRequest, result);
+        return fail(http_status::kBadRequest, result);
       contentLength_ = value;
     }
     return true;
   }
   // HTTP/1.0 POST must carry Content-Length (RFC 1945 section 8.3).
-  if (request_.version == kHttp10 && request_.method == "POST")
-    return fail(kBadRequest, result);
+  if (request_.version == request_parser::kHttp10 && request_.method == "POST")
+    return fail(http_status::kBadRequest, result);
   return true;
 }
 
@@ -424,7 +416,8 @@ bool RequestParser::startBody(Result& result) {
     state_ = CHUNK_SIZE;
     return true;
   }
-  if (contentLength_ > maxBodySize_) return fail(kContentTooLarge, result);
+  if (contentLength_ > maxBodySize_)
+    return fail(http_status::kContentTooLarge, result);
   if (contentLength_ == 0) {
     state_ = COMPLETE;
     return true;
@@ -455,11 +448,12 @@ bool RequestParser::readChunkLine(std::string& buffer, Result& result) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
-    if (unread(buffer) > limits_.maxChunkLine) return fail(kBadRequest, result);
+    if (unread(buffer) > limits_.maxChunkLine)
+      return fail(http_status::kBadRequest, result);
     return false;
   }
   if (status == LINE_INVALID || line.size() > limits_.maxChunkLine)
-    return fail(kBadRequest, result);
+    return fail(http_status::kBadRequest, result);
   return readChunkSize(line, result);
 }
 
@@ -468,18 +462,19 @@ bool RequestParser::readChunkSize(const std::string& line, Result& result) {
   std::size_t size = 0;
   std::string::size_type i = 0;
   for (; i < line.size() && hexDigitValue(line[i]) >= 0; ++i) {
-    if (!appendDigit(size, kHexBase, hexDigitValue(line[i])))
-      return fail(kBadRequest, result);
+    if (!appendDigit(size, request_parser::kHexBase, hexDigitValue(line[i])))
+      return fail(http_status::kBadRequest, result);
   }
-  if (i == 0) return fail(kBadRequest, result);
+  if (i == 0) return fail(http_status::kBadRequest, result);
   while (i < line.size() && isWhitespace(line[i])) ++i;
-  if (i < line.size() && line[i] != ';') return fail(kBadRequest, result);
+  if (i < line.size() && line[i] != ';')
+    return fail(http_status::kBadRequest, result);
   if (size == 0) {
     state_ = TRAILERS;
     return true;
   }
   if (size > maxBodySize_ - request_.body.size())
-    return fail(kContentTooLarge, result);
+    return fail(http_status::kContentTooLarge, result);
   remaining_ = size;
   state_ = CHUNK_DATA;
   return true;
@@ -493,10 +488,11 @@ bool RequestParser::readChunkEnd(std::string& buffer, Result& result) {
     // Only a CR may still be waiting for its LF.
     if (unread(buffer) > 1 ||
         (unread(buffer) == 1 && buffer[consumed_] != '\r'))
-      return fail(kBadRequest, result);
+      return fail(http_status::kBadRequest, result);
     return false;
   }
-  if (status == LINE_INVALID || !line.empty()) return fail(kBadRequest, result);
+  if (status == LINE_INVALID || !line.empty())
+    return fail(http_status::kBadRequest, result);
   state_ = CHUNK_SIZE;
   return true;
 }
@@ -508,13 +504,13 @@ bool RequestParser::readTrailerLine(std::string& buffer, Result& result) {
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
     if (headerBytes_ + unread(buffer) > limits_.maxHeaderBytes)
-      return fail(kHeaderFieldsTooLarge, result);
+      return fail(http_status::kRequestHeaderFieldsTooLarge, result);
     return false;
   }
-  if (status == LINE_INVALID) return fail(kBadRequest, result);
+  if (status == LINE_INVALID) return fail(http_status::kBadRequest, result);
   headerBytes_ += line.size() + 1;
   if (headerBytes_ > limits_.maxHeaderBytes)
-    return fail(kHeaderFieldsTooLarge, result);
+    return fail(http_status::kRequestHeaderFieldsTooLarge, result);
   if (line.empty()) {
     state_ = COMPLETE;
     return true;

@@ -3,6 +3,19 @@
 
 #include <string>
 
+namespace path_resolver {
+
+const int kHexBase = 16;
+const int kHexLetterValue = 10;  // value of 'a' / 'A'
+const int kNotHex = -1;
+const std::string::size_type kEscapeDigits = 2;  // %XX
+const char* const kHexDigits = "0123456789ABCDEF";
+// Left as they are by encodePath besides letters and digits: unreserved
+// and sub-delims, ":", "@" (pchar) and "/" (RFC 3986 section 3.3).
+const char* const kPathSymbols = "-._~!$&'()*+,;=:@/";
+
+}  // namespace path_resolver
+
 // Turns the percent-encoded path of a request into a normalized one
 // (concepts/security "경로 정규화 절차"): split into segments, decode each
 // once, merge repeated "/", resolve "." and "..". Returns false, meaning

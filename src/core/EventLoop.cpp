@@ -5,11 +5,7 @@
 #include <algorithm>
 #include <exception>
 
-namespace {
-
-const int kPollTimeoutMs = 1000;
-
-}  // namespace
+#include "core/Limits.hpp"
 
 EventLoop::EventLoop(Clock& clock) : clock_(clock), dispatching_(false) {}
 
@@ -39,8 +35,9 @@ void EventLoop::pollOnce() {
   }
   // -1 means interrupted by a signal or a failure; errno is not consulted.
   // The loop goes on and the observer decides whether to stop.
-  const int ready = poll(fds.empty() ? 0 : &fds[0],
-                         static_cast<nfds_t>(fds.size()), kPollTimeoutMs);
+  const int ready =
+      poll(fds.empty() ? 0 : &fds[0], static_cast<nfds_t>(fds.size()),
+           limits::kPollTimeoutMs);
   if (ready <= 0) return;
   std::vector<short> revents(fds.size());
   for (std::size_t i = 0; i < fds.size(); ++i) revents[i] = fds[i].revents;

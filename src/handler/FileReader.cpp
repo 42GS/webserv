@@ -3,18 +3,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-namespace {
-
-const std::size_t kReadSize = 65536;
-
-}  // namespace
+#include "core/Limits.hpp"
 
 bool readWholeFile(const std::string& path, std::size_t maxSize,
                    std::string& content) {
   const int fd = open(path.c_str(), O_RDONLY);
   if (fd < 0) return false;
   content.clear();
-  char buffer[kReadSize];
+  char buffer[limits::kFileReadSize];
   bool ok = true;
   for (;;) {
     const ssize_t got = read(fd, buffer, sizeof(buffer));

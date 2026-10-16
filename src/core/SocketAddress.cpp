@@ -5,32 +5,26 @@
 #include <cstring>
 #include <sstream>
 
-namespace {
-
-const int kOctetCount = 4;
-const int kBitsPerOctet = 8;
-const unsigned long kOctetMask = 0xff;
-
-}  // namespace
-
 unsigned long parseIpv4(const std::string& text) {
   unsigned long address = 0;
   unsigned long octet = 0;
   for (std::string::size_type i = 0; i < text.size(); ++i) {
     if (text[i] == '.') {
-      address = (address << kBitsPerOctet) | octet;
+      address = (address << socket_address::kBitsPerOctet) | octet;
       octet = 0;
     } else {
-      octet = octet * 10 + static_cast<unsigned long>(text[i] - '0');
+      octet = octet * socket_address::kDecimalBase +
+              static_cast<unsigned long>(text[i] - '0');
     }
   }
-  return (address << kBitsPerOctet) | octet;
+  return (address << socket_address::kBitsPerOctet) | octet;
 }
 
 std::string formatIpv4(unsigned long address) {
   std::ostringstream out;
-  for (int i = kOctetCount - 1; i >= 0; --i) {
-    out << ((address >> (i * kBitsPerOctet)) & kOctetMask);
+  for (int i = socket_address::kOctetCount - 1; i >= 0; --i) {
+    out << ((address >> (i * socket_address::kBitsPerOctet)) &
+            socket_address::kOctetMask);
     if (i > 0) out << '.';
   }
   return out.str();

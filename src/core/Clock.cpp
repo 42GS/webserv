@@ -4,17 +4,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-namespace {
-
-const mode_t kClockFileMode = 0644;
-
-}  // namespace
-
 Clock::Clock(const std::string& path) : path_(path), now_(0) {}
 
 bool Clock::refresh() {
   const int fd =
-      open(path_.c_str(), O_WRONLY | O_CREAT | O_TRUNC, kClockFileMode);
+      open(path_.c_str(), O_WRONLY | O_CREAT | O_TRUNC, clock_file::kMode);
   if (fd < 0) return false;
   const ssize_t written = write(fd, "t", 1);
   close(fd);  // nothing to recover; stat() below shows whether the write held

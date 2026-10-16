@@ -5,8 +5,6 @@
 
 namespace {
 
-const char* const kDefaultIndexFile = "index.html";  // NGINX "index" default
-
 std::size_t parseBodySize(const BuildContext& context,
                           const Directive& directive) {
   std::size_t size = 0;
@@ -22,7 +20,7 @@ std::size_t parseBodySize(const BuildContext& context,
 
 SharedSettings SharedSettings::defaults() {
   SharedSettings settings;
-  settings.indexFiles.push_back(kDefaultIndexFile);
+  settings.indexFiles.push_back(shared_settings::kDefaultIndexFile);
   settings.autoindex = false;
   settings.maxBodySize = config_limits::kDefaultMaxBodySize;
   return settings;

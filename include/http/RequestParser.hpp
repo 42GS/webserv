@@ -2,9 +2,35 @@
 #define HTTP_REQUESTPARSER_HPP
 
 #include <cstddef>
+#include <limits>
 #include <string>
 
 #include "http/Request.hpp"
+
+namespace request_parser {
+
+const char* const kHttp10 = "HTTP/1.0";
+const char* const kHttp11 = "HTTP/1.1";
+const char* const kVersionPrefix = "HTTP/";
+const std::string::size_type kVersionLength = 8;  // "HTTP/x.y"
+const std::string::size_type kMajorIndex = 5;
+const std::string::size_type kDotIndex = 6;
+const std::string::size_type kMinorIndex = 7;
+const char* const kAbsoluteFormPrefix = "http://";
+const char* const kChunked = "chunked";
+
+const unsigned char kDeleteChar = 0x7f;
+// tchar besides letters and digits (RFC 9110 section 5.6.2).
+const char* const kTokenSymbols = "!#$%&'*+-.^_`|~";
+// Host characters besides letters and digits: unreserved, pct-encoded,
+// sub-delims, ":" and IP-literal brackets (RFC 3986 section 3.2.2).
+const char* const kHostSymbols = "-._~%!$&'()*+,;=:[]";
+
+const int kDecimalBase = 10;
+const int kHexBase = 16;
+const std::size_t kMaxSize = std::numeric_limits<std::size_t>::max();
+
+}  // namespace request_parser
 
 // Size limits that apply before a location is known (design 12).
 struct ParserLimits {

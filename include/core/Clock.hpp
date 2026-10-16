@@ -1,8 +1,16 @@
 #ifndef CORE_CLOCK_HPP
 #define CORE_CLOCK_HPP
 
+#include <sys/types.h>
+
 #include <ctime>
 #include <string>
+
+namespace clock_file {
+
+const mode_t kMode = 0644;  // rw-r--r--
+
+}  // namespace clock_file
 
 // Current time in whole seconds, read without time functions: the allowed
 // function list has none (design decision 10). refresh() rewrites a small

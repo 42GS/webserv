@@ -7,6 +7,15 @@
 
 #include "config/ServerConfig.hpp"
 
+namespace socket_address {
+
+const int kOctetCount = 4;
+const int kBitsPerOctet = 8;
+const unsigned long kOctetMask = 0xff;
+const unsigned long kDecimalBase = 10;
+
+}  // namespace socket_address
+
 // IPv4 address conversions using only allowed functions (htonl, ntohl, ...).
 
 // Dotted text ("127.0.0.1") to a host-order address. The text must already

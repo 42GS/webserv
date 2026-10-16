@@ -1,11 +1,22 @@
 #ifndef ROUTE_ROUTER_HPP
 #define ROUTE_ROUTER_HPP
 
+#include <cstddef>
 #include <string>
 
 #include "config/ServerConfig.hpp"
 #include "http/Request.hpp"
 #include "route/RouteResult.hpp"
+
+namespace router {
+
+// Methods that static resources answer in step 4. POST and DELETE get their
+// handlers in step 6.
+const char* const kStaticMethods[] = {"GET", "HEAD"};
+const std::size_t kStaticMethodCount =
+    sizeof(kStaticMethods) / sizeof(kStaticMethods[0]);
+
+}  // namespace router
 
 // Request + configuration -> how to answer (design 7): path
 // normalization, location, return, method check, file system mapping,

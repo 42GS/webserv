@@ -5,14 +5,13 @@
 #include <map>
 #include <sstream>
 
+#include "core/Limits.hpp"
 #include "handler/FileReader.hpp"
 #include "http/MimeTypes.hpp"
 #include "http/StatusText.hpp"
 #include "route/Router.hpp"
 
 namespace {
-
-const std::size_t kMaxErrorPageSize = 1024 * 1024;
 
 std::string defaultPage(int status) {
   std::ostringstream html;
@@ -31,7 +30,7 @@ bool readConfiguredPage(int status, const ServerConfig& server,
   if (!Router(server).mapToFile(page->second, fsPath)) return false;
   struct stat info;
   return stat(fsPath.c_str(), &info) == 0 && S_ISREG(info.st_mode) &&
-         readWholeFile(fsPath, kMaxErrorPageSize, content);
+         readWholeFile(fsPath, limits::kMaxErrorPageSize, content);
 }
 
 }  // namespace

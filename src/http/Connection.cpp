@@ -4,16 +4,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-namespace {
-
-const std::size_t kRecvBufferSize = 65536;
-const std::time_t kHeaderTimeoutSeconds = 30;
-const std::time_t kBodyTimeoutSeconds = 30;
-const std::time_t kSendTimeoutSeconds = 30;
-const int kRequestTimeout = 408;
-const int kInternalServerError = 500;
-
-}  // namespace
+#include "core/Limits.hpp"
+#include "http/StatusCodes.hpp"
 
 Connection::Connection(int fd, const ListenContext& where, std::time_t now)
     : fd_(fd),
@@ -54,21 +46,22 @@ void Connection::onEvent(short revents) {
 
 void Connection::onFailure() { changeState(CLOSED); }
 
-// The head must arrive within kHeaderTimeoutSeconds in total, so a client
-// that sends a byte now and then cannot hold the connection (design 12).
+// The head must arrive within limits::kHeaderTimeoutSeconds in total, so a
+// client that sends a byte now and then cannot hold the connection (design 12).
 // Body and send timeouts count only time without progress. An unfinished
 // request gets 408 before closing (RFC 9112 section 8 allows it); a
 // connection that never sent anything is just closed.
 void Connection::checkTimeout(std::time_t now) {
   now_ = now;
   const std::time_t idle = now - lastProgress_;
-  if ((state_ == READ_HEAD && now - stateSince_ >= kHeaderTimeoutSeconds) ||
-      (state_ == READ_BODY && idle >= kBodyTimeoutSeconds)) {
+  if ((state_ == READ_HEAD &&
+       now - stateSince_ >= limits::kHeaderTimeoutSeconds) ||
+      (state_ == READ_BODY && idle >= limits::kBodyTimeoutSeconds)) {
     if (parser_.hasStarted())
-      startErrorResponse(kRequestTimeout);
+      startErrorResponse(http_status::kRequestTimeout);
     else
       changeState(CLOSED);
-  } else if (state_ == WRITE && idle >= kSendTimeoutSeconds) {
+  } else if (state_ == WRITE && idle >= limits::kSendTimeoutSeconds) {
     changeState(CLOSED);
   }
 }
@@ -76,7 +69,7 @@ void Connection::checkTimeout(std::time_t now) {
 bool Connection::isClosed() const { return state_ == CLOSED; }
 
 void Connection::receiveOnce() {
-  char buffer[kRecvBufferSize];
+  char buffer[limits::kRecvBufferSize];
   const ssize_t received = recv(fd_, buffer, sizeof(buffer), 0);
   // 0: the peer closed. -1: an error. Neither looks at errno.
   if (received <= 0) {
@@ -124,8 +117,8 @@ void Connection::sendOnce() {
 // is built in memory and always starts.
 void Connection::startResponse(const Response& response) {
   if (!stream_.reset(response))
-    static_cast<void>(
-        stream_.reset(processor_.errorResponse(kInternalServerError, now_)));
+    static_cast<void>(stream_.reset(
+        processor_.errorResponse(http_status::kInternalServerError, now_)));
   changeState(WRITE);
 }
 

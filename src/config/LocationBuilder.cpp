@@ -3,14 +3,15 @@
 #include "config/ConfigValues.hpp"
 #include "config/DirectiveRules.hpp"
 #include "http/Methods.hpp"
+#include "http/StatusCodes.hpp"
 
 namespace {
 
-const unsigned long kMaxStatusCode = 999;
-
 bool isRedirectCode(unsigned long code) {
-  return code == 301 || code == 302 || code == 303 || code == 307 ||
-         code == 308;
+  return code == http_status::kMovedPermanently ||
+         code == http_status::kFound || code == http_status::kSeeOther ||
+         code == http_status::kTemporaryRedirect ||
+         code == http_status::kPermanentRedirect;
 }
 
 LocationConfig makeLocation(const std::string& path,
@@ -25,7 +26,7 @@ LocationConfig makeLocation(const std::string& path,
 void applyReturn(const BuildContext& context, const Directive& directive,
                  LocationConfig& location) {
   unsigned long code = 0;
-  if (!parseUnsigned(directive.args[0], kMaxStatusCode, code) ||
+  if (!parseUnsigned(directive.args[0], http_status::kMaxCode, code) ||
       !isRedirectCode(code))
     failAt(context, directive,
            "\"return\" code must be 301, 302, 303, 307 or 308");
@@ -58,7 +59,8 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
 void applyCgi(const BuildContext& context, const Directive& directive,
               LocationConfig& location) {
   const std::string& extension = directive.args[0];
-  if (extension.size() < 2 || extension[0] != '.')
+  if (extension.size() < location_builder::kMinCgiExtensionLength ||
+      extension[0] != '.')
     failAt(context, directive, "\"cgi\" extension must look like \".php\"");
   if (location.cgiByExtension.count(extension) != 0)
     failAt(context, directive,

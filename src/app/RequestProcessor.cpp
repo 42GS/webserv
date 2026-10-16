@@ -5,15 +5,8 @@
 #include "handler/AutoindexHandler.hpp"
 #include "handler/ErrorPageBuilder.hpp"
 #include "handler/StaticHandler.hpp"
+#include "http/StatusCodes.hpp"
 #include "route/PathResolver.hpp"
-
-namespace {
-
-const int kForbidden = 403;
-const int kMethodNotAllowed = 405;
-const int kInternalServerError = 500;
-
-}  // namespace
 
 RequestProcessor::RequestProcessor(const ServerConfig& server)
     : server_(server), router_(server) {}
@@ -46,10 +39,10 @@ Response RequestProcessor::respond(const RouteResult& route) const {
   switch (route.kind) {
     case RouteResult::STATIC_FILE:
       if (serveStaticFile(route, response)) return response;
-      return buildErrorPage(kInternalServerError, server_);
+      return buildErrorPage(http_status::kInternalServerError, server_);
     case RouteResult::DIRECTORY_LISTING:
       if (listDirectory(route, response)) return response;
-      return buildErrorPage(kForbidden, server_);
+      return buildErrorPage(http_status::kForbidden, server_);
     case RouteResult::REDIRECT:
       response = buildErrorPage(route.status, server_);
       response.headers.add("Location", route.redirectTo);
@@ -59,7 +52,7 @@ Response RequestProcessor::respond(const RouteResult& route) const {
   }
   response = buildErrorPage(route.status, server_);
   // 405 must list what the resource supports (RFC 9110 15.5.6).
-  if (route.status == kMethodNotAllowed)
+  if (route.status == http_status::kMethodNotAllowed)
     response.headers.add("Allow", route.allow);
   return response;
 }

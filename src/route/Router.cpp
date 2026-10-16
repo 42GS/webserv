@@ -3,25 +3,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "core/Limits.hpp"
+#include "http/StatusCodes.hpp"
 #include "route/PathResolver.hpp"
 
 namespace {
-
-const int kBadRequest = 400;
-const int kForbidden = 403;
-const int kNotFound = 404;
-const int kMethodNotAllowed = 405;
-const int kInternalServerError = 500;
-const int kMovedPermanently = 301;
-
-// Index files restart routing; NGINX stops after 10 (design decision 6).
-const int kMaxInternalRedirects = 10;
-
-// Methods that static resources answer in step 4. POST and DELETE get their
-// handlers in step 6.
-const char* const kStaticMethods[] = {"GET", "HEAD"};
-const std::size_t kStaticMethodCount =
-    sizeof(kStaticMethods) / sizeof(kStaticMethods[0]);
 
 RouteResult error(int status) {
   RouteResult result;
@@ -44,8 +30,8 @@ bool locationAllows(const LocationConfig& location, const std::string& method) {
 }
 
 bool isStaticMethod(const std::string& method) {
-  for (std::size_t i = 0; i < kStaticMethodCount; ++i) {
-    if (method == kStaticMethods[i]) return true;
+  for (std::size_t i = 0; i < router::kStaticMethodCount; ++i) {
+    if (method == router::kStaticMethods[i]) return true;
   }
   return false;
 }
@@ -54,16 +40,16 @@ bool isStaticMethod(const std::string& method) {
 // serve (RFC 9110 section 10.2.1).
 std::string allowFor(const LocationConfig& location) {
   std::string allow;
-  for (std::size_t i = 0; i < kStaticMethodCount; ++i) {
-    if (!locationAllows(location, kStaticMethods[i])) continue;
+  for (std::size_t i = 0; i < router::kStaticMethodCount; ++i) {
+    if (!locationAllows(location, router::kStaticMethods[i])) continue;
     if (!allow.empty()) allow += ", ";
-    allow += kStaticMethods[i];
+    allow += router::kStaticMethods[i];
   }
   return allow;
 }
 
 RouteResult methodNotAllowed(const LocationConfig& location) {
-  RouteResult result = error(kMethodNotAllowed);
+  RouteResult result = error(http_status::kMethodNotAllowed);
   result.allow = allowFor(location);
   result.location = &location;
   return result;
@@ -101,7 +87,8 @@ const LocationConfig* Router::matchLocation(const std::string& path) const {
 
 RouteResult Router::route(const Request& request) const {
   std::string path;
-  if (!normalizePath(request.path, path)) return error(kBadRequest);
+  if (!normalizePath(request.path, path))
+    return error(http_status::kBadRequest);
   return routePath(path, request, 0);
 }
 
@@ -118,7 +105,7 @@ bool Router::mapToFile(const std::string& uriPath, std::string& fsPath) const {
 RouteResult Router::routePath(const std::string& path, const Request& request,
                               int internalRedirects) const {
   const LocationConfig* location = matchLocation(path);
-  if (location == 0) return error(kNotFound);
+  if (location == 0) return error(http_status::kNotFound);
   if (location->returnCode != 0)
     return redirect(location->returnCode, location->returnUrl);
   if (!locationAllows(*location, request.method) ||
@@ -128,12 +115,12 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
   const std::string fsPath = mapPath(*location, path);
   struct stat info;
   // stat() failing means missing (or unreachable): 404 without errno.
-  if (stat(fsPath.c_str(), &info) != 0) return error(kNotFound);
+  if (stat(fsPath.c_str(), &info) != 0) return error(http_status::kNotFound);
   if (S_ISDIR(info.st_mode))
     return routeDirectory(path, request, *location, internalRedirects);
   // Devices, FIFOs and the like are never served (RFC 9110 section 17.3).
   if (!S_ISREG(info.st_mode) || access(fsPath.c_str(), R_OK) != 0)
-    return error(kForbidden);
+    return error(http_status::kForbidden);
   RouteResult result;
   result.kind = RouteResult::STATIC_FILE;
   result.fsPath = fsPath;
@@ -148,17 +135,17 @@ RouteResult Router::routeDirectory(const std::string& path,
                                    const LocationConfig& location,
                                    int internalRedirects) const {
   if (path[path.size() - 1] != '/')
-    return redirect(kMovedPermanently,
+    return redirect(http_status::kMovedPermanently,
                     withQuery(encodePath(path + "/"), request.query));
   const std::string fsPath = mapPath(location, path);
   for (std::size_t i = 0; i < location.indexFiles.size(); ++i) {
     if (!isRegularFile(fsPath + location.indexFiles[i])) continue;
-    if (internalRedirects >= kMaxInternalRedirects)
-      return error(kInternalServerError);
+    if (internalRedirects >= limits::kMaxInternalRedirects)
+      return error(http_status::kInternalServerError);
     return routePath(path + location.indexFiles[i], request,
                      internalRedirects + 1);
   }
-  if (!location.autoindex) return error(kForbidden);
+  if (!location.autoindex) return error(http_status::kForbidden);
   RouteResult result;
   result.kind = RouteResult::DIRECTORY_LISTING;
   result.fsPath = fsPath;
