@@ -1,11 +1,22 @@
+/**
+ * @file  ConfigSyntax.cpp
+ * @brief Recursive descent parser of the directive tree.
+ *        지시어 트리를 만드는 재귀 하강 파서.
+ */
 #include "config/ConfigSyntax.hpp"
 
 #include "config/ConfigError.hpp"
 
 namespace {
 
-// server > location > limit_except. Deeper nesting is never valid, and
-// limiting it keeps the recursive parser from exhausting the stack.
+/**
+ * @brief Deepest block nesting: server > location > limit_except.
+ *        가장 깊은 블록 중첩: server > location > limit_except.
+ *
+ * Deeper nesting is never valid, and limiting it keeps the recursive
+ * parser from exhausting the stack.
+ * 더 깊은 중첩은 쓸 일이 없고, 막아 두면 재귀 파서가 스택을 다 쓰지 않는다.
+ */
 const std::size_t kMaxBlockDepth = 3;
 
 }  // namespace

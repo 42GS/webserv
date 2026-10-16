@@ -1,3 +1,8 @@
+/**
+ * @file  ConfigLoader.cpp
+ * @brief Configuration loading: file, then the three stages.
+ *        설정 읽기: 파일을 읽고 세 단계를 거친다.
+ */
 #include "config/ConfigLoader.hpp"
 
 #include <fstream>
@@ -10,6 +15,10 @@
 #include "fs/FileInfo.hpp"
 
 std::vector<ServerConfig> loadConfigFile(const std::string& path) {
+  // Checked first so that a missing path and a directory or device get
+  // messages of their own.
+  // 경로가 없을 때와 디렉토리·장치 파일일 때 각각의 메시지를 주려고 먼저
+  // 확인한다.
   const FileKind kind = fileKind(path);
   if (kind == FILE_MISSING)
     throw ConfigError(path, 0, "cannot open configuration file");

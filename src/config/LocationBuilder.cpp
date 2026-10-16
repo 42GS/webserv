@@ -1,3 +1,8 @@
+/**
+ * @file  LocationBuilder.cpp
+ * @brief Location blocks and the directives allowed only in them.
+ *        location 블록과 그 안에서만 쓰는 지시어.
+ */
 #include "config/LocationBuilder.hpp"
 
 #include "config/ConfigError.hpp"
@@ -9,6 +14,12 @@
 
 namespace {
 
+/**
+ * @brief True for the codes "return" accepts: 301, 302, 303, 307, 308.
+ *        "return"이 받는 코드이면 true: 301, 302, 303, 307, 308.
+ * @param[in] code Status code. / 상태 코드.
+ * @return Whether it is one of them. / 그중 하나인지.
+ */
 bool isRedirectCode(unsigned long code) {
   return code == http_status::kMovedPermanently ||
          code == http_status::kFound || code == http_status::kSeeOther ||
@@ -16,6 +27,16 @@ bool isRedirectCode(unsigned long code) {
          code == http_status::kPermanentRedirect;
 }
 
+/**
+ * @brief A location at @p path with the shared values of @p settings and
+ *        no redirect.
+ *        @p path 위치에 @p settings의 공통 값을 가지고 redirect가 없는
+ *        location.
+ * @param[in] path     Location prefix. / location prefix.
+ * @param[in] settings Shared values to copy. / 복사할 공통 값.
+ * @return The location, without root or alias.
+ *         root와 alias가 아직 없는 location.
+ */
 LocationConfig makeLocation(const std::string& path,
                             const SharedSettings& settings) {
   LocationConfig location;
@@ -25,6 +46,15 @@ LocationConfig makeLocation(const std::string& path,
   return location;
 }
 
+/**
+ * @brief Applies "return CODE URL".
+ *        "return CODE URL"을 적용한다.
+ * @param[in]     context   Tree and source name. / 트리와 소스 이름.
+ * @param[in]     directive The directive. / 지시어.
+ * @param[in,out] location  Location to update. / 고칠 location.
+ * @throws ConfigError If CODE is not a redirect code.
+ *         CODE가 redirect 코드가 아니면.
+ */
 void applyReturn(const BuildContext& context, const Directive& directive,
                  LocationConfig& location) {
   unsigned long code = 0;
@@ -36,7 +66,18 @@ void applyReturn(const BuildContext& context, const Directive& directive,
   location.returnUrl = directive.args[1];
 }
 
-// Accepts only the form "limit_except METHOD ... { deny all; }".
+/**
+ * @brief Applies "limit_except METHOD ... { deny all; }", the only form
+ *        accepted.
+ *        받아들이는 유일한 형태인 "limit_except METHOD ... { deny all; }"을
+ *        적용한다.
+ * @param[in]     context   Tree and source name. / 트리와 소스 이름.
+ * @param[in]     directive The directive. / 지시어.
+ * @param[in,out] location  Location whose allowedMethods is filled.
+ *                          allowedMethods를 채울 location.
+ * @throws ConfigError For an unimplemented method or another block body.
+ *         구현하지 않은 메서드이거나 블록 내용이 다르면.
+ */
 void applyLimitExcept(const BuildContext& context, const Directive& directive,
                       LocationConfig& location) {
   for (std::size_t i = 0; i < directive.args.size(); ++i) {
@@ -47,6 +88,7 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
     location.allowedMethods.insert(directive.args[i]);
   }
   // NGINX: allowing GET also allows HEAD.
+  // NGINX와 같이 GET을 허용하면 HEAD도 허용한다.
   if (location.allowedMethods.count(methods::kGet) != 0)
     location.allowedMethods.insert(methods::kHead);
   const char* const onlyDeny =
@@ -59,6 +101,15 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
     throw ConfigError(context.source, deny.line, onlyDeny);
 }
 
+/**
+ * @brief Applies "cgi .EXT INTERPRETER".
+ *        "cgi .EXT INTERPRETER"를 적용한다.
+ * @param[in]     context   Tree and source name. / 트리와 소스 이름.
+ * @param[in]     directive The directive. / 지시어.
+ * @param[in,out] location  Location to update. / 고칠 location.
+ * @throws ConfigError If the extension is not ".x" or longer, or repeats.
+ *         확장자가 ".x" 이상의 형태가 아니거나 중복되면.
+ */
 void applyCgi(const BuildContext& context, const Directive& directive,
               LocationConfig& location) {
   const std::string& extension = directive.args[0];
@@ -71,8 +122,19 @@ void applyCgi(const BuildContext& context, const Directive& directive,
   location.cgiByExtension[extension] = directive.args[1];
 }
 
-// Applies a directive allowed only in location blocks. BlockChecker has
-// already rejected names that are not in the directive table.
+/**
+ * @brief Applies a directive allowed only in location blocks.
+ *        location 블록에서만 쓰는 지시어를 적용한다.
+ *
+ * BlockChecker has already rejected names that are not in the directive
+ * table.
+ * 지시어 표에 없는 이름은 BlockChecker가 이미 거부했다.
+ *
+ * @param[in]     context   Tree and source name. / 트리와 소스 이름.
+ * @param[in]     directive The directive. / 지시어.
+ * @param[in,out] location  Location to update. / 고칠 location.
+ * @throws ConfigError For an invalid value. / 값이 잘못됐으면.
+ */
 void applyLocationDirective(const BuildContext& context,
                             const Directive& directive,
                             LocationConfig& location) {
@@ -102,7 +164,9 @@ LocationConfig buildLocation(const BuildContext& context,
                       "location path must start with \"/\"");
   LocationConfig location = makeLocation(block.args[0], server);
   SharedSettings own = server;
-  own.root.clear();  // to tell this location's own root from the inherited one
+  // Cleared to tell this location's own root from the inherited one.
+  // 이 location이 직접 지정한 root와 물려받은 root를 구분하려고 비운다.
+  own.root.clear();
   BlockChecker checker(context.source, CONTEXT_LOCATION);
   for (std::size_t i = 0; i < block.children.size(); ++i) {
     const Directive& directive = context.node(block.children[i]);

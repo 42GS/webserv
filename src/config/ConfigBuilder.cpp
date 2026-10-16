@@ -1,3 +1,8 @@
+/**
+ * @file  ConfigBuilder.cpp
+ * @brief Builds all servers and checks listen conflicts between them.
+ *        모든 server를 만들고 server 사이의 listen 충돌을 검사한다.
+ */
 #include "config/ConfigBuilder.hpp"
 
 #include "config/BuildContext.hpp"
@@ -7,14 +12,32 @@
 
 namespace {
 
-// A listen address with the line it came from, for conflict messages.
+/**
+ * @brief A listen address with the line it came from, for conflict
+ *        messages.
+ *        충돌 메시지에 쓰려고 listen 주소와 그 줄 번호를 묶은 것.
+ */
 struct ListenEntry {
+  /** Address. / 주소. */
   ListenAddr addr;
+  /** Line of the "listen" directive. / "listen" 지시어의 줄. */
   int line;
 };
 
-// The same interface:port twice, or 0.0.0.0 and a specific address on the
-// same port, cannot both be bound (design decision 4).
+/**
+ * @brief Rejects listen addresses that cannot all be bound.
+ *        모두 bind할 수는 없는 listen 주소를 거부한다.
+ *
+ * The same interface:port twice, or 0.0.0.0 and a specific address on the
+ * same port, cannot both be bound (design decision 4).
+ * 같은 인터페이스:포트가 두 번 나오거나, 같은 포트에 0.0.0.0과 특정
+ * 주소가 함께 있으면 둘 다 bind할 수 없다 (설계 결정 4).
+ *
+ * @param[in] listens Every listen of every server. / 모든 server의 listen.
+ * @param[in] source  Name used in error messages. / 오류 메시지에 쓸 이름.
+ * @throws ConfigError At the later of two conflicting entries.
+ *         충돌하는 두 항목 중 뒤의 것에서.
+ */
 void checkListenConflicts(const std::vector<ListenEntry>& listens,
                           const std::string& source) {
   for (std::size_t i = 0; i < listens.size(); ++i) {
@@ -34,6 +57,12 @@ void checkListenConflicts(const std::vector<ListenEntry>& listens,
   }
 }
 
+/**
+ * @brief Appends a server's listens with their lines.
+ *        server의 listen을 줄 번호와 함께 목록 끝에 넣는다.
+ * @param[in]     server  Built server. / 만든 server.
+ * @param[in,out] listens List to extend. / 늘릴 목록.
+ */
 void collectListens(const BuiltServer& server,
                     std::vector<ListenEntry>& listens) {
   for (std::size_t i = 0; i < server.config.listens.size(); ++i) {
