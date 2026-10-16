@@ -1,3 +1,9 @@
+/**
+ * @file  SocketAddress.hpp
+ * @brief IPv4 address conversions using only allowed functions (htonl,
+ *        htons).
+ *        허용 함수(htonl, htons)만 쓰는 IPv4 주소 변환.
+ */
 #ifndef CORE_SOCKETADDRESS_HPP
 #define CORE_SOCKETADDRESS_HPP
 
@@ -7,13 +13,23 @@
 
 #include "config/ServerConfig.hpp"
 
-// IPv4 address conversions using only allowed functions (htonl, ntohl, ...).
-
-// Dotted text ("127.0.0.1") to a host-order address. The text must already
-// be valid (the configuration parser checks it).
+/**
+ * @brief Converts dotted text ("127.0.0.1") to a host-order address.
+ *        점 표기 텍스트("127.0.0.1")를 호스트 바이트 순서 주소로 바꾼다.
+ * @param[in] text Address already checked by the configuration parser.
+ *                 설정 파서가 이미 검사한 주소.
+ * @return The address; an octet that still fails to parse counts as 0.
+ *         주소. 그래도 해석되지 않는 옥텟은 0으로 친다.
+ */
 unsigned long parseIpv4(const std::string& text);
 
-// A listen address as sockaddr_in, port and address in network order.
+/**
+ * @brief A listen address as sockaddr_in.
+ *        listen 주소를 sockaddr_in으로 바꾼다.
+ * @param[in] addr The address. / 주소.
+ * @return Port and address in network order. / 네트워크 바이트 순서의 포트와
+ * 주소.
+ */
 sockaddr_in toSockaddr(const ListenAddr& addr);
 
 #endif

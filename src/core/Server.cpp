@@ -1,3 +1,8 @@
+/**
+ * @file  Server.cpp
+ * @brief Ownership and timeouts of listeners and connections.
+ *        listener와 연결의 소유와 시간 초과 처리.
+ */
 #include "core/Server.hpp"
 
 #include <unistd.h>
@@ -38,8 +43,12 @@ void Server::adopt(int clientFd, const ListenContext& where) {
     connection = new Connection(clientFd, where, now_);
     connections_[clientFd] = connection;
   } catch (const std::exception&) {
-    delete connection;  // closes clientFd if construction succeeded
-    if (connection == 0) close(clientFd);  // result unused: fd is dropped
+    // If construction succeeded, deleting the connection closes clientFd;
+    // otherwise it is closed here (the result is unused: the fd is dropped).
+    // 생성에 성공했다면 연결을 지울 때 clientFd도 닫힌다. 아니면 여기서
+    // 닫는다 (fd를 버리므로 결과는 보지 않는다).
+    delete connection;
+    if (connection == 0) close(clientFd);
     return;
   }
   registry_.watch(connection);
@@ -47,6 +56,8 @@ void Server::adopt(int clientFd, const ListenContext& where) {
 
 // A timeout may build a 408 response; if that throws (std::bad_alloc), only
 // that connection is given up, as EventLoop does for onEvent().
+// 시간 초과는 408 응답을 만들 수 있다. 그때 예외(std::bad_alloc)가 나면,
+// EventLoop가 onEvent()에서 하듯이 그 연결만 포기한다.
 void Server::afterIteration(std::time_t now) {
   now_ = now;
   std::vector<Connection*> closed;

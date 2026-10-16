@@ -1,3 +1,8 @@
+/**
+ * @file  EventLoop.cpp
+ * @brief The poll() loop.
+ *        poll() 루프.
+ */
 #include "core/EventLoop.hpp"
 
 #include <poll.h>
@@ -20,6 +25,7 @@ void EventLoop::run(LoopObserver& observer) {
   while (!observer.shouldStop()) {
     pollOnce();
     // On failure the old time is kept; timeouts are only delayed.
+    // 실패하면 이전 시각을 그대로 쓴다. 시간 초과가 늦어질 뿐이다.
     clock_.refresh();
     observer.afterIteration(clock_.now());
   }
@@ -35,6 +41,8 @@ void EventLoop::pollOnce() {
   }
   // -1 means interrupted by a signal or a failure; errno is not consulted.
   // The loop goes on and the observer decides whether to stop.
+  // -1은 시그널로 끊겼거나 실패한 것이다. errno는 보지 않는다. 루프는
+  // 계속 돌고, 멈출지는 observer가 정한다.
   const int ready =
       poll(fds.empty() ? 0 : &fds[0], static_cast<nfds_t>(fds.size()),
            limits::kPollTimeoutMs);
