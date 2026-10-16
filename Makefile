@@ -19,7 +19,16 @@ CONFIG_SRCS	:= config/BuildContext.cpp \
 			   config/ServerBuilder.cpp \
 			   config/SharedSettings.cpp
 
-LIB_SRCS	:= $(CONFIG_SRCS)
+CORE_SRCS	:= core/Clock.cpp \
+			   core/EventLoop.cpp \
+			   core/Listener.cpp \
+			   core/Server.cpp \
+			   core/Signals.cpp \
+			   core/SocketAddress.cpp
+
+HTTP_SRCS	:= http/Connection.cpp
+
+LIB_SRCS	:= $(CONFIG_SRCS) $(CORE_SRCS) $(HTTP_SRCS)
 SRCS		:= main.cpp $(LIB_SRCS)
 
 OBJS		:= $(addprefix $(OBJ_DIR)/, $(SRCS:.cpp=.o))
@@ -27,7 +36,8 @@ LIB_OBJS	:= $(addprefix $(OBJ_DIR)/, $(LIB_SRCS:.cpp=.o))
 
 TEST_NAME	:= run_tests
 TEST_SRCS	:= tests/unit/test_main.cpp \
-			   tests/unit/config_test.cpp
+			   tests/unit/config_test.cpp \
+			   tests/unit/socket_address_test.cpp
 TEST_OBJS	:= $(addprefix $(OBJ_DIR)/, $(TEST_SRCS:.cpp=.o))
 
 DEPS		:= $(OBJS:.o=.d) $(TEST_OBJS:.o=.d)
