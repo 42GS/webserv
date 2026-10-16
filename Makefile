@@ -7,8 +7,7 @@ CPPFLAGS	:= -Iinclude -MMD -MP
 SRC_DIR		:= src
 OBJ_DIR		:= obj
 
-CONFIG_SRCS	:= config/BuildContext.cpp \
-			   config/ConfigBuilder.cpp \
+CONFIG_SRCS	:= config/ConfigBuilder.cpp \
 			   config/ConfigError.cpp \
 			   config/ConfigLexer.cpp \
 			   config/ConfigLoader.cpp \

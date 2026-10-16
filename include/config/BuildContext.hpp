@@ -13,8 +13,4 @@ struct BuildContext {
   const Directive& node(std::size_t index) const { return tree.nodes[index]; }
 };
 
-// Throws ConfigError at the directive's line.
-void failAt(const BuildContext& context, const Directive& directive,
-            const std::string& message);
-
 #endif

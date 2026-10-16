@@ -1,5 +1,6 @@
 #include "config/LocationBuilder.hpp"
 
+#include "config/ConfigError.hpp"
 #include "config/ConfigValues.hpp"
 #include "config/DirectiveRules.hpp"
 #include "http/Ascii.hpp"
@@ -29,8 +30,8 @@ void applyReturn(const BuildContext& context, const Directive& directive,
   unsigned long code = 0;
   if (!parseDecimal(directive.args[0], http_status::kMaxCode, code) ||
       !isRedirectCode(code))
-    failAt(context, directive,
-           "\"return\" code must be 301, 302, 303, 307 or 308");
+    throw ConfigError(context.source, directive.line,
+                      "\"return\" code must be 301, 302, 303, 307 or 308");
   location.returnCode = static_cast<int>(code);
   location.returnUrl = directive.args[1];
 }
@@ -40,9 +41,9 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
                       LocationConfig& location) {
   for (std::size_t i = 0; i < directive.args.size(); ++i) {
     if (!isImplementedMethod(directive.args[i]))
-      failAt(context, directive,
-             "unsupported method \"" + directive.args[i] +
-                 "\" in \"limit_except\"");
+      throw ConfigError(context.source, directive.line,
+                        "unsupported method \"" + directive.args[i] +
+                            "\" in \"limit_except\"");
     location.allowedMethods.insert(directive.args[i]);
   }
   // NGINX: allowing GET also allows HEAD.
@@ -50,11 +51,12 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
     location.allowedMethods.insert(methods::kHead);
   const char* const onlyDeny =
       "\"limit_except\" block must contain only \"deny all;\"";
-  if (directive.children.size() != 1) failAt(context, directive, onlyDeny);
+  if (directive.children.size() != 1)
+    throw ConfigError(context.source, directive.line, onlyDeny);
   const Directive& deny = context.node(directive.children[0]);
   if (deny.name != "deny" || deny.isBlock || deny.args.size() != 1 ||
       deny.args[0] != "all")
-    failAt(context, deny, onlyDeny);
+    throw ConfigError(context.source, deny.line, onlyDeny);
 }
 
 void applyCgi(const BuildContext& context, const Directive& directive,
@@ -62,10 +64,11 @@ void applyCgi(const BuildContext& context, const Directive& directive,
   const std::string& extension = directive.args[0];
   if (extension.size() < location_builder::kMinCgiExtensionLength ||
       extension[0] != '.')
-    failAt(context, directive, "\"cgi\" extension must look like \".php\"");
+    throw ConfigError(context.source, directive.line,
+                      "\"cgi\" extension must look like \".php\"");
   if (location.cgiByExtension.count(extension) != 0)
-    failAt(context, directive,
-           "duplicate \"cgi\" extension \"" + extension + "\"");
+    throw ConfigError(context.source, directive.line,
+                      "duplicate \"cgi\" extension \"" + extension + "\"");
   location.cgiByExtension[extension] = directive.args[1];
 }
 
@@ -92,10 +95,12 @@ LocationConfig buildLocation(const BuildContext& context,
                              const Directive& block,
                              const SharedSettings& server) {
   if (block.args.size() != 1)
-    failAt(context, block,
-           "\"location\" takes exactly one path (modifiers are not supported)");
+    throw ConfigError(
+        context.source, block.line,
+        "\"location\" takes exactly one path (modifiers are not supported)");
   if (block.args[0].empty() || block.args[0][0] != '/')
-    failAt(context, block, "location path must start with \"/\"");
+    throw ConfigError(context.source, block.line,
+                      "location path must start with \"/\"");
   LocationConfig location = makeLocation(block.args[0], server);
   SharedSettings own = server;
   own.root.clear();  // to tell this location's own root from the inherited one
@@ -108,13 +113,15 @@ LocationConfig buildLocation(const BuildContext& context,
   }
   copySharedSettings(own, location);
   if (!own.root.empty() && !location.alias.empty())
-    failAt(context, block, "\"root\" and \"alias\" in the same location");
+    throw ConfigError(context.source, block.line,
+                      "\"root\" and \"alias\" in the same location");
   if (location.alias.empty())
     location.root = own.root.empty() ? server.root : own.root;
   if (location.returnCode == 0 && location.root.empty() &&
       location.alias.empty())
-    failAt(context, block,
-           "location \"" + location.path + "\" has no \"root\" or \"alias\"");
+    throw ConfigError(
+        context.source, block.line,
+        "location \"" + location.path + "\" has no \"root\" or \"alias\"");
   return location;
 }
 

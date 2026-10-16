@@ -56,11 +56,12 @@ std::vector<ServerConfig> buildServerConfigs(const DirectiveTree& tree,
   for (std::size_t i = 0; i < tree.topLevel.size(); ++i) {
     const Directive& directive = context.node(tree.topLevel[i]);
     if (directive.name != "server")
-      failAt(context, directive,
-             "unknown top-level directive \"" + directive.name +
-                 "\" (only \"server\" is allowed)");
+      throw ConfigError(context.source, directive.line,
+                        "unknown top-level directive \"" + directive.name +
+                            "\" (only \"server\" is allowed)");
     if (!directive.isBlock)
-      failAt(context, directive, "\"server\" requires a block");
+      throw ConfigError(context.source, directive.line,
+                        "\"server\" requires a block");
     const BuiltServer server = buildServer(context, directive);
     collectListens(server, listens);
     servers.push_back(server.config);
