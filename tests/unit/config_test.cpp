@@ -177,6 +177,15 @@ TEST_CASE(rejectsSyntaxErrors) {
   CHECK(contains(loadError(""), "no \"server\" block"));
 }
 
+TEST_CASE(rejectsBlocksNestedTooDeeply) {
+  CHECK(loadError("server { listen 8080; root /a; location /x/ { "
+                  "limit_except GET { deny all; } } }")
+            .empty());
+  CHECK(contains(loadError("server { location /x/ { limit_except GET { "
+                           "deny { } } } }"),
+                 "nested too deeply"));
+}
+
 TEST_CASE(reportsLineNumbers) {
   CHECK(contains(loadError("server {\n  listen 8080;\n  bogus 1;\n}\n"),
                  "test.conf:3:"));

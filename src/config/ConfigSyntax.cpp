@@ -4,10 +4,14 @@
 
 namespace {
 
+// server > location > limit_except. Deeper nesting is never valid, and
+// limiting it keeps the recursion below from exhausting the stack.
+const std::size_t kMaxBlockDepth = 3;
+
 class SyntaxParser {
  public:
   SyntaxParser(const std::vector<Token>& tokens, const std::string& source)
-      : tokens_(tokens), source_(source), pos_(0) {}
+      : tokens_(tokens), source_(source), pos_(0), depth_(0) {}
 
   DirectiveTree parseTopLevel() {
     tree_.topLevel = parseList();
@@ -47,9 +51,14 @@ class SyntaxParser {
       return store(directive);
     }
     if (current().type == TOKEN_OPEN_BRACE) {
+      if (depth_ == kMaxBlockDepth)
+        throw ConfigError(source_, directive.line,
+                          "blocks are nested too deeply");
       ++pos_;
       directive.isBlock = true;
+      ++depth_;
       directive.children = parseList();
+      --depth_;
       if (current().type != TOKEN_CLOSE_BRACE)
         throw ConfigError(source_, directive.line,
                           "block \"" + directive.name + "\" is not closed");
@@ -69,6 +78,7 @@ class SyntaxParser {
   const std::vector<Token>& tokens_;
   const std::string& source_;
   std::vector<Token>::size_type pos_;
+  std::size_t depth_;  // blocks currently open
   DirectiveTree tree_;
 };
 

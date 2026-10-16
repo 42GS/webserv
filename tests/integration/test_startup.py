@@ -1,4 +1,4 @@
-"""Startup and shutdown (test plan C-01..C-03, C-12, N-06, N-10, N-13)."""
+"""Startup and shutdown (test plan C-01..C-03, C-12, C-28, N-06, N-10, N-13)."""
 
 import os
 import signal
@@ -8,6 +8,7 @@ import harness
 
 EXIT_FAILURE = 1
 EXIT_SUCCESS = 0
+DEEP_NESTING = 100000  # crashed the recursive parser before the depth limit
 
 
 class StartupTest(unittest.TestCase):
@@ -59,6 +60,13 @@ class StartupTest(unittest.TestCase):
         code, stderr = harness.run_to_exit([path], self.workspace.path)
         self.assertEqual(EXIT_FAILURE, code)
         self.assertIn("duplicate listen", stderr)
+
+    def test_c28_deeply_nested_config_does_not_crash(self):
+        path = self.workspace.write(
+            "deep.conf", "server {" * DEEP_NESTING + "}" * DEEP_NESTING)
+        code, stderr = harness.run_to_exit([path], self.workspace.path)
+        self.assertEqual(EXIT_FAILURE, code)
+        self.assertIn("nested too deeply", stderr)
 
     def test_n13_unusable_clock_file_stops_startup(self):
         # A directory cannot be opened for writing, even by root (the
