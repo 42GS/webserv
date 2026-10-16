@@ -2,15 +2,9 @@
 
 #include <vector>
 
-namespace {
+#include "http/Ascii.hpp"
 
-bool isDigits(const std::string& text) {
-  if (text.empty()) return false;
-  for (std::string::size_type i = 0; i < text.size(); ++i) {
-    if (text[i] < '0' || text[i] > '9') return false;
-  }
-  return true;
-}
+namespace {
 
 std::vector<std::string> split(const std::string& text, char separator) {
   std::vector<std::string> parts;
@@ -31,26 +25,12 @@ bool isIpv4Address(const std::string& text) {
   if (octets.size() != config_values::kOctetCount) return false;
   for (std::size_t i = 0; i < octets.size(); ++i) {
     unsigned long value;
-    if (!parseUnsigned(octets[i], config_values::kMaxOctet, value))
-      return false;
+    if (!parseDecimal(octets[i], config_values::kMaxOctet, value)) return false;
   }
   return true;
 }
 
 }  // namespace
-
-bool parseUnsigned(const std::string& text, unsigned long maxValue,
-                   unsigned long& out) {
-  if (!isDigits(text)) return false;
-  unsigned long value = 0;
-  for (std::string::size_type i = 0; i < text.size(); ++i) {
-    const unsigned long digit = static_cast<unsigned long>(text[i] - '0');
-    if (value > (maxValue - digit) / config_values::kDecimalBase) return false;
-    value = value * config_values::kDecimalBase + digit;
-  }
-  out = value;
-  return true;
-}
 
 bool parseSize(const std::string& text, std::size_t& out) {
   if (text.empty()) return false;
@@ -65,7 +45,7 @@ bool parseSize(const std::string& text, std::size_t& out) {
   const unsigned long maxCount =
       static_cast<unsigned long>(static_cast<std::size_t>(-1) / unit);
   unsigned long count;
-  if (!parseUnsigned(digits, maxCount, count)) return false;
+  if (!parseDecimal(digits, maxCount, count)) return false;
   out = static_cast<std::size_t>(count) * unit;
   return true;
 }
@@ -80,7 +60,7 @@ bool parseListenAddr(const std::string& text, ListenAddr& out) {
     if (!isIpv4Address(host)) return false;
   }
   unsigned long port;
-  if (!parseUnsigned(portText, config_values::kMaxPort, port) || port == 0)
+  if (!parseDecimal(portText, config_values::kMaxPort, port) || port == 0)
     return false;
   out.host = host;
   out.port = static_cast<unsigned short>(port);

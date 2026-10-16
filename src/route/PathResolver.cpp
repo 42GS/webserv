@@ -2,7 +2,6 @@
 
 #include <vector>
 
-#include "http/Ascii.hpp"
 #include "http/Hex.hpp"
 
 namespace {
@@ -58,16 +57,19 @@ bool normalizePath(const std::string& encodedPath, std::string& normalized) {
 
 std::string encodePath(const std::string& decodedPath) {
   std::string encoded;
-  for (std::string::size_type i = 0; i < decodedPath.size(); ++i) {
-    const unsigned char c = static_cast<unsigned char>(decodedPath[i]);
-    if (isAsciiAlnum(static_cast<char>(c)) ||
-        isOneOf(static_cast<char>(c), path_resolver::kPathSymbols)) {
-      encoded += static_cast<char>(c);
-    } else {
-      encoded += '%';
-      encoded += hex::kUpperDigits[c / hex::kBase];
-      encoded += hex::kUpperDigits[c % hex::kBase];
-    }
+  std::string::size_type start = 0;
+  while (start < decodedPath.size()) {
+    // Copy the run of characters that need no escape, then escape one.
+    const std::string::size_type special =
+        decodedPath.find_first_not_of(path_resolver::kPathChars, start);
+    encoded.append(decodedPath, start,
+                   special == std::string::npos ? special : special - start);
+    if (special == std::string::npos) break;
+    const unsigned char c = static_cast<unsigned char>(decodedPath[special]);
+    encoded += '%';
+    encoded += hex::kUpperDigits[c / hex::kBase];
+    encoded += hex::kUpperDigits[c % hex::kBase];
+    start = special + 1;
   }
   return encoded;
 }

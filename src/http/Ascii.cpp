@@ -1,19 +1,37 @@
 #include "http/Ascii.hpp"
 
-#include <string>
+#include <locale>
 
-bool isAsciiDigit(char c) { return c >= '0' && c <= '9'; }
+namespace {
 
-bool isAsciiAlpha(char c) {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-}
-
-bool isAsciiAlnum(char c) { return isAsciiDigit(c) || isAsciiAlpha(c); }
-
-char toAsciiLower(char c) {
-  return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ascii::kCaseOffset) : c;
-}
-
+// True if c is one of the characters of "set". NUL never matches.
 bool isOneOf(char c, const char* set) {
-  return std::string(set).find(c) != std::string::npos;
+  typedef std::char_traits<char> Traits;
+  // length() stops before the terminating NUL, so NUL is never found.
+  return Traits::find(set, Traits::length(set), c) != 0;
+}
+
+}  // namespace
+
+bool isAsciiDigit(char c) { return isOneOf(c, ascii::kDigits); }
+
+char toAsciiLower(char c) { return std::tolower(c, std::locale::classic()); }
+
+bool consistsOf(const std::string& text, const std::string& allowed) {
+  return text.find_first_not_of(allowed) == std::string::npos;
+}
+
+bool parseDecimal(const std::string& text, unsigned long maxValue,
+                  unsigned long& value) {
+  if (text.empty() || !consistsOf(text, ascii::kDigits)) return false;
+  unsigned long result = 0;
+  for (std::string::size_type i = 0; i < text.size(); ++i) {
+    const unsigned long digit = static_cast<unsigned long>(text[i] - '0');
+    // digit > maxValue first, so that maxValue - digit cannot wrap around.
+    if (digit > maxValue || result > (maxValue - digit) / ascii::kDecimalBase)
+      return false;
+    result = result * ascii::kDecimalBase + digit;
+  }
+  value = result;
+  return true;
 }

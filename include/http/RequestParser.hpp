@@ -5,6 +5,7 @@
 #include <limits>
 #include <string>
 
+#include "http/Ascii.hpp"
 #include "http/Request.hpp"
 
 namespace request_parser {
@@ -20,14 +21,17 @@ const char* const kAbsoluteFormPrefix = "http://";
 const char* const kChunked = "chunked";
 
 const unsigned char kDeleteChar = 0x7f;
-// tchar besides letters and digits (RFC 9110 section 5.6.2).
-const char* const kTokenSymbols = "!#$%&'*+-.^_`|~";
-// Host characters besides letters and digits: unreserved, pct-encoded,
-// sub-delims, ":" and IP-literal brackets (RFC 3986 section 3.2.2).
-const char* const kHostSymbols = "-._~%!$&'()*+,;=:[]";
-
-const int kDecimalBase = 10;
+// tchar (RFC 9110 section 5.6.2).
+const std::string kTokenChars = ascii::kAlphanumerics + "!#$%&'*+-.^_`|~";
+// Host characters: unreserved, pct-encoded, sub-delims, ":" and IP-literal
+// brackets (RFC 3986 section 3.2.2).
+const std::string kHostChars = ascii::kAlphanumerics + "-._~%!$&'()*+,;=:[]";
 const std::size_t kMaxSize = std::numeric_limits<std::size_t>::max();
+// The largest Content-Length that fits both parseDecimal() and size_t.
+const unsigned long kMaxContentLength =
+    std::numeric_limits<unsigned long>::max() < kMaxSize
+        ? std::numeric_limits<unsigned long>::max()
+        : static_cast<unsigned long>(kMaxSize);
 
 }  // namespace request_parser
 

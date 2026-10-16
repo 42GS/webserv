@@ -7,6 +7,7 @@
 #include "config/DirectiveRules.hpp"
 #include "config/LocationBuilder.hpp"
 #include "config/SharedSettings.hpp"
+#include "http/Ascii.hpp"
 #include "http/StatusCodes.hpp"
 
 namespace {
@@ -36,7 +37,7 @@ void applyErrorPage(const BuildContext& context, const Directive& directive,
     failAt(context, directive, "\"error_page\" URI must start with \"/\"");
   for (std::size_t i = 0; i + 1 < directive.args.size(); ++i) {
     unsigned long code = 0;
-    if (!parseUnsigned(directive.args[i], http_status::kMaxCode, code) ||
+    if (!parseDecimal(directive.args[i], http_status::kMaxCode, code) ||
         code < server_builder::kMinErrorPageCode ||
         code > server_builder::kMaxErrorPageCode)
       failAt(context, directive,

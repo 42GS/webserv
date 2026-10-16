@@ -10,7 +10,6 @@
 namespace socket_address {
 
 const int kBitsPerOctet = 8;
-const unsigned long kDecimalBase = 10;
 
 }  // namespace socket_address
 

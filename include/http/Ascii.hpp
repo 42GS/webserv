@@ -1,23 +1,32 @@
 #ifndef HTTP_ASCII_HPP
 #define HTTP_ASCII_HPP
 
-// ASCII character tests written out instead of <cctype> and <cstring>:
-// those C functions are not on the subject's list of allowed functions
-// (raw/subject.md:113), and HTTP is parsed as octets of a US-ASCII
-// superset (RFC 9112 section 2.2), so no locale should matter.
+#include <string>
+
+// Character and number tests for HTTP and configuration text, built on the
+// C++ standard library (std::string, std::char_traits, <locale>) instead
+// of <cctype> and <cstring>: those C functions are not on the subject's
+// list of allowed functions (raw/subject.md:113). HTTP is parsed as octets
+// of a US-ASCII superset (RFC 9112 section 2.2), so the classic locale is
+// used throughout.
 namespace ascii {
 
-const int kCaseOffset = 'a' - 'A';
+const char* const kDigits = "0123456789";
+const char* const kLetters =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const std::string kAlphanumerics = std::string(kDigits) + kLetters;
+const unsigned long kDecimalBase = 10;
 
 }  // namespace ascii
 
 bool isAsciiDigit(char c);
-bool isAsciiAlpha(char c);
-bool isAsciiAlnum(char c);
 char toAsciiLower(char c);
 
-// True if c is one of the characters of "set". NUL is never in a set
-// (strchr() would have matched the terminator).
-bool isOneOf(char c, const char* set);
+// True if every character of text is in "allowed" (an empty text passes).
+bool consistsOf(const std::string& text, const std::string& allowed);
+
+// Decimal digits only, value <= maxValue, no overflow. False otherwise.
+bool parseDecimal(const std::string& text, unsigned long maxValue,
+                  unsigned long& value);
 
 #endif

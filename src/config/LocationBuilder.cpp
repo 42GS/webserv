@@ -2,6 +2,7 @@
 
 #include "config/ConfigValues.hpp"
 #include "config/DirectiveRules.hpp"
+#include "http/Ascii.hpp"
 #include "http/Methods.hpp"
 #include "http/StatusCodes.hpp"
 
@@ -26,7 +27,7 @@ LocationConfig makeLocation(const std::string& path,
 void applyReturn(const BuildContext& context, const Directive& directive,
                  LocationConfig& location) {
   unsigned long code = 0;
-  if (!parseUnsigned(directive.args[0], http_status::kMaxCode, code) ||
+  if (!parseDecimal(directive.args[0], http_status::kMaxCode, code) ||
       !isRedirectCode(code))
     failAt(context, directive,
            "\"return\" code must be 301, 302, 303, 307 or 308");

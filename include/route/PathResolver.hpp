@@ -3,12 +3,14 @@
 
 #include <string>
 
+#include "http/Ascii.hpp"
+
 namespace path_resolver {
 
 const std::string::size_type kEscapeDigits = 2;  // %XX
-// Left as they are by encodePath besides letters and digits: unreserved
+// Left as they are by encodePath: letters, digits, the rest of unreserved
 // and sub-delims, ":", "@" (pchar) and "/" (RFC 3986 section 3.3).
-const char* const kPathSymbols = "-._~!$&'()*+,;=:@/";
+const std::string kPathChars = ascii::kAlphanumerics + "-._~!$&'()*+,;=:@/";
 
 }  // namespace path_resolver
 

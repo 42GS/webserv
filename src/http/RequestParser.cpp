@@ -15,16 +15,8 @@
 
 namespace {
 
-bool isTokenChar(char c) {
-  return isAsciiAlnum(c) || isOneOf(c, request_parser::kTokenSymbols);
-}
-
 bool isToken(const std::string& text) {
-  if (text.empty()) return false;
-  for (std::string::size_type i = 0; i < text.size(); ++i) {
-    if (!isTokenChar(text[i])) return false;
-  }
-  return true;
+  return !text.empty() && consistsOf(text, request_parser::kTokenChars);
 }
 
 bool isWhitespace(char c) { return c == ' ' || c == '\t'; }
@@ -85,12 +77,7 @@ bool isFieldValue(const std::string& value) {
 // Host = uri-host [ ":" port ] (RFC 9110 7.2). Only the character set is
 // checked; an empty value is allowed by the grammar.
 bool isHostValue(const std::string& value) {
-  for (std::string::size_type i = 0; i < value.size(); ++i) {
-    const char c = value[i];
-    if (!isAsciiAlnum(c) && !isOneOf(c, request_parser::kHostSymbols))
-      return false;
-  }
-  return true;
+  return consistsOf(value, request_parser::kHostChars);
 }
 
 // Adds one digit to value, or returns false if the result would not fit.
@@ -99,17 +86,6 @@ bool appendDigit(std::size_t& value, int base, int digit) {
   const std::size_t add = static_cast<std::size_t>(digit);
   if (value > (request_parser::kMaxSize - add) / factor) return false;
   value = value * factor + add;
-  return true;
-}
-
-bool parseDecimal(const std::string& text, std::size_t& value) {
-  if (text.empty()) return false;
-  value = 0;
-  for (std::string::size_type i = 0; i < text.size(); ++i) {
-    if (!isAsciiDigit(text[i])) return false;
-    if (!appendDigit(value, request_parser::kDecimalBase, text[i] - '0'))
-      return false;
-  }
   return true;
 }
 
@@ -384,11 +360,11 @@ bool RequestParser::decideBodyLength(Result& result) {
     // A list is allowed only if every value is the same (section 6.3).
     if (lengths.empty()) return fail(http_status::kBadRequest, result);
     for (std::size_t i = 0; i < lengths.size(); ++i) {
-      std::size_t value = 0;
-      if (!parseDecimal(lengths[i], value) ||
+      unsigned long value = 0;
+      if (!parseDecimal(lengths[i], request_parser::kMaxContentLength, value) ||
           (i > 0 && value != contentLength_))
         return fail(http_status::kBadRequest, result);
-      contentLength_ = value;
+      contentLength_ = static_cast<std::size_t>(value);
     }
     return true;
   }
