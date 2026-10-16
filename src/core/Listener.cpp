@@ -41,9 +41,11 @@ bool Listener::open(std::string& error) {
   bool ok = (fd_ = socket(AF_INET, SOCK_STREAM, 0)) >= 0;
   ok = ok &&
        setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == 0;
-  ok = ok && fcntl(fd_, F_SETFL, O_NONBLOCK) == 0;
   ok = ok && bind(fd_, rawAddress, sizeof(address)) == 0;
   ok = ok && listen(fd_, kListenBacklog) == 0;
+  // Non-blocking only after bind: a non-blocking bind() may fail with
+  // EINPROGRESS and finish later (POSIX bind).
+  ok = ok && fcntl(fd_, F_SETFL, O_NONBLOCK) == 0;
   // errno is read only to build the startup error message, never after a
   // read or write on a client socket.
   if (!ok)
