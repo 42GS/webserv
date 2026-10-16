@@ -131,16 +131,11 @@ void RequestParser::reset() {
 RequestParser::Result RequestParser::feed(std::string& buffer) {
   if (!buffer.empty()) started_ = true;
   consumed_ = 0;
-  Result result = NEED_MORE;
-  while (step(buffer, result)) {
+  while (step(buffer)) {
   }
   buffer.erase(0, consumed_);
   consumed_ = 0;
-  return result;
-}
-
-std::size_t RequestParser::unread(const std::string& buffer) const {
-  return buffer.size() - consumed_;
+  return resultOfState();
 }
 
 void RequestParser::setMaxBodySize(std::size_t maxBodySize) {
@@ -153,39 +148,47 @@ bool RequestParser::hasStarted() const { return started_; }
 
 const Request& RequestParser::request() const { return request_; }
 
-// One parsing step. Returns true to keep going, false to return result.
-bool RequestParser::step(std::string& buffer, Result& result) {
+bool RequestParser::step(std::string& buffer) {
   switch (state_) {
     case REQUEST_LINE:
-      return readRequestLine(buffer, result);
+      return readRequestLine(buffer);
     case HEADERS:
-      return readHeaderLine(buffer, result);
+      return readHeaderLine(buffer);
     case BODY_START:
-      return startBody(result);
+      return startBody();
     case BODY_LENGTH:
-      return readBodyBytes(buffer, COMPLETE, result);
+      return readBodyBytes(buffer, COMPLETE);
     case CHUNK_SIZE:
-      return readChunkLine(buffer, result);
+      return readChunkLine(buffer);
     case CHUNK_DATA:
-      return readBodyBytes(buffer, CHUNK_DATA_END, result);
+      return readBodyBytes(buffer, CHUNK_DATA_END);
     case CHUNK_DATA_END:
-      return readChunkEnd(buffer, result);
+      return readChunkEnd(buffer);
     case TRAILERS:
-      return readTrailerLine(buffer, result);
+      return readTrailerLine(buffer);
     case COMPLETE:
-      result = DONE;
-      return false;
     case FAILED:
       break;
   }
-  result = ERROR;
   return false;
 }
 
-bool RequestParser::fail(int status, Result& result) {
+RequestParser::Result RequestParser::resultOfState() const {
+  switch (state_) {
+    case BODY_START:  // the head is complete; the caller sets the body limit
+      return HEAD_DONE;
+    case COMPLETE:
+      return DONE;
+    case FAILED:
+      return ERROR;
+    default:
+      return NEED_MORE;
+  }
+}
+
+bool RequestParser::fail(int status) {
   state_ = FAILED;
   errorStatus_ = status;
-  result = ERROR;
   return false;
 }
 
@@ -202,39 +205,141 @@ RequestParser::LineStatus RequestParser::takeLine(const std::string& buffer,
   return line.find('\r') == std::string::npos ? LINE_READY : LINE_INVALID;
 }
 
-bool RequestParser::readRequestLine(std::string& buffer, Result& result) {
+// A line of the header section or of the trailer. Both count against the
+// same limit, so a long trailer cannot bypass it.
+bool RequestParser::takeHeaderLine(const std::string& buffer,
+                                   std::string& line) {
+  const LineStatus status = takeLine(buffer, line);
+  if (status == LINE_INCOMPLETE) {
+    if (headerBytes_ + unread(buffer) > limits_.maxHeaderBytes)
+      return fail(http_status::kRequestHeaderFieldsTooLarge);
+    return false;
+  }
+  if (status == LINE_INVALID) return fail(http_status::kBadRequest);
+  headerBytes_ += line.size() + 1;
+  if (headerBytes_ > limits_.maxHeaderBytes)
+    return fail(http_status::kRequestHeaderFieldsTooLarge);
+  return true;
+}
+
+std::size_t RequestParser::unread(const std::string& buffer) const {
+  return buffer.size() - consumed_;
+}
+
+bool RequestParser::readRequestLine(std::string& buffer) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
     if (unread(buffer) > limits_.maxRequestLine)
-      return fail(overlongRequestLineStatus(buffer.substr(consumed_)), result);
+      return fail(overlongRequestLineStatus(buffer.substr(consumed_)));
     return false;
   }
-  if (status == LINE_INVALID) return fail(http_status::kBadRequest, result);
+  if (status == LINE_INVALID) return fail(http_status::kBadRequest);
   if (line.empty()) {
     // Empty lines before the request line are ignored (section 2.2), but
     // only as many as would fit in a request line.
     preambleBytes_ += 1;
     if (preambleBytes_ > limits_.maxRequestLine)
-      return fail(http_status::kBadRequest, result);
+      return fail(http_status::kBadRequest);
     return true;
   }
   if (line.size() > limits_.maxRequestLine)
-    return fail(overlongRequestLineStatus(line), result);
-  if (!parseRequestLine(line, result)) return false;
+    return fail(overlongRequestLineStatus(line));
+  if (!parseRequestLine(line)) return false;
   state_ = HEADERS;
   return true;
+}
+
+bool RequestParser::readHeaderLine(std::string& buffer) {
+  std::string line;
+  if (!takeHeaderLine(buffer, line)) return false;
+  if (line.empty()) return finishHead();
+  std::string name;
+  std::string value;
+  if (!parseFieldLine(line, name, value)) return false;
+  request_.headers.add(name, value);
+  return true;
+}
+
+bool RequestParser::startBody() {
+  if (chunked_) {
+    state_ = CHUNK_SIZE;
+    return true;
+  }
+  if (contentLength_ > maxBodySize_) return fail(http_status::kContentTooLarge);
+  if (contentLength_ == 0) {
+    state_ = COMPLETE;
+    return true;
+  }
+  // Known size: reserve once instead of growing (design decision 11).
+  request_.body.reserve(contentLength_);
+  remaining_ = contentLength_;
+  state_ = BODY_LENGTH;
+  return true;
+}
+
+bool RequestParser::readBodyBytes(std::string& buffer, State whenDone) {
+  const std::size_t available = unread(buffer);
+  if (available == 0) return false;
+  const std::size_t taken = (available < remaining_) ? available : remaining_;
+  request_.body.append(buffer, consumed_, taken);
+  consumed_ += taken;
+  remaining_ -= taken;
+  if (remaining_ == 0) state_ = whenDone;
+  return true;
+}
+
+bool RequestParser::readChunkLine(std::string& buffer) {
+  std::string line;
+  const LineStatus status = takeLine(buffer, line);
+  if (status == LINE_INCOMPLETE) {
+    if (unread(buffer) > limits_.maxChunkLine)
+      return fail(http_status::kBadRequest);
+    return false;
+  }
+  if (status == LINE_INVALID || line.size() > limits_.maxChunkLine)
+    return fail(http_status::kBadRequest);
+  return readChunkSize(line);
+}
+
+// The CRLF after chunk-data.
+bool RequestParser::readChunkEnd(std::string& buffer) {
+  std::string line;
+  const LineStatus status = takeLine(buffer, line);
+  if (status == LINE_INCOMPLETE) {
+    // Only a CR may still be waiting for its LF.
+    if (unread(buffer) > 1 ||
+        (unread(buffer) == 1 && buffer[consumed_] != '\r'))
+      return fail(http_status::kBadRequest);
+    return false;
+  }
+  if (status == LINE_INVALID || !line.empty())
+    return fail(http_status::kBadRequest);
+  state_ = CHUNK_SIZE;
+  return true;
+}
+
+// Trailer fields are checked and discarded (section 7.1.2).
+bool RequestParser::readTrailerLine(std::string& buffer) {
+  std::string line;
+  if (!takeHeaderLine(buffer, line)) return false;
+  if (line.empty()) {
+    state_ = COMPLETE;
+    return true;
+  }
+  std::string name;
+  std::string value;
+  return parseFieldLine(line, name, value);
 }
 
 // request-line = method SP request-target SP HTTP-version (section 3),
 // with exactly one SP between the parts. Extra spaces leave an empty part
 // or a space inside the version, which the checks below reject.
-bool RequestParser::parseRequestLine(const std::string& line, Result& result) {
+bool RequestParser::parseRequestLine(const std::string& line) {
   const std::string::size_type first = line.find(' ');
   const std::string::size_type second =
       (first == std::string::npos) ? first : line.find(' ', first + 1);
-  if (second == std::string::npos)
-    return fail(http_status::kBadRequest, result);
+  if (second == std::string::npos) return fail(http_status::kBadRequest);
   const std::string method = line.substr(0, first);
   const std::string target = line.substr(first + 1, second - first - 1);
   const std::string version = line.substr(second + 1);
@@ -245,17 +350,16 @@ bool RequestParser::parseRequestLine(const std::string& line, Result& result) {
       !isAsciiDigit(version[request_parser::kMajorIndex]) ||
       version[request_parser::kDotIndex] != '.' ||
       !isAsciiDigit(version[request_parser::kMinorIndex]))
-    return fail(http_status::kBadRequest, result);
+    return fail(http_status::kBadRequest);
   if (version[request_parser::kMajorIndex] != '1')
-    return fail(http_status::kHttpVersionNotSupported, result);
+    return fail(http_status::kHttpVersionNotSupported);
   // A higher 1.x minor version is handled as 1.1 (RFC 9110 section 6.2).
   request_.version = (version[request_parser::kMinorIndex] == '0')
                          ? request_parser::kHttp10
                          : request_parser::kHttp11;
-  if (!isImplementedMethod(method))
-    return fail(http_status::kNotImplemented, result);
+  if (!isImplementedMethod(method)) return fail(http_status::kNotImplemented);
   request_.method = method;
-  if (!parseTarget(target)) return fail(http_status::kBadRequest, result);
+  if (!parseTarget(target)) return fail(http_status::kBadRequest);
   return true;
 }
 
@@ -287,54 +391,38 @@ bool RequestParser::parseTarget(const std::string& target) {
   return true;
 }
 
-bool RequestParser::readHeaderLine(std::string& buffer, Result& result) {
-  std::string line;
-  const LineStatus status = takeLine(buffer, line);
-  if (status == LINE_INCOMPLETE) {
-    if (headerBytes_ + unread(buffer) > limits_.maxHeaderBytes)
-      return fail(http_status::kRequestHeaderFieldsTooLarge, result);
-    return false;
-  }
-  if (status == LINE_INVALID) return fail(http_status::kBadRequest, result);
-  headerBytes_ += line.size() + 1;
-  if (headerBytes_ > limits_.maxHeaderBytes)
-    return fail(http_status::kRequestHeaderFieldsTooLarge, result);
-  if (line.empty()) return finishHead(result);
-  return parseHeaderLine(line, true, result);
-}
-
 // field-line = field-name ":" OWS field-value OWS (section 5). A line that
 // starts with whitespace (after the request line, or an obs-fold) is
 // rejected (sections 2.2 and 5.2) because its name is not a token.
-bool RequestParser::parseHeaderLine(const std::string& line, bool store,
-                                    Result& result) {
+bool RequestParser::parseFieldLine(const std::string& line, std::string& name,
+                                   std::string& value) {
   const std::string::size_type colon = line.find(':');
-  if (colon == std::string::npos) return fail(http_status::kBadRequest, result);
-  const std::string name = line.substr(0, colon);
-  const std::string value = trimWhitespace(line.substr(colon + 1));
+  if (colon == std::string::npos) return fail(http_status::kBadRequest);
+  name = line.substr(0, colon);
+  value = trimWhitespace(line.substr(colon + 1));
   // A space before the colon makes the name an invalid token (section 5.1).
   if (!isToken(name) || !isFieldValue(value))
-    return fail(http_status::kBadRequest, result);
-  if (store) request_.headers.add(name, value);
+    return fail(http_status::kBadRequest);
   return true;
 }
 
-bool RequestParser::finishHead(Result& result) {
+bool RequestParser::finishHead() {
   const HeaderMap& headers = request_.headers;
   const std::size_t hosts = headers.count(header_name::kHost);
   // Section 3.2: Host is required in HTTP/1.1, never repeated, and valid.
   if ((hosts == 0 && request_.version == request_parser::kHttp11) ||
       hosts > 1 ||
       (hosts == 1 && !isHostValue(*headers.first(header_name::kHost))))
-    return fail(http_status::kBadRequest, result);
-  if (!decideBodyLength(result)) return false;
+    return fail(http_status::kBadRequest);
+  if (!decideBodyLength()) return false;
+  // Stop here: feed() reports HEAD_DONE so that the caller can set the
+  // body limit of the chosen location before the body is read.
   state_ = BODY_START;
-  result = HEAD_DONE;
   return false;
 }
 
 // Section 6.3 for requests.
-bool RequestParser::decideBodyLength(Result& result) {
+bool RequestParser::decideBodyLength() {
   const std::vector<std::string> codings =
       splitList(request_.headers.all(header_name::kTransferEncoding));
   const std::vector<std::string> lengths =
@@ -344,26 +432,26 @@ bool RequestParser::decideBodyLength(Result& result) {
     // with Content-Length as well it may be smuggling (section 6.3).
     if (request_.version == request_parser::kHttp10 ||
         request_.headers.has(header_name::kContentLength))
-      return fail(http_status::kBadRequest, result);
+      return fail(http_status::kBadRequest);
     if (codings.empty() || toLower(codings.back()) != request_parser::kChunked)
-      return fail(http_status::kBadRequest, result);
+      return fail(http_status::kBadRequest);
     // chunked may be applied only once; no other coding is implemented.
     for (std::size_t i = 0; i + 1 < codings.size(); ++i) {
       if (toLower(codings[i]) == request_parser::kChunked)
-        return fail(http_status::kBadRequest, result);
+        return fail(http_status::kBadRequest);
     }
-    if (codings.size() > 1) return fail(http_status::kNotImplemented, result);
+    if (codings.size() > 1) return fail(http_status::kNotImplemented);
     chunked_ = true;
     return true;
   }
   if (request_.headers.has(header_name::kContentLength)) {
     // A list is allowed only if every value is the same (section 6.3).
-    if (lengths.empty()) return fail(http_status::kBadRequest, result);
+    if (lengths.empty()) return fail(http_status::kBadRequest);
     for (std::size_t i = 0; i < lengths.size(); ++i) {
       unsigned long value = 0;
       if (!parseDecimal(lengths[i], request_parser::kMaxContentLength, value) ||
           (i > 0 && value != contentLength_))
-        return fail(http_status::kBadRequest, result);
+        return fail(http_status::kBadRequest);
       contentLength_ = static_cast<std::size_t>(value);
     }
     return true;
@@ -371,113 +459,28 @@ bool RequestParser::decideBodyLength(Result& result) {
   // HTTP/1.0 POST must carry Content-Length (RFC 1945 section 8.3).
   if (request_.version == request_parser::kHttp10 &&
       request_.method == methods::kPost)
-    return fail(http_status::kBadRequest, result);
+    return fail(http_status::kBadRequest);
   return true;
-}
-
-bool RequestParser::startBody(Result& result) {
-  if (chunked_) {
-    state_ = CHUNK_SIZE;
-    return true;
-  }
-  if (contentLength_ > maxBodySize_)
-    return fail(http_status::kContentTooLarge, result);
-  if (contentLength_ == 0) {
-    state_ = COMPLETE;
-    return true;
-  }
-  // Known size: reserve once instead of growing (design decision 11).
-  request_.body.reserve(contentLength_);
-  remaining_ = contentLength_;
-  state_ = BODY_LENGTH;
-  return true;
-}
-
-bool RequestParser::readBodyBytes(std::string& buffer, State whenDone,
-                                  Result& result) {
-  const std::size_t available = unread(buffer);
-  if (available == 0) {
-    result = NEED_MORE;
-    return false;
-  }
-  const std::size_t taken = (available < remaining_) ? available : remaining_;
-  request_.body.append(buffer, consumed_, taken);
-  consumed_ += taken;
-  remaining_ -= taken;
-  if (remaining_ == 0) state_ = whenDone;
-  return true;
-}
-
-bool RequestParser::readChunkLine(std::string& buffer, Result& result) {
-  std::string line;
-  const LineStatus status = takeLine(buffer, line);
-  if (status == LINE_INCOMPLETE) {
-    if (unread(buffer) > limits_.maxChunkLine)
-      return fail(http_status::kBadRequest, result);
-    return false;
-  }
-  if (status == LINE_INVALID || line.size() > limits_.maxChunkLine)
-    return fail(http_status::kBadRequest, result);
-  return readChunkSize(line, result);
 }
 
 // chunk-size [ chunk-ext ] (section 7.1). Extensions are ignored.
-bool RequestParser::readChunkSize(const std::string& line, Result& result) {
+bool RequestParser::readChunkSize(const std::string& line) {
   std::size_t size = 0;
   std::string::size_type i = 0;
   for (; i < line.size() && hexDigitValue(line[i]) != hex::kNotHex; ++i) {
     if (!appendDigit(size, hex::kBase, hexDigitValue(line[i])))
-      return fail(http_status::kBadRequest, result);
+      return fail(http_status::kBadRequest);
   }
-  if (i == 0) return fail(http_status::kBadRequest, result);
+  if (i == 0) return fail(http_status::kBadRequest);
   while (i < line.size() && isWhitespace(line[i])) ++i;
-  if (i < line.size() && line[i] != ';')
-    return fail(http_status::kBadRequest, result);
+  if (i < line.size() && line[i] != ';') return fail(http_status::kBadRequest);
   if (size == 0) {
     state_ = TRAILERS;
     return true;
   }
   if (size > maxBodySize_ - request_.body.size())
-    return fail(http_status::kContentTooLarge, result);
+    return fail(http_status::kContentTooLarge);
   remaining_ = size;
   state_ = CHUNK_DATA;
   return true;
-}
-
-// The CRLF after chunk-data.
-bool RequestParser::readChunkEnd(std::string& buffer, Result& result) {
-  std::string line;
-  const LineStatus status = takeLine(buffer, line);
-  if (status == LINE_INCOMPLETE) {
-    // Only a CR may still be waiting for its LF.
-    if (unread(buffer) > 1 ||
-        (unread(buffer) == 1 && buffer[consumed_] != '\r'))
-      return fail(http_status::kBadRequest, result);
-    return false;
-  }
-  if (status == LINE_INVALID || !line.empty())
-    return fail(http_status::kBadRequest, result);
-  state_ = CHUNK_SIZE;
-  return true;
-}
-
-// Trailer fields are checked and discarded (section 7.1.2), counted
-// against the same limit as the header section.
-bool RequestParser::readTrailerLine(std::string& buffer, Result& result) {
-  std::string line;
-  const LineStatus status = takeLine(buffer, line);
-  if (status == LINE_INCOMPLETE) {
-    if (headerBytes_ + unread(buffer) > limits_.maxHeaderBytes)
-      return fail(http_status::kRequestHeaderFieldsTooLarge, result);
-    return false;
-  }
-  if (status == LINE_INVALID) return fail(http_status::kBadRequest, result);
-  headerBytes_ += line.size() + 1;
-  if (headerBytes_ > limits_.maxHeaderBytes)
-    return fail(http_status::kRequestHeaderFieldsTooLarge, result);
-  if (line.empty()) {
-    state_ = COMPLETE;
-    return true;
-  }
-  return parseHeaderLine(line, false, result);
 }

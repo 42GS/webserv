@@ -84,24 +84,32 @@ class RequestParser {
   };
   enum LineStatus { LINE_READY, LINE_INCOMPLETE, LINE_INVALID };
 
-  LineStatus takeLine(const std::string& buffer, std::string& line);
-  std::size_t unread(const std::string& buffer) const;
-  bool fail(int status, Result& result);
-  bool step(std::string& buffer, Result& result);
+  // Every step below returns true to keep parsing and false to stop:
+  // either more input is needed or fail() has recorded an error. feed()
+  // then reports the state it stopped in.
+  bool step(std::string& buffer);
+  Result resultOfState() const;
+  bool fail(int status);
 
-  bool parseRequestLine(const std::string& line, Result& result);
+  LineStatus takeLine(const std::string& buffer, std::string& line);
+  bool takeHeaderLine(const std::string& buffer, std::string& line);
+  std::size_t unread(const std::string& buffer) const;
+
+  bool readRequestLine(std::string& buffer);
+  bool readHeaderLine(std::string& buffer);
+  bool startBody();
+  bool readBodyBytes(std::string& buffer, State whenDone);
+  bool readChunkLine(std::string& buffer);
+  bool readChunkEnd(std::string& buffer);
+  bool readTrailerLine(std::string& buffer);
+
+  bool parseRequestLine(const std::string& line);
   bool parseTarget(const std::string& target);
-  bool parseHeaderLine(const std::string& line, bool store, Result& result);
-  bool finishHead(Result& result);
-  bool decideBodyLength(Result& result);
-  bool startBody(Result& result);
-  bool readChunkSize(const std::string& line, Result& result);
-  bool readRequestLine(std::string& buffer, Result& result);
-  bool readHeaderLine(std::string& buffer, Result& result);
-  bool readChunkLine(std::string& buffer, Result& result);
-  bool readChunkEnd(std::string& buffer, Result& result);
-  bool readTrailerLine(std::string& buffer, Result& result);
-  bool readBodyBytes(std::string& buffer, State whenDone, Result& result);
+  bool parseFieldLine(const std::string& line, std::string& name,
+                      std::string& value);
+  bool finishHead();
+  bool decideBodyLength();
+  bool readChunkSize(const std::string& line);
 
   ParserLimits limits_;
   // Bytes of the buffer used during the current feed(). They are erased
