@@ -55,7 +55,8 @@ class RequestParser {
   };
   enum LineStatus { LINE_READY, LINE_INCOMPLETE, LINE_INVALID };
 
-  LineStatus takeLine(std::string& buffer, std::string& line);
+  LineStatus takeLine(const std::string& buffer, std::string& line);
+  std::size_t unread(const std::string& buffer) const;
   bool fail(int status, Result& result);
   bool step(std::string& buffer, Result& result);
 
@@ -74,6 +75,9 @@ class RequestParser {
   bool readBodyBytes(std::string& buffer, State whenDone, Result& result);
 
   ParserLimits limits_;
+  // Bytes of the buffer used during the current feed(). They are erased
+  // once at the end, so each byte is moved at most once per call.
+  std::string::size_type consumed_;
   std::size_t maxBodySize_;  // 0 until setMaxBodySize(): any body is 413
   State state_;
   Request request_;

@@ -174,7 +174,8 @@ ParserLimits defaultParserLimits() {
   return limits;
 }
 
-RequestParser::RequestParser(const ParserLimits& limits) : limits_(limits) {
+RequestParser::RequestParser(const ParserLimits& limits)
+    : limits_(limits), consumed_(0) {
   reset();
 }
 
@@ -193,10 +194,17 @@ void RequestParser::reset() {
 
 RequestParser::Result RequestParser::feed(std::string& buffer) {
   if (!buffer.empty()) started_ = true;
+  consumed_ = 0;
   Result result = NEED_MORE;
   while (step(buffer, result)) {
   }
+  buffer.erase(0, consumed_);
+  consumed_ = 0;
   return result;
+}
+
+std::size_t RequestParser::unread(const std::string& buffer) const {
+  return buffer.size() - consumed_;
 }
 
 void RequestParser::setMaxBodySize(std::size_t maxBodySize) {
@@ -247,12 +255,12 @@ bool RequestParser::fail(int status, Result& result) {
 
 // Takes one line ending in LF (section 2.2: a lone LF is accepted, a
 // preceding CR is dropped, any other CR makes the line invalid).
-RequestParser::LineStatus RequestParser::takeLine(std::string& buffer,
+RequestParser::LineStatus RequestParser::takeLine(const std::string& buffer,
                                                   std::string& line) {
-  const std::string::size_type newline = buffer.find('\n');
+  const std::string::size_type newline = buffer.find('\n', consumed_);
   if (newline == std::string::npos) return LINE_INCOMPLETE;
-  line.assign(buffer, 0, newline);
-  buffer.erase(0, newline + 1);
+  line.assign(buffer, consumed_, newline - consumed_);
+  consumed_ = newline + 1;
   if (!line.empty() && line[line.size() - 1] == '\r')
     line.erase(line.size() - 1);
   return line.find('\r') == std::string::npos ? LINE_READY : LINE_INVALID;
@@ -262,8 +270,8 @@ bool RequestParser::readRequestLine(std::string& buffer, Result& result) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
-    if (buffer.size() > limits_.maxRequestLine)
-      return fail(overlongRequestLineStatus(buffer), result);
+    if (unread(buffer) > limits_.maxRequestLine)
+      return fail(overlongRequestLineStatus(buffer.substr(consumed_)), result);
     return false;
   }
   if (status == LINE_INVALID) return fail(kBadRequest, result);
@@ -339,7 +347,7 @@ bool RequestParser::readHeaderLine(std::string& buffer, Result& result) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
-    if (headerBytes_ + buffer.size() > limits_.maxHeaderBytes)
+    if (headerBytes_ + unread(buffer) > limits_.maxHeaderBytes)
       return fail(kHeaderFieldsTooLarge, result);
     return false;
   }
@@ -437,14 +445,14 @@ bool RequestParser::startBody(Result& result) {
 
 bool RequestParser::readBodyBytes(std::string& buffer, State whenDone,
                                   Result& result) {
-  if (buffer.empty()) {
+  const std::size_t available = unread(buffer);
+  if (available == 0) {
     result = NEED_MORE;
     return false;
   }
-  const std::size_t taken =
-      (buffer.size() < remaining_) ? buffer.size() : remaining_;
-  request_.body.append(buffer, 0, taken);
-  buffer.erase(0, taken);
+  const std::size_t taken = (available < remaining_) ? available : remaining_;
+  request_.body.append(buffer, consumed_, taken);
+  consumed_ += taken;
   remaining_ -= taken;
   if (remaining_ == 0) state_ = whenDone;
   return true;
@@ -454,7 +462,7 @@ bool RequestParser::readChunkLine(std::string& buffer, Result& result) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
-    if (buffer.size() > limits_.maxChunkLine) return fail(kBadRequest, result);
+    if (unread(buffer) > limits_.maxChunkLine) return fail(kBadRequest, result);
     return false;
   }
   if (status == LINE_INVALID || line.size() > limits_.maxChunkLine)
@@ -490,7 +498,8 @@ bool RequestParser::readChunkEnd(std::string& buffer, Result& result) {
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
     // Only a CR may still be waiting for its LF.
-    if (buffer.size() > 1 || (buffer.size() == 1 && buffer[0] != '\r'))
+    if (unread(buffer) > 1 ||
+        (unread(buffer) == 1 && buffer[consumed_] != '\r'))
       return fail(kBadRequest, result);
     return false;
   }
@@ -505,7 +514,7 @@ bool RequestParser::readTrailerLine(std::string& buffer, Result& result) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
   if (status == LINE_INCOMPLETE) {
-    if (headerBytes_ + buffer.size() > limits_.maxHeaderBytes)
+    if (headerBytes_ + unread(buffer) > limits_.maxHeaderBytes)
       return fail(kHeaderFieldsTooLarge, result);
     return false;
   }
