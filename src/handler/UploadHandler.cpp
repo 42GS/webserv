@@ -81,10 +81,10 @@ std::string pathIn(const std::string& directory, const std::string& name) {
  *        written.
  *        아무것도 쓰기 전에 검사한, 파일 part의 이름과 경로.
  *
- * A browser sends filename="" for a file input left empty, so such parts
- * are skipped like other fields.
- * 브라우저는 비워 둔 파일 입력에 filename=""을 보내므로, 그런 part는 다른
- * 필드처럼 건너뛴다.
+ * An empty "filename" names no file, so such a part is skipped like
+ * other fields.
+ * 빈 "filename"은 파일을 가리키지 않으므로, 그런 part는 다른 필드처럼
+ * 건너뛴다.
  *
  * @param[in]  store Upload directory. / 업로드 디렉토리.
  * @param[in]  parts Parts of the body. / 본문의 part.
