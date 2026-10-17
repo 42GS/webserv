@@ -18,7 +18,8 @@ CONFIG_SRCS	:= config/ConfigBuilder.cpp \
 			   config/ServerBuilder.cpp \
 			   config/SharedSettings.cpp
 
-CORE_SRCS	:= core/Clock.cpp \
+CORE_SRCS	:= core/ChildReaper.cpp \
+			   core/Clock.cpp \
 			   core/HttpDate.cpp \
 			   core/EventLoop.cpp \
 			   core/Listener.cpp \
@@ -42,6 +43,7 @@ HTTP_SRCS	:= http/Ascii.cpp \
 			   http/StatusText.cpp
 
 FS_SRCS		:= fs/FileInfo.cpp \
+			   fs/FilePath.cpp \
 			   fs/FileReader.cpp \
 			   fs/FileWriter.cpp
 
@@ -53,8 +55,13 @@ HANDLER_SRCS	:= handler/AutoindexHandler.cpp \
 
 APP_SRCS	:= app/RequestProcessor.cpp
 
+CGI_SRCS	:= cgi/CgiEnv.cpp \
+			   cgi/CgiOutput.cpp \
+			   cgi/CgiPipes.cpp \
+			   cgi/CgiProcess.cpp
+
 LIB_SRCS	:= $(CONFIG_SRCS) $(CORE_SRCS) $(FS_SRCS) $(HTTP_SRCS) \
-			   $(ROUTE_SRCS) $(HANDLER_SRCS) $(APP_SRCS)
+			   $(ROUTE_SRCS) $(HANDLER_SRCS) $(APP_SRCS) $(CGI_SRCS)
 SRCS		:= main.cpp $(LIB_SRCS)
 
 OBJS		:= $(addprefix $(OBJ_DIR)/, $(SRCS:.cpp=.o))
@@ -75,7 +82,8 @@ TEST_SRCS	:= tests/unit/test_main.cpp \
 			   tests/unit/fs_test.cpp \
 			   tests/unit/ascii_test.cpp \
 			   tests/unit/field_syntax_test.cpp \
-			   tests/unit/multipart_test.cpp
+			   tests/unit/multipart_test.cpp \
+			   tests/unit/cgi_test.cpp
 TEST_OBJS	:= $(addprefix $(OBJ_DIR)/, $(TEST_SRCS:.cpp=.o))
 
 DEPS		:= $(OBJS:.o=.d) $(TEST_OBJS:.o=.d)

@@ -50,9 +50,12 @@ std::string serializeHead(const Response& response) {
     if (isSafeFieldValue(field.second))
       head << field.first << ": " << field.second << "\r\n";
   }
-  // Never for 204 (RFC 9110 8.6); for HEAD it is the GET value.
-  // 204에는 절대 보내지 않는다 (RFC 9110 8.6절). HEAD에는 GET의 값을 쓴다.
-  if (response.status != http_status::kNoContent) {
+  // Never for 204; for 304 only the length a 200 would have, which is not
+  // known (RFC 9110 8.6). For HEAD it is the GET value.
+  // 204에는 절대 보내지 않는다. 304에는 200의 길이만 보낼 수 있는데 그
+  // 길이를 모른다 (RFC 9110 8.6절). HEAD에는 GET의 값을 쓴다.
+  if (response.status != http_status::kNoContent &&
+      response.status != http_status::kNotModified) {
     const std::size_t length = response.bodyFile.empty()
                                    ? response.body.size()
                                    : response.bodyFileSize;

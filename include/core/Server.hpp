@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "config/ServerConfig.hpp"
+#include "core/ChildReaper.hpp"
 #include "core/IoHandler.hpp"
 #include "core/Listener.hpp"
 
@@ -35,10 +36,12 @@ class Server : public LoopObserver, public AcceptHandler {
    *                     읽은 설정. 참조로 보관한다.
    * @param[in] registry Event loop; kept by reference.
    *                     이벤트 루프. 참조로 보관한다.
+   * @param[in] reaper   Collects CGI children; kept by reference.
+   *                     CGI 자식을 회수한다. 참조로 보관한다.
    * @param[in] now      Current time. / 현재 시각.
    */
   Server(const std::vector<ServerConfig>& configs, IoRegistry& registry,
-         std::time_t now);
+         ChildReaper& reaper, std::time_t now);
 
   /**
    * @brief Closes every connection and listener.
@@ -73,8 +76,10 @@ class Server : public LoopObserver, public AcceptHandler {
   void adopt(int clientFd, const ListenContext& where);
 
   /**
-   * @brief Checks timeouts and deletes closed connections.
-   *        시간 초과를 검사하고 닫힌 연결을 지운다.
+   * @brief Checks timeouts, deletes closed connections and collects
+   *        finished CGI children.
+   *        시간 초과를 검사하고, 닫힌 연결을 지우고, 끝난 CGI 자식을
+   *        회수한다.
    * @param[in] now Current time. / 현재 시각.
    */
   void afterIteration(std::time_t now);
@@ -104,6 +109,8 @@ class Server : public LoopObserver, public AcceptHandler {
   const std::vector<ServerConfig>& configs_;
   /** Event loop. / 이벤트 루프. */
   IoRegistry& registry_;
+  /** Collects CGI children. / CGI 자식을 회수한다. */
+  ChildReaper& reaper_;
   /** Time of the last iteration. / 마지막 반복의 시각. */
   std::time_t now_;
   /** Owned listeners. / 소유한 listener. */

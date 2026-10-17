@@ -47,6 +47,14 @@ FileKind fileKind(const std::string& path);
 bool isReadable(const std::string& path);
 
 /**
+ * @brief access(X_OK): the server may run the file.
+ *        access(X_OK): 서버가 이 파일을 실행할 수 있는지.
+ * @param[in] path Path. / 경로.
+ * @return Whether it is executable. / 실행할 수 있는지.
+ */
+bool isExecutable(const std::string& path);
+
+/**
  * @brief access(W_OK | X_OK): the server may add and remove entries in
  *        the directory.
  *        access(W_OK | X_OK): 서버가 이 디렉토리에 항목을 만들고 지울 수

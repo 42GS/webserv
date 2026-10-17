@@ -262,6 +262,10 @@ TEST_CASE(rejectsBadLocationDirectives) {
   CHECK(contains(loadError("server { listen 8080; root /a; location /x/ { cgi "
                            ".py /a; cgi .py /b; } }"),
                  "duplicate \"cgi\""));
+  // G-18: the script runs in its own directory.
+  CHECK(contains(loadError("server { listen 8080; root /a; location /x/ { cgi "
+                           ".py python3; } }"),
+                 "absolute path"));
   CHECK(contains(
       loadError(
           "server { listen 8080; root /a; location /x/ { autoindex yes; } }"),

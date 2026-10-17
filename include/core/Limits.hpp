@@ -120,6 +120,24 @@ const std::size_t kMaxErrorPageSize = 1024 * 1024;
  */
 const std::size_t kMaxUploadFiles = 5;
 
+/**
+ * @brief Time a CGI script gets to finish its output; then 504.
+ *        CGI 스크립트가 출력을 끝낼 시간. 넘으면 504.
+ */
+const std::time_t kCgiTimeoutSeconds = 10;
+/**
+ * @brief Largest CGI output kept; more is a failed script (502).
+ *        보관하는 CGI 출력의 최대 크기. 넘으면 실패한 스크립트(502)다.
+ *
+ * The output is collected in memory before the response (design 8), so a
+ * script printing forever would otherwise grow it until the timeout.
+ * 출력은 응답 전에 메모리에 모으므로 (설계 8절), 끝없이 출력하는
+ * 스크립트가 시간 초과까지 크기를 키울 수 있다.
+ */
+const std::size_t kMaxCgiOutputBytes = 16 * 1024 * 1024;
+/** One read() or write() on a CGI pipe. / CGI pipe의 read()·write() 한 번. */
+const std::size_t kPipeIoSize = 65536;
+
 }  // namespace limits
 
 #endif

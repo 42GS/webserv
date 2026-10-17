@@ -60,20 +60,30 @@ short Listener::wantedEvents() const { return POLLIN; }
 
 void Listener::onEvent(short revents) {
   if ((revents & POLLIN) == 0) return;
-  // The peer address is not needed yet (CGI, step 7).
-  // 상대 주소는 아직 필요 없다 (CGI, 7단계).
-  const int clientFd = accept(fd_, 0, 0);
+  sockaddr_in remote = sockaddr_in();
+  socklen_t remoteSize = sizeof(remote);
+  const int clientFd =
+      accept(fd_, reinterpret_cast<sockaddr*>(&remote), &remoteSize);
   // A failed accept (for example the client already gave up) is not an
   // error for the server; the next readiness will try again.
   // accept 실패(예: 클라이언트가 이미 포기함)는 서버의 오류가 아니다.
   // 다음에 준비되면 다시 시도한다.
   if (clientFd < 0) return;
-  if (fcntl(clientFd, F_SETFL, O_NONBLOCK) < 0) {
+  // The local end tells which address a "0.0.0.0" listener was reached on.
+  // "0.0.0.0" listener가 어느 주소로 연결됐는지는 로컬 끝이 알려 준다.
+  sockaddr_in local = sockaddr_in();
+  socklen_t localSize = sizeof(local);
+  if (fcntl(clientFd, F_SETFL, O_NONBLOCK) < 0 ||
+      getsockname(clientFd, reinterpret_cast<sockaddr*>(&local), &localSize) <
+          0) {
     close(clientFd);
     return;
   }
   ListenContext where;
   where.server = &server_;
+  where.remoteAddress = formatIpv4(remote.sin_addr.s_addr);
+  where.localAddress = formatIpv4(local.sin_addr.s_addr);
+  where.localPort = ntohs(local.sin_port);
   acceptor_.adopt(clientFd, where);
 }
 

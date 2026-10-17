@@ -32,4 +32,19 @@ unsigned long parseIpv4(const std::string& text);
  */
 sockaddr_in toSockaddr(const ListenAddr& addr);
 
+/**
+ * @brief Dotted text of an IPv4 address.
+ *        IPv4 주소의 점 표기 텍스트.
+ *
+ * inet_ntoa() and inet_ntop() are not on the list of allowed functions,
+ * so the text is built from ntohl() (wiki analysis/subject-vs-evaluation
+ * 1.7).
+ * inet_ntoa()와 inet_ntop()는 허용 함수 목록에 없어서 ntohl()로 직접
+ * 만든다 (위키 analysis/subject-vs-evaluation 1.7절).
+ *
+ * @param[in] address Address in network order. / 네트워크 바이트 순서 주소.
+ * @return Text such as "127.0.0.1". / "127.0.0.1" 같은 텍스트.
+ */
+std::string formatIpv4(in_addr_t address);
+
 #endif

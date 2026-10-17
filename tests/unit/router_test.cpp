@@ -52,6 +52,12 @@ void makeTree() {
   writeFile(root + "/a.txt", "a");
   writeFile(root + "/idx/index.html", "index");
   writeFile(root + "/list/x.txt", "x");
+  static_cast<void>(
+      mkdir((root + "/cgi").c_str(), router_test::kDirectoryMode));
+  static_cast<void>(
+      mkdir((root + "/cgi/sub.py").c_str(), router_test::kDirectoryMode));
+  writeFile(root + "/cgi/run.py", "print()");
+  writeFile(root + "/cgi/index.py", "print()");
 }
 
 std::string treeConfig() {
@@ -64,6 +70,8 @@ std::string treeConfig() {
          root +
          "/; limit_except GET { deny all; } }"
          "  location /post-only/ { limit_except POST { deny all; } }"
+         "  location /cgi/ { limit_except GET POST { deny all; }"
+         "    index index.py; cgi .py /usr/bin/python3; }"
          "  location /dir/ { limit_except GET POST DELETE { deny all; }"
          "    upload_store " +
          root + "/dir; } }";
@@ -228,4 +236,30 @@ TEST_CASE(d02_d03_deleteDecisions) {
   CHECK_EQ(404, router.route(requestFor("DELETE", "/dir/none.txt")).status);
   CHECK_EQ(403, router.route(requestFor("DELETE", "/dir/")).status);
   CHECK_EQ(400, router.route(requestFor("DELETE", "/dir/../../x")).status);
+}
+
+TEST_CASE(g01_g09_g10_scripts) {
+  makeTree();
+  const ServerConfig server = serverFrom(treeConfig());
+  const Router router(server);
+  RouteResult result = router.route(requestFor("GET", "/cgi/run.py/a/b%20c"));
+  CHECK_EQ(static_cast<int>(RouteResult::CGI), kindOf(result));
+  CHECK_EQ(std::string(router_test::kTree) + "/cgi/run.py", result.fsPath);
+  CHECK_EQ(std::string("/usr/bin/python3"), result.interpreter);
+  CHECK_EQ(std::string("/cgi/run.py"), result.scriptName);
+  CHECK_EQ(std::string("/a/b c"), result.pathInfo);
+  CHECK_EQ(std::string(router_test::kTree) + "/a/b c", result.pathTranslated);
+  // POST to a script needs no upload_store.
+  CHECK_EQ(static_cast<int>(RouteResult::CGI),
+           kindOf(router.route(requestFor("POST", "/cgi/run.py"))));
+  // A directory named like a script is not one; the index is (decision 6).
+  result = router.route(requestFor("GET", "/cgi/sub.py/run.py"));
+  CHECK_EQ(404, result.status);
+  result = router.route(requestFor("GET", "/cgi/"));
+  CHECK_EQ(static_cast<int>(RouteResult::CGI), kindOf(result));
+  CHECK_EQ(std::string("/cgi/index.py"), result.scriptName);
+  result = router.route(requestFor("DELETE", "/cgi/run.py"));
+  CHECK_EQ(405, result.status);
+  CHECK_EQ(std::string("GET, HEAD, POST"), result.allow);
+  CHECK_EQ(404, router.route(requestFor("GET", "/cgi/none.py")).status);
 }

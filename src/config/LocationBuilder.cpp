@@ -116,8 +116,10 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
  * @param[in]     context   Tree and source name. / 트리와 소스 이름.
  * @param[in]     directive The directive. / 지시어.
  * @param[in,out] location  Location to update. / 고칠 location.
- * @throws ConfigError If the extension is not ".x" or longer, or repeats.
- *         확장자가 ".x" 이상의 형태가 아니거나 중복되면.
+ * @throws ConfigError If the extension is not ".x" or longer or repeats,
+ *         or the program path is not absolute.
+ *         확장자가 ".x" 이상의 형태가 아니거나 중복되거나, 프로그램 경로가
+ *         절대 경로가 아니면.
  */
 void applyCgi(const BuildContext& context, const Directive& directive,
               LocationConfig& location) {
@@ -125,6 +127,13 @@ void applyCgi(const BuildContext& context, const Directive& directive,
   if (extension.size() < 2 || extension[0] != '.')  // at least ".x"
     throw ConfigError(context.source, directive.line,
                       "\"cgi\" extension must look like \".php\"");
+  // The script runs in its own directory, where a relative program path
+  // would no longer be found (design 9).
+  // 스크립트는 자기 디렉토리에서 실행되므로, 상대 경로 프로그램은 거기서
+  // 찾을 수 없다 (설계 9절).
+  if (directive.args[1].empty() || directive.args[1][0] != '/')
+    throw ConfigError(context.source, directive.line,
+                      "\"cgi\" program must be an absolute path");
   if (location.cgiByExtension.count(extension) != 0)
     throw ConfigError(context.source, directive.line,
                       "duplicate \"cgi\" extension \"" + extension + "\"");

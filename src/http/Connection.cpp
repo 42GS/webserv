@@ -12,10 +12,14 @@
 #include "core/Limits.hpp"
 #include "http/StatusCodes.hpp"
 
-Connection::Connection(int fd, const ListenContext& where, std::time_t now)
+Connection::Connection(int fd, const ListenContext& where,
+                       const CgiServices& services, std::time_t now)
     : fd_(fd),
       state_(READ_HEAD),
-      processor_(*where.server),
+      processor_(where, services),
+      cgi_(0),
+      current_(0),
+      localRedirects_(0),
       keepAlive_(false),
       requestConsumed_(false),
       now_(now),
@@ -24,7 +28,10 @@ Connection::Connection(int fd, const ListenContext& where, std::time_t now)
 
 // The connection is over; a close() error leaves nothing to do.
 // 연결이 끝났으므로 close()가 실패해도 할 일이 없다.
-Connection::~Connection() { close(fd_); }
+Connection::~Connection() {
+  delete cgi_;
+  close(fd_);
+}
 
 int Connection::fd() const { return fd_; }
 
@@ -62,6 +69,10 @@ void Connection::onFailure() { changeState(CLOSED); }
 // 요청을 기다리거나, 보내거나, 버리던 연결은 그냥 닫는다.
 void Connection::checkTimeout(std::time_t now) {
   now_ = now;
+  if (state_ == WAIT_CGI) {
+    followCgi();
+    return;
+  }
   if (!hasTimedOut()) return;
   const bool requestUnfinished =
       (state_ == READ_HEAD || state_ == READ_BODY) && parser_.hasStarted();
@@ -91,6 +102,10 @@ bool Connection::hasTimedOut() const {
       return elapsed > limits::kHeaderTimeoutSeconds;
     case READ_BODY:
       return idle > limits::kBodyTimeoutSeconds;
+    case WAIT_CGI:
+      // The CGI process keeps its own time (followCgi()).
+      // CGI 프로세스가 자기 시간을 잰다 (followCgi()).
+      return false;
     case WRITE:
       return idle > limits::kSendTimeoutSeconds;
     case DRAIN:
@@ -133,7 +148,9 @@ void Connection::parseInput() {
         break;
       case RequestParser::DONE:
         requestConsumed_ = true;
-        startResponse(processor_.process(parser_.request(), now_));
+        current_ = &parser_.request();
+        localRedirects_ = 0;
+        handleOutcome(processor_.process(*current_, now_));
         return;
       case RequestParser::ERROR:
         startErrorResponse(parser_.errorStatus());
@@ -177,6 +194,42 @@ void Connection::finishResponse() {
 
 // The 500 for a vanished file is built in memory, so it always starts.
 // 사라진 파일 대신 보내는 500은 메모리에서 만들므로 항상 시작된다.
+void Connection::handleOutcome(const ProcessOutcome& outcome) {
+  switch (outcome.kind) {
+    case ProcessOutcome::RESPONSE:
+      startResponse(outcome.response);
+      return;
+    case ProcessOutcome::CGI:
+      cgi_ = outcome.cgi;
+      changeState(WAIT_CGI);
+      return;
+    case ProcessOutcome::LOCAL_REDIRECT:
+      break;
+  }
+  if (++localRedirects_ > limits::kMaxInternalRedirects) {
+    startResponse(processor_.statusResponse(http_status::kInternalServerError,
+                                            *current_, now_));
+    return;
+  }
+  redirected_ = outcome.redirect;
+  current_ = &redirected_;
+  handleOutcome(processor_.process(redirected_, now_));
+}
+
+void Connection::followCgi() {
+  if (cgi_->isDone()) {
+    const ProcessOutcome outcome = processor_.afterCgi(*current_, *cgi_, now_);
+    delete cgi_;
+    cgi_ = 0;
+    handleOutcome(outcome);
+  } else if (cgi_->hasTimedOut(now_)) {
+    delete cgi_;
+    cgi_ = 0;
+    startResponse(processor_.statusResponse(http_status::kGatewayTimeout,
+                                            *current_, now_));
+  }
+}
+
 void Connection::startResponse(const Response& response) {
   if (stream_.reset(response)) {
     keepAlive_ = response.keepAlive;

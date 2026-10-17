@@ -7,6 +7,8 @@
 
 #include <arpa/inet.h>
 
+#include <sstream>
+
 #include "config/ConfigValues.hpp"
 #include "http/Ascii.hpp"
 
@@ -37,4 +39,14 @@ sockaddr_in toSockaddr(const ListenAddr& addr) {
   result.sin_port = htons(addr.port);
   result.sin_addr.s_addr = htonl(static_cast<uint32_t>(parseIpv4(addr.host)));
   return result;
+}
+
+std::string formatIpv4(in_addr_t address) {
+  const unsigned long host = ntohl(address);
+  std::ostringstream text;
+  for (int shift = 24; shift >= 0; shift -= 8) {
+    text << ((host >> shift) & config_values::kMaxOctet);
+    if (shift > 0) text << '.';
+  }
+  return text.str();
 }

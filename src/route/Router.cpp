@@ -6,9 +6,11 @@
 #include "route/Router.hpp"
 
 #include <cstddef>
+#include <map>
 
 #include "core/Limits.hpp"
 #include "fs/FileInfo.hpp"
+#include "fs/FilePath.hpp"
 #include "http/Methods.hpp"
 #include "http/StatusCodes.hpp"
 #include "route/PathResolver.hpp"
@@ -139,20 +141,6 @@ bool coversPath(const LocationConfig& location, const std::string& path) {
 }
 
 /**
- * @brief The directory that holds a file path.
- *        파일 경로가 들어 있는 디렉토리.
- * @param[in] fsPath File system path. / 파일 시스템 경로.
- * @return Text before the last "/", "/" for a file at the top, or "."
- *         without a "/".
- *         마지막 "/" 앞의 텍스트. 맨 위의 파일이면 "/", "/"가 없으면 ".".
- */
-std::string parentDirectory(const std::string& fsPath) {
-  const std::string::size_type slash = fsPath.rfind('/');
-  if (slash == std::string::npos) return ".";
-  return slash == 0 ? "/" : fsPath.substr(0, slash);
-}
-
-/**
  * @brief Decides a DELETE of a mapped path.
  *        매핑한 경로의 DELETE를 정한다.
  *
@@ -188,6 +176,86 @@ RouteResult upload(const LocationConfig& location, const std::string& path) {
   result.kind = RouteResult::UPLOAD;
   result.uploadStore = location.uploadStore;
   result.urlPath = path;
+  return result;
+}
+
+/**
+ * @brief The Allow value of a 405 for a script: what limit_except allows.
+ *        스크립트에 대한 405의 Allow 값: limit_except가 허용한 메서드.
+ * @param[in] location The location. / location.
+ * @return Comma-separated methods. / 쉼표로 구분한 메서드.
+ */
+std::string allowForScript(const LocationConfig& location) {
+  std::string allow;
+  for (std::size_t i = 0; i < methods::kImplementedCount; ++i) {
+    if (location.allowedMethods.count(methods::kImplemented[i]) == 0) continue;
+    if (!allow.empty()) allow += ", ";
+    allow += methods::kImplemented[i];
+  }
+  return allow;
+}
+
+/**
+ * @brief The interpreter for a path segment by its extension.
+ *        경로 조각의 확장자에 맞는 인터프리터.
+ * @param[in] location The location. / location.
+ * @param[in] segment  Last segment of a candidate script path.
+ *                     후보 스크립트 경로의 마지막 조각.
+ * @return The interpreter, or 0 if no "cgi" extension matches.
+ *         인터프리터. 맞는 "cgi" 확장자가 없으면 0.
+ */
+const std::string* interpreterFor(const LocationConfig& location,
+                                  const std::string& segment) {
+  for (std::map<std::string, std::string>::const_iterator it =
+           location.cgiByExtension.begin();
+       it != location.cgiByExtension.end(); ++it) {
+    const std::string& extension = it->first;
+    if (segment.size() > extension.size() &&
+        segment.compare(segment.size() - extension.size(), extension.size(),
+                        extension) == 0)
+      return &it->second;
+  }
+  return 0;
+}
+
+/**
+ * @brief Finds the script in a path: the first leading part whose last
+ *        segment has a "cgi" extension and is a regular file.
+ *        경로 안의 스크립트를 찾는다: 마지막 조각이 "cgi" 확장자이고 일반
+ *        파일인 첫 앞부분.
+ *
+ * The rest of the path is for the script (RFC 3875 section 3.2).
+ * 경로의 나머지는 스크립트가 해석한다 (RFC 3875 3.2절).
+ *
+ * @param[in] location Matched location. / 고른 location.
+ * @param[in] path     Normalized path. / 정규화한 경로.
+ * @return A CGI decision, or an ERROR with status 0 if there is no
+ *         script.
+ *         CGI 결정. 스크립트가 없으면 status가 0인 ERROR.
+ */
+RouteResult findScript(const LocationConfig& location,
+                       const std::string& path) {
+  RouteResult result;
+  if (location.cgiByExtension.empty()) return result;
+  std::string::size_type end = location.path.size();
+  while (end <= path.size()) {
+    end = path.find('/', end);
+    if (end == std::string::npos) end = path.size();
+    const std::string scriptName = path.substr(0, end);
+    const std::string* interpreter =
+        interpreterFor(location, scriptName.substr(scriptName.rfind('/') + 1));
+    if (interpreter != 0 &&
+        fileKind(mapPath(location, scriptName)) == FILE_REGULAR) {
+      result.kind = RouteResult::CGI;
+      result.fsPath = mapPath(location, scriptName);
+      result.interpreter = *interpreter;
+      result.scriptName = scriptName;
+      result.pathInfo = path.substr(end);
+      result.urlPath = path;
+      return result;
+    }
+    ++end;
+  }
   return result;
 }
 
@@ -245,16 +313,31 @@ bool Router::resolve(const std::string& encodedPath, std::string& path,
   return location != 0;
 }
 
-// Order of design 7: location, return, limit_except, upload, delete, then
-// the file system.
-// 설계 7절의 순서: location, return, limit_except, 업로드, 삭제, 그다음
-// 파일 시스템.
+// Order of design 7: location, return, CGI, limit_except, upload, delete,
+// then the file system. A script answers every method limit_except allows;
+// it reads REQUEST_METHOD itself.
+// 설계 7절의 순서: location, return, CGI, limit_except, 업로드, 삭제,
+// 그다음 파일 시스템. 스크립트는 limit_except가 허용한 메서드를 모두 받고,
+// REQUEST_METHOD를 보고 스스로 처리한다.
 RouteResult Router::routePath(const std::string& path, const Request& request,
                               int internalRedirects) const {
   const LocationConfig* location = matchLocation(path);
   if (location == 0) return error(http_status::kNotFound);
   if (location->returnCode != 0)
     return redirect(location->returnCode, location->returnUrl);
+  const RouteResult script = findScript(*location, path);
+  if (script.kind == RouteResult::CGI) {
+    if (location->allowedMethods.count(request.method) != 0) {
+      RouteResult result = script;
+      if (!result.pathInfo.empty())
+        static_cast<void>(
+            mapToFile(encodePath(result.pathInfo), result.pathTranslated));
+      return result;
+    }
+    RouteResult refused = error(http_status::kMethodNotAllowed);
+    refused.allow = allowForScript(*location);
+    return refused;
+  }
   if (!answers(*location, request.method)) return methodNotAllowed(*location);
   if (request.method == methods::kPost) return upload(*location, path);
 

@@ -34,14 +34,21 @@ class Connection : public IoHandler {
   /**
    * @brief Starts reading a request on an accepted socket.
    *        accept한 소켓에서 요청 읽기를 시작한다.
-   * @param[in] fd    Non-blocking socket, now owned.
-   *                  non-blocking 소켓. 이제 소유한다.
-   * @param[in] where The listening server block. / 연결을 받은 server 블록.
-   * @param[in] now   Current time. / 현재 시각.
+   * @param[in] fd       Non-blocking socket, now owned.
+   *                     non-blocking 소켓. 이제 소유한다.
+   * @param[in] where    The listening server block and both ends.
+   *                     연결을 받은 server 블록과 두 끝.
+   * @param[in] services For CGI; kept by reference. / CGI용. 참조로
+   * 보관한다.
+   * @param[in] now      Current time. / 현재 시각.
    */
-  Connection(int fd, const ListenContext& where, std::time_t now);
+  Connection(int fd, const ListenContext& where, const CgiServices& services,
+             std::time_t now);
 
-  /** @brief Closes the socket. / 소켓을 닫는다. */
+  /**
+   * @brief Closes the socket and ends a CGI process still running.
+   *        소켓을 닫고, 아직 실행 중인 CGI 프로세스를 끝낸다.
+   */
   ~Connection();
 
   /** @brief The client socket. / 클라이언트 소켓. */
@@ -67,9 +74,16 @@ class Connection : public IoHandler {
   void onFailure();
 
   /**
-   * @brief Answers 408 or closes when the current state has lasted too
-   *        long.
-   *        지금 상태가 너무 오래 이어지면 408로 답하거나 닫는다.
+   * @brief Once per loop iteration: answers 408 or closes when the
+   *        current state has lasted too long, and follows a CGI process.
+   *        루프 한 바퀴마다: 지금 상태가 너무 오래 이어지면 408로 답하거나
+   *        닫고, CGI 프로세스를 살핀다.
+   *
+   * CGI results are taken here, outside event dispatch, so that a
+   * finished process is never deleted inside its own pipe's onEvent().
+   * CGI 결과는 이벤트 분배 밖인 여기서 받는다. 끝난 프로세스를 그 pipe의
+   * onEvent() 안에서 지우는 일이 없게 하기 위해서다.
+   *
    * @param[in] now Current time. / 현재 시각.
    */
   void checkTimeout(std::time_t now);
@@ -90,6 +104,11 @@ class Connection : public IoHandler {
     READ_HEAD,
     /** Reading the body. / 본문을 읽는 중. */
     READ_BODY,
+    /**
+     * @brief Waiting for a CGI script; its pipes are polled instead.
+     *        CGI 스크립트를 기다리는 중. 대신 그 pipe를 poll한다.
+     */
+    WAIT_CGI,
     /** Sending the response. / 응답을 보내는 중. */
     WRITE,
     /**
@@ -132,6 +151,26 @@ class Connection : public IoHandler {
    *        inBuffer_를 파서에 넣고 결과에 따라 움직인다.
    */
   void parseInput();
+
+  /**
+   * @brief Acts on what processing a request led to.
+   *        요청을 처리한 결과에 따라 움직인다.
+   *
+   * A local redirect is answered in place, up to
+   * limits::kMaxInternalRedirects times, then 500 (design decision 6).
+   * 로컬 리다이렉트는 그 자리에서 답하되 limits::kMaxInternalRedirects번까지,
+   * 넘으면 500이다 (설계 결정 6).
+   *
+   * @param[in] outcome The outcome. / 결과.
+   */
+  void handleOutcome(const ProcessOutcome& outcome);
+
+  /**
+   * @brief Takes the result of a finished CGI process, or answers 504 once
+   *        it times out.
+   *        끝난 CGI 프로세스의 결과를 받거나, 시간을 넘으면 504로 답한다.
+   */
+  void followCgi();
 
   /**
    * @brief Starts sending a response.
@@ -178,6 +217,20 @@ class Connection : public IoHandler {
   RequestProcessor processor_;
   /** Response being sent. / 보내고 있는 응답. */
   ResponseStream stream_;
+  /**
+   * @brief Running CGI process, owned; 0 if none.
+   *        실행 중인 CGI 프로세스. 소유하며 없으면 0.
+   */
+  CgiProcess* cgi_;
+  /**
+   * @brief The request being answered: the parsed one or redirected_.
+   *        답하고 있는 요청: 파싱한 것이나 redirected_.
+   */
+  const Request* current_;
+  /** Request of the last local redirect. / 마지막 로컬 리다이렉트의 요청. */
+  Request redirected_;
+  /** Local redirects for this request. / 이 요청의 로컬 리다이렉트 수. */
+  int localRedirects_;
   /** Received bytes not yet parsed. / 받았지만 아직 파싱하지 않은 바이트. */
   std::string inBuffer_;
   /**

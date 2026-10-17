@@ -20,6 +20,7 @@ const int kMovedPermanently            = 301;  /**< Moved Permanently */
 const int kFound                       = 302;  /**< Found */
 const int kSeeOther                    = 303;  /**< See Other */
 const int kTemporaryRedirect           = 307;  /**< Temporary Redirect */
+const int kNotModified                 = 304;  /**< Not Modified */
 const int kPermanentRedirect           = 308;  /**< Permanent Redirect */
 const int kBadRequest                  = 400;  /**< Bad Request */
 const int kForbidden                   = 403;  /**< Forbidden */

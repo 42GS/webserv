@@ -11,6 +11,7 @@
 
 #include "config/ConfigError.hpp"
 #include "config/ConfigLoader.hpp"
+#include "core/ChildReaper.hpp"
 #include "core/Clock.hpp"
 #include "core/EventLoop.hpp"
 #include "core/Limits.hpp"
@@ -64,7 +65,12 @@ int main(int argc, char** argv) {
   signals::install();
 
   EventLoop loop(clock);
-  Server server(configs, loop, clock.now());
+  // Declared before the server, so it outlives it: connections deleted by
+  // the server hand their CGI children to it, and it waits for them last.
+  // server보다 먼저 선언해서 더 오래 산다. server가 지우는 연결이 CGI
+  // 자식을 넘기고, 마지막에 그 자식들을 기다린다.
+  ChildReaper reaper;
+  Server server(configs, loop, reaper, clock.now());
   std::string error;
   if (!server.openListeners(error)) return fail(error);
   std::cout << "webserv: listening (" << configPath << ")" << std::endl;

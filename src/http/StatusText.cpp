@@ -36,6 +36,7 @@ const StatusName kStatusNames[] = {
     {http_status::kMovedPermanently, "Moved Permanently"},
     {http_status::kFound, "Found"},
     {http_status::kSeeOther, "See Other"},
+    {http_status::kNotModified, "Not Modified"},
     {http_status::kTemporaryRedirect, "Temporary Redirect"},
     {http_status::kPermanentRedirect, "Permanent Redirect"},
     {http_status::kBadRequest, "Bad Request"},

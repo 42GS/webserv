@@ -14,8 +14,8 @@
 #include "http/Connection.hpp"
 
 Server::Server(const std::vector<ServerConfig>& configs, IoRegistry& registry,
-               std::time_t now)
-    : configs_(configs), registry_(registry), now_(now) {}
+               ChildReaper& reaper, std::time_t now)
+    : configs_(configs), registry_(registry), reaper_(reaper), now_(now) {}
 
 Server::~Server() {
   while (!connections_.empty()) closeConnection(connections_.begin()->second);
@@ -47,7 +47,8 @@ bool Server::openListeners(std::string& error) {
 void Server::adopt(int clientFd, const ListenContext& where) {
   Connection* connection = 0;
   try {
-    connection = new Connection(clientFd, where, now_);
+    connection =
+        new Connection(clientFd, where, CgiServices(registry_, reaper_), now_);
     connections_[clientFd] = connection;
   } catch (const std::exception&) {
     // If construction succeeded, deleting the connection closes clientFd;
@@ -78,6 +79,7 @@ void Server::afterIteration(std::time_t now) {
     if (it->second->isClosed()) closed.push_back(it->second);
   }
   for (std::size_t i = 0; i < closed.size(); ++i) closeConnection(closed[i]);
+  reaper_.reap();
 }
 
 bool Server::shouldStop() const { return signals::stopRequested(); }

@@ -101,6 +101,32 @@ class RunningServer:
         user_ticks, system_ticks = int(fields[11]), int(fields[12])
         return (user_ticks + system_ticks) / os.sysconf("SC_CLK_TCK")
 
+    def _child_stats(self):
+        """(pid, state) of the server's children; needs /proc."""
+        found = []
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            try:
+                with open("/proc/%s/stat" % entry) as stat:
+                    fields = stat.read().rsplit(")", 1)[1].split()
+            except OSError:  # the process ended meanwhile
+                continue
+            if int(fields[1]) == self.process.pid:
+                found.append((int(entry), fields[0]))
+        return found
+
+    def children(self):
+        """States ("R", "S", "Z", ...) of the server's child processes, or
+        None where /proc is missing."""
+        if not os.path.isdir("/proc/self"):
+            return None
+        return [state for _, state in self._child_stats()]
+
+    def child_pids(self):
+        """Pids of the server's child processes; needs /proc."""
+        return [pid for pid, _ in self._child_stats()]
+
     def is_running(self):
         return self.process.poll() is None
 
