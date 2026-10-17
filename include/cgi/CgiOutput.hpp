@@ -59,11 +59,15 @@ struct CgiOutput {
  * 버린다. Date도 서버가 직접 보내므로 버린다 (6.3.4절은 이런 충돌을 서버가
  * 해결하게 한다).
  *
- * @param[in] output Everything the script wrote. / 스크립트가 쓴 전부.
+ * @param[in,out] output Everything the script wrote; its body is moved
+ *                       into the result, not copied, and the text is left
+ *                       unspecified.
+ *                       스크립트가 쓴 전부. 본문은 복사하지 않고 결과로
+ *                       옮기며, 남은 텍스트는 정하지 않는다.
  * @return The parsed output; INVALID if it breaks the grammar of section
  *         6.2.
  *         해석한 출력. 6.2절 문법에 맞지 않으면 INVALID.
  */
-CgiOutput parseCgiOutput(const std::string& output);
+CgiOutput parseCgiOutput(std::string& output);
 
 #endif

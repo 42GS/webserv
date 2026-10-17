@@ -113,6 +113,11 @@ class Server : public LoopObserver, public AcceptHandler {
   ChildReaper& reaper_;
   /** Time of the last iteration. / 마지막 반복의 시각. */
   std::time_t now_;
+  /**
+   * @brief When paused listeners were last resumed.
+   *        멈춘 listener를 마지막으로 다시 시도한 시각.
+   */
+  std::time_t listenersResumedAt_;
   /** Owned listeners. / 소유한 listener. */
   std::vector<Listener*> listeners_;
   /** Owned connections by socket. / 소켓별로 소유한 연결. */

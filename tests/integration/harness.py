@@ -5,6 +5,7 @@ evaluation machine (Ubuntu 22.04, Python 3.10) without installing anything.
 """
 
 import os
+import resource
 import signal
 import socket
 import subprocess
@@ -67,9 +68,16 @@ def run_to_exit(args, cwd):
 class RunningServer:
     """A webserv process that is accepting connections on its ports."""
 
-    def __init__(self, args, cwd, ports):
+    def __init__(self, args, cwd, ports, fd_limit=None):
+        """fd_limit, if given, is the server's RLIMIT_NOFILE."""
         self.ports = ports
+        limit = None
+        if fd_limit is not None:
+            def limit():
+                resource.setrlimit(resource.RLIMIT_NOFILE,
+                                   (fd_limit, fd_limit))
         self.process = subprocess.Popen(WRAPPER + [WEBSERV] + args, cwd=cwd,
+                                        preexec_fn=limit,
                                         stdout=subprocess.DEVNULL,
                                         stderr=subprocess.PIPE, text=True)
         self._wait_until_listening()
@@ -129,6 +137,18 @@ class RunningServer:
     def child_pids(self):
         """Pids of the server's child processes; needs /proc."""
         return [pid for pid, _ in self._child_stats()]
+
+    def peak_memory_kb(self):
+        """Peak resident memory (VmHWM) of the server, or None without
+        /proc."""
+        status_path = "/proc/%d/status" % self.process.pid
+        if not os.path.exists(status_path):
+            return None
+        with open(status_path) as status:
+            for line in status:
+                if line.startswith("VmHWM:"):
+                    return int(line.split()[1])
+        return None
 
     def is_running(self):
         return self.process.poll() is None

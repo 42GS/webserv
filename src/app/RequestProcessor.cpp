@@ -55,6 +55,24 @@ Request localRedirectRequest(const Request& original,
   return request;
 }
 
+/**
+ * @brief True if the connection stays open after this response.
+ *        이 응답 뒤에 연결을 유지하면 true.
+ *
+ * When the request allows it and the response is not a 400: a bad path
+ * closes it, as NGINX does (design decision 2), and so does a malformed
+ * upload body.
+ * 요청이 허용하고 응답이 400이 아닐 때다. 잘못된 경로는 NGINX처럼 연결을
+ * 닫고 (설계 결정 2), 잘못된 업로드 본문도 닫는다.
+ *
+ * @param[in] request  The request. / 요청.
+ * @param[in] response The response. / 응답.
+ * @return Whether to keep it open. / 유지할지.
+ */
+bool keepsConnection(const Request& request, const Response& response) {
+  return request.persistent && response.status != http_status::kBadRequest;
+}
+
 }  // namespace
 
 RequestProcessor::RequestProcessor(const ListenContext& where,
@@ -74,18 +92,32 @@ ProcessOutcome RequestProcessor::process(const Request& request,
   return finished(respond(route, request), request, now);
 }
 
+// The body is moved, not copied, from the script's output to the outcome
+// (it may be limits::kMaxCgiOutputBytes long).
+// 본문은 스크립트 출력에서 결과로 복사하지 않고 옮긴다
+// (limits::kMaxCgiOutputBytes까지 길 수 있다).
 ProcessOutcome RequestProcessor::afterCgi(const Request& request,
-                                          const CgiProcess& cgi,
+                                          CgiProcess& cgi,
                                           std::time_t now) const {
-  const CgiOutput output =
-      cgi.failed() ? CgiOutput() : parseCgiOutput(cgi.output());
-  if (output.kind == CgiOutput::INVALID)
-    return finished(statusPage(http_status::kBadGateway), request, now);
-  if (output.kind == CgiOutput::RESPONSE)
-    return finished(output.response, request, now);
   ProcessOutcome outcome;
-  outcome.kind = ProcessOutcome::LOCAL_REDIRECT;
-  outcome.redirect = localRedirectRequest(request, output.localTarget);
+  std::string text;
+  cgi.takeOutput(text);
+  // Initialized, not assigned, so the result is not copied once more.
+  // 대입하지 않고 초기화해서 결과를 한 번 더 복사하지 않는다.
+  CgiOutput output = cgi.failed() ? CgiOutput() : parseCgiOutput(text);
+  if (output.kind == CgiOutput::INVALID) {
+    outcome.response = statusPage(http_status::kBadGateway);
+  } else if (output.kind == CgiOutput::LOCAL_REDIRECT) {
+    outcome.kind = ProcessOutcome::LOCAL_REDIRECT;
+    outcome.redirect = localRedirectRequest(request, output.localTarget);
+    return outcome;
+  } else {
+    outcome.response.status = output.response.status;
+    outcome.response.headers = output.response.headers;
+    outcome.response.body.swap(output.response.body);
+  }
+  finish(outcome.response, request.method,
+         keepsConnection(request, outcome.response), now);
   return outcome;
 }
 
@@ -124,10 +156,8 @@ ProcessOutcome RequestProcessor::finished(const Response& response,
                                           std::time_t now) const {
   ProcessOutcome outcome;
   outcome.response = response;
-  finish(
-      outcome.response, request.method,
-      request.persistent && outcome.response.status != http_status::kBadRequest,
-      now);
+  finish(outcome.response, request.method,
+         keepsConnection(request, outcome.response), now);
   return outcome;
 }
 

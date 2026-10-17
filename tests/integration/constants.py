@@ -77,3 +77,4 @@ README_SECTIONS = ["## Description", "## Instructions", "## Resources"]
 LARGE_RESPONSE_SIZE = 8 * 1024 * 1024  # many send() calls per response
 RESET_DURING_SEND_CLIENTS = 5
 RESET_SETTLE_SECONDS = 1  # lets the server's next send() meet the reset
+SMALL_FD_LIMIT = 16  # RLIMIT_NOFILE of the server in N-26

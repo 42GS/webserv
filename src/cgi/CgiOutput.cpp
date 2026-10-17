@@ -259,19 +259,28 @@ void dropForbiddenBody(Response& response) {
 
 }  // namespace
 
-CgiOutput parseCgiOutput(const std::string& output) {
+// Every path returns the same object, so that the body (up to
+// limits::kMaxCgiOutputBytes) is not copied on return; an INVALID result
+// may still hold a body, which the caller ignores.
+// 모든 경로가 같은 객체를 돌려줘서, 본문(최대 limits::kMaxCgiOutputBytes)이
+// 돌려줄 때 복사되지 않게 한다. INVALID 결과에 본문이 남아 있을 수
+// 있지만 호출자는 무시한다.
+CgiOutput parseCgiOutput(std::string& output) {
   CgiFields fields;
-  Response response;
-  const std::string::size_type body = readHeader(output, fields, response);
-  if (body == std::string::npos || fields.fieldCount == 0) return CgiOutput();
-  response.body = output.substr(body);
-  if (fields.hasLocation) return redirectOutput(fields, response);
+  CgiOutput result;
+  const std::string::size_type body =
+      readHeader(output, fields, result.response);
+  if (body == std::string::npos || fields.fieldCount == 0) return result;
+  output.erase(0, body);
+  result.response.body.swap(output);
+  if (fields.hasLocation) {
+    result = redirectOutput(fields, result.response);
+    return result;
+  }
   // A document MUST have Content-Type (section 6.2.1).
   // 문서에는 Content-Type이 있어야 한다 (6.2.1절).
-  if (!fields.hasType) return CgiOutput();
-  CgiOutput result;
+  if (!fields.hasType) return result;
   result.kind = CgiOutput::RESPONSE;
-  result.response = response;
   result.response.status = fields.hasStatus ? fields.status : http_status::kOk;
   dropForbiddenBody(result.response);
   return result;

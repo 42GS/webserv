@@ -92,11 +92,12 @@ class RequestProcessor {
    * 않는다 (RFC 3875 6.2.2절은 메서드를 정하지 않는다).
    *
    * @param[in] request The request the script answered. / 스크립트가 답한 요청.
-   * @param[in] cgi     The finished process. / 끝난 프로세스.
+   * @param[in,out] cgi The finished process; its output is taken.
+   *                    끝난 프로세스. 출력을 가져간다.
    * @param[in] now     Time for the Date field. / Date 필드에 쓸 시각.
    * @return A response or a local redirect. / 응답이나 로컬 리다이렉트.
    */
-  ProcessOutcome afterCgi(const Request& request, const CgiProcess& cgi,
+  ProcessOutcome afterCgi(const Request& request, CgiProcess& cgi,
                           std::time_t now) const;
 
   /**

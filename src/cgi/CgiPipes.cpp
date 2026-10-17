@@ -80,7 +80,7 @@ bool CgiStdout::isClosed() const { return fd_ < 0; }
 
 bool CgiStdout::failed() const { return failed_; }
 
-const std::string& CgiStdout::data() const { return data_; }
+void CgiStdout::swapData(std::string& other) { data_.swap(other); }
 
 void CgiStdout::close(bool failed) {
   if (fd_ < 0) return;

@@ -117,8 +117,12 @@ class CgiStdout : public IoHandler {
    *        오류나 limits::kMaxCgiOutputBytes 때문에 닫혔으면 true.
    */
   bool failed() const;
-  /** @brief Everything read. / 읽은 전부. */
-  const std::string& data() const;
+  /**
+   * @brief Swaps everything read with @p other.
+   *        읽은 전부를 @p other와 맞바꾼다.
+   * @param[in,out] other Text to swap with. / 맞바꿀 텍스트.
+   */
+  void swapData(std::string& other);
 
  private:
   /// @cond

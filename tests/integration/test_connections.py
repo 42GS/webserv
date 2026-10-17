@@ -24,8 +24,10 @@ from constants import (
     RETRY_INTERVAL_SECONDS,
     RUN_SLOW,
     SIMPLE_GET,
+    SMALL_FD_LIMIT,
     TIMEOUT_MARGIN_SECONDS,
     TRICKLE_INTERVAL_SECONDS,
+    WRAPPER,
 )
 
 
@@ -197,3 +199,37 @@ class ConnectionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# Not a ConnectionTest: the server gets a small descriptor limit.
+class DescriptorLimitTest(unittest.TestCase):
+    def setUp(self):
+        self.workspace = harness.Workspace()
+        self.addCleanup(self.workspace.cleanup)
+        self.port = harness.free_port()
+        path = self.workspace.write("test.conf",
+                                    harness.server_block(self.port))
+        self.server = harness.RunningServer([path], self.workspace.path,
+                                            [self.port],
+                                            fd_limit=SMALL_FD_LIMIT)
+        self.addCleanup(self.server.stop)
+
+    # Once accept() fails for lack of descriptors, the listen socket stays
+    # readable; polling it again at once would spin the loop.
+    @unittest.skipUnless(os.path.isdir("/proc/self/fd"),
+                         "needs /proc (run on Linux)")
+    @unittest.skipIf(WRAPPER, "the wrapper needs descriptors of its own")
+    def test_n26_full_descriptor_table_does_not_spin(self):
+        clients = [harness.connect(self.port)
+                   for _ in range(SMALL_FD_LIMIT * 2)]
+        time.sleep(FD_SETTLE_SECONDS)
+        before = self.server.cpu_seconds()
+        time.sleep(IDLE_SECONDS)
+        used = self.server.cpu_seconds() - before
+        for sock in clients:
+            sock.close()
+        self.assertLess(used, IDLE_SECONDS * MAX_IDLE_CPU_SHARE)
+        with harness.connect(self.port) as sock:
+            sock.sendall(SIMPLE_GET)
+            response = harness.read_until_closed(sock)
+        self.assertIn("200", harness.status_line(response))

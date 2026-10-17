@@ -18,7 +18,11 @@
 
 Listener::Listener(const ServerConfig& server, const ListenAddr& addr,
                    AcceptHandler& acceptor)
-    : server_(server), addr_(addr), acceptor_(acceptor), fd_(-1) {}
+    : server_(server),
+      addr_(addr),
+      acceptor_(acceptor),
+      fd_(-1),
+      paused_(false) {}
 
 // close() results are not checked in this file: the descriptor is given up
 // either way and there is no caller left to report to.
@@ -56,7 +60,7 @@ bool Listener::open(std::string& error) {
 
 int Listener::fd() const { return fd_; }
 
-short Listener::wantedEvents() const { return POLLIN; }
+short Listener::wantedEvents() const { return paused_ ? 0 : POLLIN; }
 
 void Listener::onEvent(short revents) {
   if ((revents & POLLIN) == 0) return;
@@ -64,11 +68,14 @@ void Listener::onEvent(short revents) {
   socklen_t remoteSize = sizeof(remote);
   const int clientFd =
       accept(fd_, reinterpret_cast<sockaddr*>(&remote), &remoteSize);
-  // A failed accept (for example the client already gave up) is not an
-  // error for the server; the next readiness will try again.
-  // accept 실패(예: 클라이언트가 이미 포기함)는 서버의 오류가 아니다.
-  // 다음에 준비되면 다시 시도한다.
-  if (clientFd < 0) return;
+  // A failed accept (the client already gave up, or no descriptor is
+  // free) is not an error for the server; it tries again after resume().
+  // accept 실패(클라이언트가 이미 포기했거나 남은 fd가 없음)는 서버의
+  // 오류가 아니다. resume() 뒤에 다시 시도한다.
+  if (clientFd < 0) {
+    paused_ = true;
+    return;
+  }
   // The local end tells which address a "0.0.0.0" listener was reached on.
   // "0.0.0.0" listener가 어느 주소로 연결됐는지는 로컬 끝이 알려 준다.
   sockaddr_in local = sockaddr_in();
@@ -88,3 +95,5 @@ void Listener::onEvent(short revents) {
 }
 
 void Listener::onFailure() {}
+
+void Listener::resume() { paused_ = false; }

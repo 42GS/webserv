@@ -106,8 +106,20 @@ class CgiProcess {
    *        limits::kMaxCgiOutputBytes 초과.
    */
   bool failed() const;
-  /** @brief Everything the script wrote. / 스크립트가 쓴 전부. */
-  const std::string& output() const;
+  /**
+   * @brief Hands over everything the script wrote, without copying it.
+   *        스크립트가 쓴 전부를 복사하지 않고 넘긴다.
+   *
+   * The output may be limits::kMaxCgiOutputBytes long, so it is swapped
+   * into @p into instead of returned.
+   * 출력은 limits::kMaxCgiOutputBytes까지 길 수 있어서, 돌려주지 않고
+   * @p into와 맞바꾼다.
+   *
+   * @param[out] into Gets the output; the process keeps what @p into
+   *                  held.
+   *                  출력을 받는다. 프로세스는 @p into에 있던 것을 갖는다.
+   */
+  void takeOutput(std::string& into);
   /**
    * @brief True if the output has not ended within
    *        limits::kCgiTimeoutSeconds.

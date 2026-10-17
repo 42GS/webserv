@@ -68,7 +68,10 @@ class Listener : public IoHandler {
    */
   int fd() const;
 
-  /** @brief Always POLLIN. / 항상 POLLIN. */
+  /**
+   * @brief POLLIN, or 0 after a failed accept() until resume().
+   *        POLLIN. accept()가 실패한 뒤 resume() 전까지는 0.
+   */
   short wantedEvents() const;
 
   /**
@@ -83,6 +86,24 @@ class Listener : public IoHandler {
    *        되돌릴 것이 없다. listener에는 요청별 상태가 없다.
    */
   void onFailure();
+
+  /**
+   * @brief Polls the listen socket again after a failed accept().
+   *        accept()가 실패한 뒤 listen 소켓을 다시 poll한다.
+   *
+   * When the descriptor table is full, accept() fails while the socket
+   * stays readable, and polling it again at once would spin the loop.
+   * The server calls this when a connection closed or a second passed,
+   * so a waiting connection is tried again once a descriptor may be free
+   * (errno is not read to tell the causes apart; wiki
+   * analysis/subject-vs-evaluation 1.8).
+   * fd 표가 가득 차면 accept()는 실패하는데 소켓은 계속 읽기 가능하다.
+   * 곧바로 다시 poll하면 루프가 쉬지 않고 돈다. server는 연결이 닫혔거나
+   * 1초가 지났을 때 이것을 부르므로, 기다리는 연결은 fd가 풀렸을 수 있을
+   * 때 다시 시도한다 (원인을 가리려고 errno를 읽지 않는다. 위키
+   * analysis/subject-vs-evaluation 1.8절).
+   */
+  void resume();
 
  private:
   /// @cond
@@ -100,6 +121,8 @@ class Listener : public IoHandler {
   AcceptHandler& acceptor_;
   /** Listen socket, -1 when closed. / listen 소켓, 닫혀 있으면 -1. */
   int fd_;
+  /** accept() failed; waiting for resume(). / accept() 실패, resume() 대기. */
+  bool paused_;
 };
 
 #endif

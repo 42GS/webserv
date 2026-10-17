@@ -12,8 +12,12 @@
 
 namespace {
 
+// parseCgiOutput() takes the body out of its argument, so tests parse a
+// copy.
+CgiOutput parse(std::string output) { return parseCgiOutput(output); }
+
 int statusOf(const std::string& output) {
-  const CgiOutput parsed = parseCgiOutput(output);
+  const CgiOutput parsed = parse(output);
   return parsed.kind == CgiOutput::RESPONSE ? parsed.response.status : -1;
 }
 
@@ -32,7 +36,7 @@ bool hasName(const std::vector<std::string>& env, const std::string& name) {
 }  // namespace
 
 TEST_CASE(g07_documentResponse) {
-  const CgiOutput parsed = parseCgiOutput(
+  const CgiOutput parsed = parse(
       "Content-Type: text/html\nStatus: 404 Not Found\nSet-Cookie: a=1\n"
       "Set-Cookie: b=2\nContent-Length: 999\nDate: x\n\n<p>gone</p>\n");
   CHECK_EQ(static_cast<int>(CgiOutput::RESPONSE),
@@ -46,7 +50,7 @@ TEST_CASE(g07_documentResponse) {
   CHECK_EQ(200, statusOf("content-type: text/plain\r\n\r\nx"));
   CHECK_EQ(204, statusOf("Content-Type: text/plain\nStatus: 204\n\nx"));
   CHECK_EQ(std::string(""),
-           parseCgiOutput("Content-Type: a/b\nStatus: 204\n\nx").response.body);
+           parse("Content-Type: a/b\nStatus: 204\n\nx").response.body);
 }
 
 TEST_CASE(g06_invalidOutputs) {
@@ -65,11 +69,11 @@ TEST_CASE(g06_invalidOutputs) {
 }
 
 TEST_CASE(g08_redirects) {
-  CgiOutput parsed = parseCgiOutput("Location: /other.py?x=1\n\n");
+  CgiOutput parsed = parse("Location: /other.py?x=1\n\n");
   CHECK_EQ(static_cast<int>(CgiOutput::LOCAL_REDIRECT),
            static_cast<int>(parsed.kind));
   CHECK_EQ(std::string("/other.py?x=1"), parsed.localTarget);
-  parsed = parseCgiOutput("Location: http://example.com/\n\n");
+  parsed = parse("Location: http://example.com/\n\n");
   CHECK_EQ(302, parsed.response.status);
   CHECK_EQ(std::string("http://example.com/"),
            *parsed.response.headers.first("Location"));

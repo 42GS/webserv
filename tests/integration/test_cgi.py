@@ -10,7 +10,7 @@ import unittest
 
 import harness
 from harness import get, request
-from constants import HOST, TIMEOUT_MARGIN_SECONDS
+from constants import HOST, TIMEOUT_MARGIN_SECONDS, WRAPPER
 
 CGI_TIMEOUT_SECONDS = 10  # limits::kCgiTimeoutSeconds
 MAX_CGI_OUTPUT = 16 * 1024 * 1024  # limits::kMaxCgiOutputBytes
@@ -18,6 +18,7 @@ MAX_INTERNAL_REDIRECTS = 10  # limits::kMaxInternalRedirects
 PHP_CGI = "/usr/bin/php-cgi"
 FAST_SECONDS = 2  # an answer that does not wait for a running script
 REAP_SECONDS = 3  # time for the server to collect finished children
+MAX_OUTPUT_COPIES = 2.5  # peak memory per byte of CGI output
 
 SCRIPTS = {
     # Every meta-variable, the working directory and the body.
@@ -60,6 +61,11 @@ import sys
 sys.stdout.write("Content-Type: text/plain\n\n")
 sys.stdout.write("x" * 300000)
 ''',
+    "fifteen.py": r'''
+import sys
+sys.stdout.write("Content-Type: text/plain\n\n")
+sys.stdout.write("f" * %d)
+''' % (15 * 1024 * 1024),
     "huge.py": r'''
 import sys
 sys.stdout.write("Content-Type: text/plain\n\n")
@@ -342,6 +348,18 @@ class CgiTest(unittest.TestCase):
         self.assertEqual(0, self.server.send_signal(signal.SIGINT))
         for pid in script_pids:
             self.assertFalse(os.path.exists("/proc/%d" % pid), pid)
+
+    # The output used to be copied about four times on its way to the
+    # response; now it is moved, and only the send buffer copies it.
+    @unittest.skipUnless(os.path.isdir("/proc/self"),
+                         "needs /proc (run on Linux)")
+    @unittest.skipIf(WRAPPER, "the wrapper's memory counts as the server's")
+    def test_g22_large_output_is_not_copied_over_and_over(self):
+        before = self.server.peak_memory_kb()
+        status, _, body = self.fetch(get("/cgi/fifteen.py"))
+        self.assertEqual((200, 15 * 1024 * 1024), (status, len(body)))
+        grown = (self.server.peak_memory_kb() - before) * 1024
+        self.assertLess(grown, len(body) * MAX_OUTPUT_COPIES)
 
     @unittest.skipUnless(os.path.exists(PHP_CGI), "needs " + PHP_CGI)
     def test_g17_php_cgi(self):

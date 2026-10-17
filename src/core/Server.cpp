@@ -15,7 +15,11 @@
 
 Server::Server(const std::vector<ServerConfig>& configs, IoRegistry& registry,
                ChildReaper& reaper, std::time_t now)
-    : configs_(configs), registry_(registry), reaper_(reaper), now_(now) {}
+    : configs_(configs),
+      registry_(registry),
+      reaper_(reaper),
+      now_(now),
+      listenersResumedAt_(now) {}
 
 Server::~Server() {
   while (!connections_.empty()) closeConnection(connections_.begin()->second);
@@ -80,6 +84,14 @@ void Server::afterIteration(std::time_t now) {
   }
   for (std::size_t i = 0; i < closed.size(); ++i) closeConnection(closed[i]);
   reaper_.reap();
+  // A paused listener is retried once a descriptor may be free: a
+  // connection closed, or a second passed (the clock's step).
+  // 멈춘 listener는 fd가 풀렸을 수 있을 때 다시 시도한다: 연결이 닫혔거나
+  // 1초가 지났을 때 (시계의 단위).
+  if (!closed.empty() || now != listenersResumedAt_) {
+    for (std::size_t i = 0; i < listeners_.size(); ++i) listeners_[i]->resume();
+    listenersResumedAt_ = now;
+  }
 }
 
 bool Server::shouldStop() const { return signals::stopRequested(); }
