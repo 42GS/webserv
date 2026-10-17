@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>webserv demo</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header><img src="/logo.svg" alt="logo" width="48" height="48"><h1>webserv demo</h1></header>
+<p>A static site served by webserv (<code>conf/default.conf</code>).</p>
+<h2>Static files</h2>
+<ul>
+<li><a href="/about.html">A second page</a></li>
+<li><a href="/files/">Directory listing</a> (autoindex)</li>
+<li><a href="/docs/">A route mapped to another directory</a> (alias, with its own index file)</li>
+<li><a href="/old/">A redirected URL</a> (301)</li>
+<li><a href="/no/such/page">An incorrect URL</a> (custom 404 page)</li>
+</ul>
+<h2>Uploads</h2>
+<ul>
+<li><a href="/upload.html">Upload files</a>, then see them in <a href="/upload/">/upload/</a></li>
+</ul>
+<h2>CGI</h2>
+<ul>
+<li><a href="/cgi-bin/hello.py?name=evaluator">GET with a query</a></li>
+<li><a href="/form.html">POST a form</a></li>
+<li><a href="/cgi-bin/env.py/extra/path?x=1">Meta-variables</a></li>
+<li><a href="/cgi-bin/relative.py">Reads a file by relative path</a></li>
+<li><a href="/cgi-bin/error.py">A script with an error</a> (502)</li>
+<li><a href="/cgi-bin/loop.py">An infinite loop</a> (504 after 10 s)</li>
+<li><a href="/cgi-bin/session.py">Cookies and a session</a> (bonus)</li>
+<li><a href="/cgi-bin/hello.php">PHP</a> (bonus: a second CGI)</li>
+</ul>
+<p class="note">See README.md for curl commands.</p>
+</body>
+</html>
