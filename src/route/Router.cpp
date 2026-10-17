@@ -16,18 +16,6 @@
 namespace {
 
 /**
- * @brief Methods that static resources answer in step 4.
- *        4단계에서 정적 리소스가 답하는 메서드.
- *
- * POST and DELETE get their handlers in step 6.
- * POST와 DELETE의 handler는 6단계에서 생긴다.
- */
-const char* const kStaticMethods[] = {methods::kGet, methods::kHead};
-/** Number of entries in kStaticMethods. / kStaticMethods의 항목 수. */
-const std::size_t kStaticMethodCount =
-    sizeof(kStaticMethods) / sizeof(kStaticMethods[0]);
-
-/**
  * @brief An ERROR decision.
  *        ERROR 결정.
  * @param[in] status Status code. / 상태 코드.
@@ -56,48 +44,38 @@ RouteResult redirect(int status, const std::string& target) {
 }
 
 /**
- * @brief True if limit_except of the location allows the method.
- *        location의 limit_except가 이 메서드를 허용하면 true.
+ * @brief True if the location both allows the method and can answer it.
+ *        location이 이 메서드를 허용하고 답할 수도 있으면 true.
+ *
+ * POST needs an upload store; GET, HEAD and DELETE work on any file.
+ * POST는 업로드 저장 위치가 있어야 한다. GET, HEAD, DELETE는 어느 파일에나
+ * 쓸 수 있다.
+ *
  * @param[in] location The location. / location.
- * @param[in] method   Request method. / 요청 메서드.
- * @return Whether it is allowed; true when there is no limit_except.
- *         허용되는지. limit_except가 없으면 true.
+ * @param[in] method   Implemented method. / 구현한 메서드.
+ * @return Whether the location answers it. / location이 답하는지.
  */
-bool locationAllows(const LocationConfig& location, const std::string& method) {
-  return location.allowedMethods.empty() ||
-         location.allowedMethods.count(method) != 0;
-}
-
-/**
- * @brief True for the methods static resources answer.
- *        정적 리소스가 답하는 메서드이면 true.
- * @param[in] method Request method. / 요청 메서드.
- * @return Whether it is GET or HEAD. / GET이나 HEAD인지.
- */
-bool isStaticMethod(const std::string& method) {
-  for (std::size_t i = 0; i < kStaticMethodCount; ++i) {
-    if (method == kStaticMethods[i]) return true;
-  }
-  return false;
+bool answers(const LocationConfig& location, const std::string& method) {
+  if (location.allowedMethods.count(method) == 0) return false;
+  return method != methods::kPost || !location.uploadStore.empty();
 }
 
 /**
  * @brief The Allow value of a 405.
  *        405의 Allow 값.
  *
- * Methods this location both permits and can serve (RFC 9110 section
- * 10.2.1).
- * 이 location이 허용하면서 처리할 수도 있는 메서드다 (RFC 9110 10.2.1절).
+ * The methods this location answers (RFC 9110 section 10.2.1).
+ * 이 location이 답하는 메서드다 (RFC 9110 10.2.1절).
  *
  * @param[in] location The location. / location.
  * @return Comma-separated methods. / 쉼표로 구분한 메서드.
  */
 std::string allowFor(const LocationConfig& location) {
   std::string allow;
-  for (std::size_t i = 0; i < kStaticMethodCount; ++i) {
-    if (!locationAllows(location, kStaticMethods[i])) continue;
+  for (std::size_t i = 0; i < methods::kImplementedCount; ++i) {
+    if (!answers(location, methods::kImplemented[i])) continue;
     if (!allow.empty()) allow += ", ";
-    allow += kStaticMethods[i];
+    allow += methods::kImplemented[i];
   }
   return allow;
 }
@@ -161,6 +139,59 @@ bool coversPath(const LocationConfig& location, const std::string& path) {
 }
 
 /**
+ * @brief The directory that holds a file path.
+ *        파일 경로가 들어 있는 디렉토리.
+ * @param[in] fsPath File system path. / 파일 시스템 경로.
+ * @return Text before the last "/", "/" for a file at the top, or "."
+ *         without a "/".
+ *         마지막 "/" 앞의 텍스트. 맨 위의 파일이면 "/", "/"가 없으면 ".".
+ */
+std::string parentDirectory(const std::string& fsPath) {
+  const std::string::size_type slash = fsPath.rfind('/');
+  if (slash == std::string::npos) return ".";
+  return slash == 0 ? "/" : fsPath.substr(0, slash);
+}
+
+/**
+ * @brief Decides a DELETE of a mapped path.
+ *        매핑한 경로의 DELETE를 정한다.
+ *
+ * Only regular files are deleted: directories and other kinds get 403,
+ * as does a file whose directory the server cannot change.
+ * 일반 파일만 지운다. 디렉토리와 다른 종류는 403이고, 서버가 바꿀 수
+ * 없는 디렉토리 안의 파일도 403이다.
+ *
+ * @param[in] fsPath File system path. / 파일 시스템 경로.
+ * @return DELETE, or ERROR 404 or 403. / DELETE, 또는 ERROR 404나 403.
+ */
+RouteResult deletion(const std::string& fsPath) {
+  const FileKind kind = fileKind(fsPath);
+  if (kind == FILE_MISSING) return error(http_status::kNotFound);
+  if (kind != FILE_REGULAR || !canChangeEntries(parentDirectory(fsPath)))
+    return error(http_status::kForbidden);
+  RouteResult result;
+  result.kind = RouteResult::DELETE;
+  result.fsPath = fsPath;
+  return result;
+}
+
+/**
+ * @brief An UPLOAD decision into the location's store.
+ *        location의 저장 위치로 가는 UPLOAD 결정.
+ * @param[in] location Location with an upload store. / 업로드 저장 위치가
+ * 있는 location.
+ * @param[in] path     Normalized request path. / 정규화한 요청 경로.
+ * @return The decision. / 결정.
+ */
+RouteResult upload(const LocationConfig& location, const std::string& path) {
+  RouteResult result;
+  result.kind = RouteResult::UPLOAD;
+  result.fsPath = location.uploadStore;
+  result.urlPath = path;
+  return result;
+}
+
+/**
  * @brief Appends "?query" when there is one.
  *        query가 있으면 "?query"를 붙인다.
  * @param[in] path  Path. / 경로.
@@ -214,19 +245,21 @@ bool Router::resolve(const std::string& encodedPath, std::string& path,
   return location != 0;
 }
 
-// Order of design 7: location, return, limit_except, then the file system.
-// 설계 7절의 순서: location, return, limit_except, 그다음 파일 시스템.
+// Order of design 7: location, return, limit_except, upload, delete, then
+// the file system.
+// 설계 7절의 순서: location, return, limit_except, 업로드, 삭제, 그다음
+// 파일 시스템.
 RouteResult Router::routePath(const std::string& path, const Request& request,
                               int internalRedirects) const {
   const LocationConfig* location = matchLocation(path);
   if (location == 0) return error(http_status::kNotFound);
   if (location->returnCode != 0)
     return redirect(location->returnCode, location->returnUrl);
-  if (!locationAllows(*location, request.method) ||
-      !isStaticMethod(request.method))
-    return methodNotAllowed(*location);
+  if (!answers(*location, request.method)) return methodNotAllowed(*location);
+  if (request.method == methods::kPost) return upload(*location, path);
 
   const std::string fsPath = mapPath(*location, path);
+  if (request.method == methods::kDelete) return deletion(fsPath);
   const FileKind kind = fileKind(fsPath);
   if (kind == FILE_MISSING) return error(http_status::kNotFound);
   if (kind == FILE_DIRECTORY)

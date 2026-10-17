@@ -11,6 +11,7 @@
 #include <string>
 
 #include "config/ServerConfig.hpp"
+#include "handler/UploadHandler.hpp"
 #include "http/Request.hpp"
 #include "http/Response.hpp"
 #include "route/Router.hpp"
@@ -51,9 +52,10 @@ class RequestProcessor {
    *        완성된 요청의 응답을 만든다.
    *
    * The connection stays open if the request allows it and the response
-   * is not a 400: a bad path closes it, as NGINX does (design decision 2).
+   * is not a 400: a bad path closes it, as NGINX does (design decision 2),
+   * and so does a malformed upload body.
    * 요청이 허용하고 응답이 400이 아니면 연결을 유지한다. 잘못된 경로는
-   * NGINX처럼 연결을 닫는다 (설계 결정 2).
+   * NGINX처럼 연결을 닫고 (설계 결정 2), 잘못된 업로드 본문도 닫는다.
    *
    * @param[in] request The request. / 요청.
    * @param[in] now     Time for the Date field. / Date 필드에 쓸 시각.
@@ -85,11 +87,46 @@ class RequestProcessor {
   /**
    * @brief Calls the handler for a routing decision.
    *        라우팅 결정에 맞는 handler를 부른다.
-   * @param[in] route The decision. / 결정.
+   * @param[in] route   The decision. / 결정.
+   * @param[in] request The request, for uploads. / 요청. 업로드에 쓴다.
    * @return The response before the common fields. / 공통 필드를 붙이기 전의
    * 응답.
    */
-  Response respond(const RouteResult& route) const;
+  Response respond(const RouteResult& route, const Request& request) const;
+
+  /**
+   * @brief Stores an upload and answers 201 or the error.
+   *        업로드를 저장하고 201이나 오류로 답한다.
+   *
+   * A 201 has the first stored file in Location and lists the stored
+   * files as text (RFC 9110 section 9.3.3).
+   * 201은 처음 저장한 파일을 Location에 담고, 저장한 파일을 텍스트로
+   * 나열한다 (RFC 9110 9.3.3절).
+   *
+   * @param[in] route   UPLOAD decision. / UPLOAD 결정.
+   * @param[in] request The request. / 요청.
+   * @return The response. / 응답.
+   */
+  Response uploadResponse(const RouteResult& route,
+                          const Request& request) const;
+
+  /**
+   * @brief The URI of an uploaded file, if GET reaches it.
+   *        GET으로 닿는다면, 업로드한 파일의 URI.
+   *
+   * The file is taken to sit next to the POST target; that URI counts
+   * only if it maps back to the stored file, since the store is a file
+   * system path that need not be under any location.
+   * 파일이 POST 대상 옆에 있다고 보고, 그 URI가 저장한 파일로 다시 매핑될
+   * 때만 쓴다. 저장 위치는 어느 location 아래에도 없을 수 있는 파일
+   * 시스템 경로이기 때문이다.
+   *
+   * @param[in] targetPath Normalized POST path. / 정규화한 POST 경로.
+   * @param[in] file       The stored file. / 저장한 파일.
+   * @return Percent-encoded URI, or empty. / 퍼센트 인코딩한 URI, 또는 빈 값.
+   */
+  std::string uriOfUpload(const std::string& targetPath,
+                          const UploadedFile& file) const;
 
   /**
    * @brief buildStatusPage() with this server's error pages.

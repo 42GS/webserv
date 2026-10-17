@@ -26,6 +26,7 @@ const int kForbidden                   = 403;  /**< Forbidden */
 const int kNotFound                    = 404;  /**< Not Found */
 const int kMethodNotAllowed            = 405;  /**< Method Not Allowed */
 const int kRequestTimeout              = 408;  /**< Request Timeout */
+const int kConflict                    = 409;  /**< Conflict */
 const int kContentTooLarge             = 413;  /**< Content Too Large */
 const int kUriTooLong                  = 414;  /**< URI Too Long */
 const int kUnsupportedMediaType        = 415;  /**< Unsupported Media Type */

@@ -5,35 +5,26 @@
  */
 #include "http/Methods.hpp"
 
-#include <cstddef>
+namespace methods {
 
-namespace {
+const char* const kImplemented[] = {kGet, kHead, kPost, kDelete};
+const std::size_t kImplementedCount =
+    sizeof(kImplemented) / sizeof(kImplemented[0]);
 
-/** Methods this server implements. / 이 서버가 구현한 메서드. */
-const char* const kImplementedMethods[] = {methods::kGet, methods::kHead,
-                                           methods::kPost, methods::kDelete};
-
-/**
- * @brief Number of entries in kImplementedMethods.
- *        kImplementedMethods의 항목 수.
- */
-const std::size_t kMethodCount =
-    sizeof(kImplementedMethods) / sizeof(kImplementedMethods[0]);
-
-}  // namespace
+}  // namespace methods
 
 bool isImplementedMethod(const std::string& method) {
-  for (std::size_t i = 0; i < kMethodCount; ++i) {
-    if (method == kImplementedMethods[i]) return true;
+  for (std::size_t i = 0; i < methods::kImplementedCount; ++i) {
+    if (method == methods::kImplemented[i]) return true;
   }
   return false;
 }
 
 std::string::size_type longestImplementedMethod() {
   std::string::size_type longest = 0;
-  for (std::size_t i = 0; i < kMethodCount; ++i) {
+  for (std::size_t i = 0; i < methods::kImplementedCount; ++i) {
     const std::string::size_type length =
-        std::string(kImplementedMethods[i]).size();
+        std::string(methods::kImplemented[i]).size();
     if (length > longest) longest = length;
   }
   return longest;

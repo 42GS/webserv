@@ -63,7 +63,10 @@ std::string treeConfig() {
          "  location /ro/ { alias " +
          root +
          "/; limit_except GET { deny all; } }"
-         "  location /post-only/ { limit_except POST { deny all; } } }";
+         "  location /post-only/ { limit_except POST { deny all; } }"
+         "  location /dir/ { limit_except GET POST DELETE { deny all; }"
+         "    upload_store " +
+         root + "/dir; } }";
 }
 
 int kindOf(const RouteResult& result) { return static_cast<int>(result.kind); }
@@ -185,4 +188,44 @@ TEST_CASE(r20_aliasCoversOnlyWholeSegments) {
   CHECK(!router.mapToFile("/k../a.txt", fsPath));
   CHECK(router.locationFor("/k../a.txt") == 0);
   CHECK_EQ(std::string("(none)"), matchedPath(server, "/k../a.txt"));
+}
+
+TEST_CASE(f09_f12_d04_methodsOfALocation) {
+  makeTree();
+  const ServerConfig server = serverFrom(treeConfig());
+  const Router router(server);
+  // No limit_except: GET and HEAD only (decision 16).
+  RouteResult result = router.route(requestFor("DELETE", "/a.txt"));
+  CHECK_EQ(405, result.status);
+  CHECK_EQ(std::string("GET, HEAD"), result.allow);
+  // POST allowed but no upload_store: not answered, not in Allow.
+  result = router.route(requestFor("POST", "/post-only/a.txt"));
+  CHECK_EQ(405, result.status);
+  CHECK_EQ(std::string(""), result.allow);
+  result = router.route(requestFor("PUT", "/dir/x"));
+  CHECK_EQ(std::string("GET, HEAD, POST, DELETE"), result.allow);
+}
+
+TEST_CASE(f01_postToAnUploadLocation) {
+  makeTree();
+  const ServerConfig server = serverFrom(treeConfig());
+  const RouteResult result =
+      Router(server).route(requestFor("POST", "/dir/sub/../"));
+  CHECK_EQ(static_cast<int>(RouteResult::UPLOAD), kindOf(result));
+  CHECK_EQ(std::string(router_test::kTree) + "/dir", result.fsPath);
+  CHECK_EQ(std::string("/dir/"), result.urlPath);
+}
+
+TEST_CASE(d02_d03_deleteDecisions) {
+  makeTree();
+  writeFile(std::string(router_test::kTree) + "/dir/gone.txt", "g");
+  const ServerConfig server = serverFrom(treeConfig());
+  const Router router(server);
+  const RouteResult result =
+      router.route(requestFor("DELETE", "/dir/gone.txt"));
+  CHECK_EQ(static_cast<int>(RouteResult::DELETE), kindOf(result));
+  CHECK_EQ(std::string(router_test::kTree) + "/dir/gone.txt", result.fsPath);
+  CHECK_EQ(404, router.route(requestFor("DELETE", "/dir/none.txt")).status);
+  CHECK_EQ(403, router.route(requestFor("DELETE", "/dir/")).status);
+  CHECK_EQ(400, router.route(requestFor("DELETE", "/dir/../../x")).status);
 }

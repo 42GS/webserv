@@ -16,6 +16,7 @@
 
 #include "core/Limits.hpp"
 #include "http/Ascii.hpp"
+#include "http/FieldSyntax.hpp"
 #include "http/HeaderNames.hpp"
 #include "http/Hex.hpp"
 #include "http/Methods.hpp"
@@ -23,8 +24,6 @@
 
 namespace {
 
-/** tchar (RFC 9110 section 5.6.2). / tchar (RFC 9110 5.6.2절). */
-const std::string kTokenChars = ascii::kAlphanumerics + "!#$%&'*+-.^_`|~";
 /**
  * @brief Host characters: unreserved, pct-encoded, sub-delims, ":" and
  *        IP-literal brackets (RFC 3986 section 3.2.2).
@@ -53,78 +52,6 @@ const unsigned long kMaxContentLength =
     std::numeric_limits<unsigned long>::max() < kMaxSize
         ? std::numeric_limits<unsigned long>::max()
         : static_cast<unsigned long>(kMaxSize);
-
-/**
- * @brief True for a non-empty token (RFC 9110 section 5.6.2).
- *        비어 있지 않은 token이면 true (RFC 9110 5.6.2절).
- * @param[in] text Text. / 텍스트.
- * @return Whether text is a token. / token인지.
- */
-bool isToken(const std::string& text) {
-  return !text.empty() && consistsOf(text, kTokenChars);
-}
-
-/**
- * @brief True for SP and HTAB, the whitespace of HTTP (OWS).
- *        HTTP의 공백(OWS)인 SP와 HTAB이면 true.
- * @param[in] c Character. / 문자.
- * @return Whether c is SP or HTAB. / SP나 HTAB인지.
- */
-bool isWhitespace(char c) { return c == ' ' || c == '\t'; }
-
-/**
- * @brief Removes SP and HTAB at both ends.
- *        양 끝의 SP와 HTAB을 지운다.
- * @param[in] text Text. / 텍스트.
- * @return The trimmed text. / 다듬은 텍스트.
- */
-std::string trimWhitespace(const std::string& text) {
-  std::string::size_type begin = 0;
-  std::string::size_type end = text.size();
-  while (begin < end && isWhitespace(text[begin])) ++begin;
-  while (end > begin && isWhitespace(text[end - 1])) --end;
-  return text.substr(begin, end - begin);
-}
-
-/**
- * @brief Lowercases ASCII letters, for case-insensitive comparisons.
- *        대소문자 구분 없이 비교하려고 ASCII 글자를 소문자로 바꾼다.
- * @param[in] text Text. / 텍스트.
- * @return The lowercase text. / 소문자 텍스트.
- */
-std::string toLower(const std::string& text) {
-  std::string lowered(text);
-  for (std::string::size_type i = 0; i < lowered.size(); ++i)
-    lowered[i] = toAsciiLower(lowered[i]);
-  return lowered;
-}
-
-/**
- * @brief Splits comma-separated lists (RFC 9110 section 5.6.1).
- *        쉼표로 구분한 목록을 나눈다 (RFC 9110 5.6.1절).
- *
- * Whitespace around elements is trimmed and empty elements are dropped.
- * 원소 앞뒤 공백은 지우고 빈 원소는 버린다.
- *
- * @param[in] lines Values of every field line with the same name.
- *                  같은 이름을 가진 모든 필드 줄의 값.
- * @return The elements of all lines, in order. / 모든 줄의 원소, 순서대로.
- */
-std::vector<std::string> splitList(const std::vector<std::string>& lines) {
-  std::vector<std::string> items;
-  for (std::size_t i = 0; i < lines.size(); ++i) {
-    std::string::size_type start = 0;
-    while (start <= lines[i].size()) {
-      std::string::size_type comma = lines[i].find(',', start);
-      if (comma == std::string::npos) comma = lines[i].size();
-      const std::string item =
-          trimWhitespace(lines[i].substr(start, comma - start));
-      if (!item.empty()) items.push_back(item);
-      start = comma + 1;
-    }
-  }
-  return items;
-}
 
 /**
  * @brief True for HTTP-version = "HTTP/" DIGIT "." DIGIT, case-sensitive
@@ -249,7 +176,7 @@ bool keepsConnection(const Request& request) {
   const std::vector<std::string> options =
       splitList(request.headers.all(header_name::kConnection));
   for (std::size_t i = 0; i < options.size(); ++i) {
-    if (toLower(options[i]) == header_value::kClose) return false;
+    if (toAsciiLower(options[i]) == header_value::kClose) return false;
   }
   return true;
 }
@@ -514,7 +441,8 @@ bool RequestParser::parseTarget(const std::string& target) {
       std::string(kAbsoluteFormPrefix).size();
   if (target[0] == '/') {
     pathAndQuery = target;
-  } else if (toLower(target.substr(0, prefixLength)) == kAbsoluteFormPrefix) {
+  } else if (toAsciiLower(target.substr(0, prefixLength)) ==
+             kAbsoluteFormPrefix) {
     const std::string rest = target.substr(prefixLength);
     const std::string::size_type authorityEnd = rest.find_first_of("/?");
     if (authorityEnd == 0) return false;
@@ -582,12 +510,12 @@ bool RequestParser::decideBodyLength() {
     if (request_.version == request_parser::kHttp10 ||
         request_.headers.has(header_name::kContentLength))
       return fail(http_status::kBadRequest);
-    if (codings.empty() || toLower(codings.back()) != kChunked)
+    if (codings.empty() || toAsciiLower(codings.back()) != kChunked)
       return fail(http_status::kBadRequest);
     // chunked may be applied only once; no other coding is implemented.
     // chunked는 한 번만 적용할 수 있고, 다른 coding은 구현하지 않았다.
     for (std::size_t i = 0; i + 1 < codings.size(); ++i) {
-      if (toLower(codings[i]) == kChunked)
+      if (toAsciiLower(codings[i]) == kChunked)
         return fail(http_status::kBadRequest);
     }
     if (codings.size() > 1) return fail(http_status::kNotImplemented);

@@ -43,8 +43,10 @@ struct LocationConfig {
   /** Directory listing on. / 디렉토리 목록 켜짐. */
   bool autoindex;
   /**
-   * @brief Methods of "limit_except"; empty means every method.
-   *        "limit_except"의 메서드. 비어 있으면 모든 메서드를 허용한다.
+   * @brief Allowed methods: those of "limit_except", or GET and HEAD
+   *        without it (design decision 16).
+   *        허용한 메서드: "limit_except"의 메서드, 없으면 GET과 HEAD (설계
+   *        결정 16).
    */
   std::set<std::string> allowedMethods;
   /** "return" code, 0 for none. / "return" 코드, 없으면 0. */

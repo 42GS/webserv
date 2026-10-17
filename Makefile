@@ -31,20 +31,24 @@ ROUTE_SRCS	:= route/PathResolver.cpp \
 
 HTTP_SRCS	:= http/Ascii.cpp \
 			   http/Connection.cpp \
+			   http/FieldSyntax.cpp \
 			   http/HeaderMap.cpp \
 			   http/Hex.cpp \
 			   http/MimeTypes.cpp \
+			   http/Multipart.cpp \
 			   http/Methods.cpp \
 			   http/RequestParser.cpp \
 			   http/ResponseStream.cpp \
 			   http/StatusText.cpp
 
 FS_SRCS		:= fs/FileInfo.cpp \
-			   fs/FileReader.cpp
+			   fs/FileReader.cpp \
+			   fs/FileWriter.cpp
 
 HANDLER_SRCS	:= handler/AutoindexHandler.cpp \
 			   handler/StaticHandler.cpp \
-			   handler/StatusPage.cpp
+			   handler/StatusPage.cpp \
+			   handler/UploadHandler.cpp
 
 APP_SRCS	:= app/RequestProcessor.cpp
 
@@ -68,7 +72,9 @@ TEST_SRCS	:= tests/unit/test_main.cpp \
 			   tests/unit/path_resolver_test.cpp \
 			   tests/unit/response_stream_test.cpp \
 			   tests/unit/fs_test.cpp \
-			   tests/unit/ascii_test.cpp
+			   tests/unit/ascii_test.cpp \
+			   tests/unit/field_syntax_test.cpp \
+			   tests/unit/multipart_test.cpp
 TEST_OBJS	:= $(addprefix $(OBJ_DIR)/, $(TEST_SRCS:.cpp=.o))
 
 DEPS		:= $(OBJS:.o=.d) $(TEST_OBJS:.o=.d)

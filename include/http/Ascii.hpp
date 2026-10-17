@@ -51,6 +51,15 @@ bool isAsciiDigit(char c);
 char toAsciiLower(char c);
 
 /**
+ * @brief Lowercases the ASCII letters of a text, for case-insensitive
+ *        comparisons.
+ *        대소문자 구분 없이 비교하려고 텍스트의 ASCII 글자를 소문자로 바꾼다.
+ * @param[in] text Text. / 텍스트.
+ * @return The lowercase text. / 소문자 텍스트.
+ */
+std::string toAsciiLower(const std::string& text);
+
+/**
  * @brief True if every character of @p text is in @p allowed.
  *        @p text의 모든 문자가 @p allowed에 있으면 true.
  * @param[in] text    Text to check; an empty text passes.

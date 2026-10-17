@@ -5,6 +5,8 @@
  */
 #include "app/RequestProcessor.hpp"
 
+#include <cstdio>
+
 #include "config/ConfigLimits.hpp"
 #include "core/HttpDate.hpp"
 #include "handler/AutoindexHandler.hpp"
@@ -12,7 +14,9 @@
 #include "handler/StatusPage.hpp"
 #include "http/HeaderNames.hpp"
 #include "http/Methods.hpp"
+#include "http/MimeTypes.hpp"
 #include "http/StatusCodes.hpp"
+#include "route/PathResolver.hpp"
 
 RequestProcessor::RequestProcessor(const ServerConfig& server)
     : server_(server), router_(server) {}
@@ -25,7 +29,7 @@ std::size_t RequestProcessor::bodyLimitFor(const Request& request) const {
 
 Response RequestProcessor::process(const Request& request,
                                    std::time_t now) const {
-  Response response = respond(router_.route(request));
+  Response response = respond(router_.route(request), request);
   finish(response, request.method,
          request.persistent && response.status != http_status::kBadRequest,
          now);
@@ -43,7 +47,8 @@ Response RequestProcessor::statusPage(int status) const {
   return buildStatusPage(status, server_.errorPages, router_);
 }
 
-Response RequestProcessor::respond(const RouteResult& route) const {
+Response RequestProcessor::respond(const RouteResult& route,
+                                   const Request& request) const {
   Response response;
   switch (route.kind) {
     case RouteResult::STATIC_FILE:
@@ -56,6 +61,18 @@ Response RequestProcessor::respond(const RouteResult& route) const {
       response = statusPage(route.status);
       response.headers.add(header_name::kLocation, route.redirectTo);
       return response;
+    case RouteResult::UPLOAD:
+      return uploadResponse(route, request);
+    case RouteResult::DELETE:
+      // std::remove: unlink() is not on the list of allowed functions
+      // (design decision 15). 204: done, with nothing more to say (RFC 9110
+      // 9.3.5).
+      // std::remove: unlink()는 허용 함수 목록에 없다 (설계 결정 15).
+      // 204: 실행했고 더 알릴 것이 없다 (RFC 9110 9.3.5절).
+      if (std::remove(route.fsPath.c_str()) != 0)
+        return statusPage(http_status::kInternalServerError);
+      response.status = http_status::kNoContent;
+      return response;
     case RouteResult::ERROR:
       break;
   }
@@ -65,6 +82,31 @@ Response RequestProcessor::respond(const RouteResult& route) const {
   if (route.status == http_status::kMethodNotAllowed)
     response.headers.add(header_name::kAllow, route.allow);
   return response;
+}
+
+Response RequestProcessor::uploadResponse(const RouteResult& route,
+                                          const Request& request) const {
+  const UploadResult result = storeUpload(route, request);
+  if (result.status != http_status::kCreated) return statusPage(result.status);
+  Response response;
+  response.status = http_status::kCreated;
+  response.headers.add(header_name::kContentType, mime_types::kTextType);
+  for (std::size_t i = 0; i < result.files.size(); ++i) {
+    const std::string uri = uriOfUpload(route.urlPath, result.files[i]);
+    if (!uri.empty() && !response.headers.has(header_name::kLocation))
+      response.headers.add(header_name::kLocation, uri);
+    response.body += (uri.empty() ? result.files[i].name : uri) + "\n";
+  }
+  return response;
+}
+
+std::string RequestProcessor::uriOfUpload(const std::string& targetPath,
+                                          const UploadedFile& file) const {
+  const std::string uri =
+      encodePath(targetPath.substr(0, targetPath.rfind('/') + 1) + file.name);
+  std::string mapped;
+  if (router_.mapToFile(uri, mapped) && mapped == file.path) return uri;
+  return "";
 }
 
 // HEAD gets the GET head without content, errors included (RFC 9110 9.3.2,

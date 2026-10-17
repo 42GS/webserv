@@ -76,7 +76,9 @@ TEST_CASE(parsesDesignExample) {
     CHECK_EQ(2u, cgi->cgiByExtension.size());
     CHECK_EQ(std::string("/usr/bin/php-cgi"),
              valueAt(cgi->cgiByExtension, std::string(".php")));
-    CHECK(cgi->allowedMethods.empty());
+    // No limit_except: GET and HEAD only (decision 16).
+    CHECK_EQ(2u, cgi->allowedMethods.size());
+    CHECK(cgi->allowedMethods.count("POST") == 0);
   }
   const LocationConfig* kapouet = findLocation(server, "/kapouet/");
   CHECK(kapouet != 0);

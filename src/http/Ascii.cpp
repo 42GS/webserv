@@ -11,6 +11,13 @@ bool isAsciiDigit(char c) { return c >= '0' && c <= '9'; }
 
 char toAsciiLower(char c) { return std::tolower(c, std::locale::classic()); }
 
+std::string toAsciiLower(const std::string& text) {
+  std::string lowered(text);
+  for (std::string::size_type i = 0; i < lowered.size(); ++i)
+    lowered[i] = toAsciiLower(lowered[i]);
+  return lowered;
+}
+
 bool consistsOf(const std::string& text, const std::string& allowed) {
   return text.find_first_not_of(allowed) == std::string::npos;
 }

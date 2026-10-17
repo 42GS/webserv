@@ -43,6 +43,7 @@ const StatusName kStatusNames[] = {
     {http_status::kNotFound, "Not Found"},
     {http_status::kMethodNotAllowed, "Method Not Allowed"},
     {http_status::kRequestTimeout, "Request Timeout"},
+    {http_status::kConflict, "Conflict"},
     {http_status::kContentTooLarge, "Content Too Large"},
     {http_status::kUriTooLong, "URI Too Long"},
     {http_status::kUnsupportedMediaType, "Unsupported Media Type"},

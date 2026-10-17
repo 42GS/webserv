@@ -6,6 +6,7 @@
 #ifndef HTTP_METHODS_HPP
 #define HTTP_METHODS_HPP
 
+#include <cstddef>
 #include <string>
 
 /**
@@ -23,17 +24,25 @@ const char* const kPost = "POST";
 /** DELETE */
 const char* const kDelete = "DELETE";
 
+/**
+ * @brief The implemented methods, in the order Allow lists them.
+ *        구현한 메서드. Allow에 적는 순서다.
+ *
+ * The request parser answers 501 to any other method, "limit_except"
+ * accepts only these, and the router builds Allow from them, so all use
+ * this one list.
+ * 요청 파서는 다른 메서드에 501로 답하고, "limit_except"도 이것만 받고,
+ * router는 이것으로 Allow를 만든다. 그래서 모두 이 목록 하나를 쓴다.
+ */
+extern const char* const kImplemented[];
+/** Number of entries in kImplemented. / kImplemented의 항목 수. */
+extern const std::size_t kImplementedCount;
+
 }  // namespace methods
 
 /**
- * @brief True for GET, HEAD, POST and DELETE.
- *        GET, HEAD, POST, DELETE이면 true.
- *
- * The request parser answers 501 to any other method, and "limit_except"
- * accepts only these, so both use this one list.
- * 요청 파서는 다른 메서드에 501로 답하고 "limit_except"도 이것만 받으므로,
- * 둘 다 이 목록 하나를 쓴다.
- *
+ * @brief True for a method in methods::kImplemented.
+ *        methods::kImplemented에 있는 메서드이면 true.
  * @param[in] method Method name, case-sensitive. / 메서드 이름, 대소문자 구분.
  * @return Whether it is implemented. / 구현한 메서드인지.
  */

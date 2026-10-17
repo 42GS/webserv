@@ -32,6 +32,12 @@ bool isRedirectCode(unsigned long code) {
  *        no redirect.
  *        @p path 위치에 @p settings의 공통 값을 가지고 redirect가 없는
  *        location.
+ *
+ * Without "limit_except" a location allows only GET and HEAD, so that
+ * methods that change files must be listed (design decision 16).
+ * "limit_except"가 없으면 GET과 HEAD만 허용한다. 파일을 바꾸는 메서드는
+ * 적어야 열린다 (설계 결정 16).
+ *
  * @param[in] path     Location prefix. / location prefix.
  * @param[in] settings Shared values to copy. / 복사할 공통 값.
  * @return The location, without root or alias.
@@ -41,6 +47,8 @@ LocationConfig makeLocation(const std::string& path,
                             const SharedSettings& settings) {
   LocationConfig location;
   location.path = path;
+  location.allowedMethods.insert(methods::kGet);
+  location.allowedMethods.insert(methods::kHead);
   location.returnCode = 0;
   copySharedSettings(settings, location);
   return location;
@@ -80,6 +88,7 @@ void applyReturn(const BuildContext& context, const Directive& directive,
  */
 void applyLimitExcept(const BuildContext& context, const Directive& directive,
                       LocationConfig& location) {
+  location.allowedMethods.clear();
   for (std::size_t i = 0; i < directive.args.size(); ++i) {
     if (!isImplementedMethod(directive.args[i]))
       throw ConfigError(context.source, directive.line,
