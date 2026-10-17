@@ -87,9 +87,17 @@ Response RequestProcessor::respond(const RouteResult& route,
 Response RequestProcessor::uploadResponse(const RouteResult& route,
                                           const Request& request) const {
   const UploadResult result = storeUpload(route, request);
-  if (result.status != http_status::kCreated) return statusPage(result.status);
   Response response;
-  response.status = http_status::kCreated;
+  response.status = result.status;
+  if (result.status == http_status::kConflict) {
+    // 409 SHOULD tell the user what conflicts (RFC 9110 15.5.10).
+    // 409는 무엇이 충돌하는지 알려야 한다 (RFC 9110 15.5.10절, SHOULD).
+    response.headers.add(header_name::kContentType, mime_types::kTextType);
+    response.body = "\"" + result.conflict +
+                    "\" exists or is sent twice; nothing was stored.\n";
+    return response;
+  }
+  if (result.status != http_status::kCreated) return statusPage(result.status);
   response.headers.add(header_name::kContentType, mime_types::kTextType);
   for (std::size_t i = 0; i < result.files.size(); ++i) {
     const std::string uri = uriOfUpload(route.urlPath, result.files[i]);

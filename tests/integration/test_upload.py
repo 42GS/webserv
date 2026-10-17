@@ -159,9 +159,10 @@ class UploadTest(unittest.TestCase):
             self.assertEqual(400, status, filename)
 
     def test_f08_existing_or_repeated_names_are_409(self):
-        status, _, _ = self.fetch(post("/upload/", multipart(
+        status, _, body = self.fetch(post("/upload/", multipart(
             [file_part("new.txt", b"n"), file_part("kept.txt", b"other")])))
         self.assertEqual(409, status)
+        self.assertIn(b'"kept.txt"', body)
         self.assertFalse(os.path.exists(self.stored("new.txt")))
         with open(self.stored("kept.txt")) as kept:
             self.assertEqual("kept", kept.read())

@@ -35,6 +35,8 @@ struct UploadResult {
   int status;
   /** 201: the stored files in body order. / 201: 본문 순서대로 저장한 파일. */
   std::vector<UploadedFile> files;
+  /** 409: the name in conflict. / 409: 충돌한 이름. */
+  std::string conflict;
 };
 
 /**

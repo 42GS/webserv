@@ -30,12 +30,12 @@ struct StoredFile {
 };
 
 /**
- * @brief An upload that failed with @p status.
- *        @p status로 실패한 업로드.
- * @param[in] status Error status. / 오류 상태 코드.
+ * @brief A result with @p status and nothing else.
+ *        @p status만 있는 결과.
+ * @param[in] status Status code. / 상태 코드.
  * @return The result. / 결과.
  */
-UploadResult failure(int status) {
+UploadResult resultWith(int status) {
   UploadResult result;
   result.status = status;
   return result;
@@ -89,27 +89,32 @@ std::string pathIn(const std::string& directory, const std::string& name) {
  * @param[in]  store Upload directory. / 업로드 디렉토리.
  * @param[in]  parts Parts of the body. / 본문의 part.
  * @param[out] files Files to store. / 저장할 파일.
- * @return 201 if they can all be stored, else 400 or 409 as for
- *         storeUpload().
- *         모두 저장할 수 있으면 201, 아니면 storeUpload()와 같은 400이나
- *         409.
+ * @return 201 if they can all be stored, else the failure as for
+ *         storeUpload(): 400, or 409 with the name.
+ *         모두 저장할 수 있으면 201, 아니면 storeUpload()와 같은 실패:
+ *         400, 또는 이름이 있는 409.
  */
-int planFiles(const std::string& store, const std::vector<FormPart>& parts,
-              std::vector<StoredFile>& files) {
+UploadResult planFiles(const std::string& store,
+                       const std::vector<FormPart>& parts,
+                       std::vector<StoredFile>& files) {
   std::set<std::string> names;
   for (std::size_t i = 0; i < parts.size(); ++i) {
     if (!parts[i].hasFilename || parts[i].filename.empty()) continue;
     StoredFile stored;
     if (!safeFileName(parts[i].filename, stored.file.name))
-      return http_status::kBadRequest;
+      return resultWith(http_status::kBadRequest);
     stored.file.path = pathIn(store, stored.file.name);
     if (!names.insert(stored.file.name).second ||
-        fileKind(stored.file.path) != FILE_MISSING)
-      return http_status::kConflict;
+        fileKind(stored.file.path) != FILE_MISSING) {
+      UploadResult result = resultWith(http_status::kConflict);
+      result.conflict = stored.file.name;
+      return result;
+    }
     stored.part = parts[i];
     files.push_back(stored);
   }
-  return files.empty() ? http_status::kBadRequest : http_status::kCreated;
+  return resultWith(files.empty() ? http_status::kBadRequest
+                                  : http_status::kCreated);
 }
 
 /**
@@ -143,19 +148,17 @@ UploadResult storeUpload(const RouteResult& route, const Request& request) {
   const std::string* contentType =
       request.headers.first(header_name::kContentType);
   if (contentType == 0 || !isFormData(*contentType))
-    return failure(http_status::kUnsupportedMediaType);
+    return resultWith(http_status::kUnsupportedMediaType);
   std::string boundary;
   std::vector<FormPart> parts;
   if (!formDataBoundary(*contentType, boundary) ||
       !parseFormData(request.body, boundary, parts))
-    return failure(http_status::kBadRequest);
+    return resultWith(http_status::kBadRequest);
   std::vector<StoredFile> files;
-  const int status = planFiles(route.fsPath, parts, files);
-  if (status != http_status::kCreated) return failure(status);
+  UploadResult result = planFiles(route.fsPath, parts, files);
+  if (result.status != http_status::kCreated) return result;
   if (!writeFiles(request.body, files))
-    return failure(http_status::kInternalServerError);
-  UploadResult result;
-  result.status = http_status::kCreated;
+    return resultWith(http_status::kInternalServerError);
   for (std::size_t i = 0; i < files.size(); ++i)
     result.files.push_back(files[i].file);
   return result;

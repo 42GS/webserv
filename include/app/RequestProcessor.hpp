@@ -99,9 +99,11 @@ class RequestProcessor {
    *        업로드를 저장하고 201이나 오류로 답한다.
    *
    * A 201 has the first stored file in Location and lists the stored
-   * files as text (RFC 9110 section 9.3.3).
+   * files as text (RFC 9110 section 9.3.3). A 409 names the file in
+   * conflict instead of using an error page.
    * 201은 처음 저장한 파일을 Location에 담고, 저장한 파일을 텍스트로
-   * 나열한다 (RFC 9110 9.3.3절).
+   * 나열한다 (RFC 9110 9.3.3절). 409는 오류 페이지 대신 충돌한 파일
+   * 이름을 알린다.
    *
    * @param[in] route   UPLOAD decision. / UPLOAD 결정.
    * @param[in] request The request. / 요청.
