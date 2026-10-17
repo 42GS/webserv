@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <exception>
+#include <memory>
 
 #include "core/Signals.hpp"
 #include "http/Connection.hpp"
@@ -28,8 +29,14 @@ bool Server::openListeners(std::string& error) {
   for (std::size_t i = 0; i < configs_.size(); ++i) {
     const ServerConfig& config = configs_[i];
     for (std::size_t j = 0; j < config.listens.size(); ++j) {
-      Listener* listener = new Listener(config, config.listens[j], *this);
-      listeners_.push_back(listener);
+      // auto_ptr owns the listener until listeners_ does, so a failing
+      // push_back() does not leak it.
+      // listeners_가 가질 때까지 auto_ptr가 소유해서, push_back()이
+      // 실패해도 새지 않는다.
+      std::auto_ptr<Listener> owned(
+          new Listener(config, config.listens[j], *this));
+      listeners_.push_back(owned.get());
+      Listener* listener = owned.release();
       if (!listener->open(error)) return false;
       registry_.watch(listener);
     }

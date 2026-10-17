@@ -27,7 +27,8 @@ struct RouteResult {
     DIRECTORY_LISTING,
     /** Redirect to redirectTo. / redirectTo로 리다이렉트한다. */
     REDIRECT,
-    /** Store the body's files in fsPath. / 본문의 파일을 fsPath에 저장. */
+    /** Store the body's files in uploadStore. / 본문 파일을 uploadStore에 저장.
+     */
     UPLOAD,
     /** Delete the file fsPath. / fsPath 파일을 지운다. */
     DELETE,
@@ -47,12 +48,14 @@ struct RouteResult {
   /** ERROR 405: Allow value. / ERROR 405: Allow 값. */
   std::string allow;
   /**
-   * @brief File system path: the file or directory to serve, the upload
-   *        store, or the file to delete.
-   *        파일 시스템 경로: 보낼 파일이나 디렉토리, 업로드 저장 위치,
-   *        지울 파일.
+   * @brief STATIC_FILE, DIRECTORY_LISTING, DELETE: file system path of
+   *        the requested resource.
+   *        STATIC_FILE, DIRECTORY_LISTING, DELETE: 요청한 리소스의 파일
+   *        시스템 경로.
    */
   std::string fsPath;
+  /** UPLOAD: directory to store in. / UPLOAD: 저장할 디렉토리. */
+  std::string uploadStore;
   /**
    * @brief Normalized request path (for listings and upload locations).
    *        정규화한 요청 경로 (목록과 업로드 Location용).

@@ -212,7 +212,7 @@ TEST_CASE(f01_postToAnUploadLocation) {
   const RouteResult result =
       Router(server).route(requestFor("POST", "/dir/sub/../"));
   CHECK_EQ(static_cast<int>(RouteResult::UPLOAD), kindOf(result));
-  CHECK_EQ(std::string(router_test::kTree) + "/dir", result.fsPath);
+  CHECK_EQ(std::string(router_test::kTree) + "/dir", result.uploadStore);
   CHECK_EQ(std::string("/dir/"), result.urlPath);
 }
 

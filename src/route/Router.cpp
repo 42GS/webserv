@@ -186,7 +186,7 @@ RouteResult deletion(const std::string& fsPath) {
 RouteResult upload(const LocationConfig& location, const std::string& path) {
   RouteResult result;
   result.kind = RouteResult::UPLOAD;
-  result.fsPath = location.uploadStore;
+  result.uploadStore = location.uploadStore;
   result.urlPath = path;
   return result;
 }

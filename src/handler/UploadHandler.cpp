@@ -33,6 +33,9 @@ namespace {
  * 아니라 클라이언트 오류다.
  */
 const std::string::size_type kMaxFileNameBytes = 255;
+/** Status of a check that found nothing wrong. / 문제를 찾지 못한 검사의 상태.
+ */
+const int kNoFailure = 0;
 
 /**
  * @brief A file part with the name and path it is stored under.
@@ -108,10 +111,10 @@ std::string pathIn(const std::string& directory, const std::string& name) {
  * @param[in]  store Upload directory. / 업로드 디렉토리.
  * @param[in]  parts Parts of the body. / 본문의 part.
  * @param[out] files Files to store. / 저장할 파일.
- * @return 201 if they can all be stored, else the failure as for
- *         storeUpload(): 400, 413, or 409 with the name.
- *         모두 저장할 수 있으면 201, 아니면 storeUpload()와 같은 실패:
- *         400, 413, 또는 이름이 있는 409.
+ * @return Status kNoFailure if they can all be stored, else the failure
+ *         as for storeUpload(): 400, 413, or 409 with the name.
+ *         모두 저장할 수 있으면 상태가 kNoFailure, 아니면
+ *         storeUpload()와 같은 실패: 400, 413, 또는 이름이 있는 409.
  */
 UploadResult planFiles(const std::string& store,
                        const std::vector<FormPart>& parts,
@@ -136,8 +139,7 @@ UploadResult planFiles(const std::string& store,
     stored.part = parts[i];
     files.push_back(stored);
   }
-  return resultWith(files.empty() ? http_status::kBadRequest
-                                  : http_status::kCreated);
+  return resultWith(files.empty() ? http_status::kBadRequest : kNoFailure);
 }
 
 /**
@@ -178,10 +180,11 @@ UploadResult storeUpload(const RouteResult& route, const Request& request) {
       !parseFormData(request.body, boundary, parts))
     return resultWith(http_status::kBadRequest);
   std::vector<StoredFile> files;
-  UploadResult result = planFiles(route.fsPath, parts, files);
-  if (result.status != http_status::kCreated) return result;
+  const UploadResult failure = planFiles(route.uploadStore, parts, files);
+  if (failure.status != kNoFailure) return failure;
   if (!writeFiles(request.body, files))
     return resultWith(http_status::kInternalServerError);
+  UploadResult result = resultWith(http_status::kCreated);
   for (std::size_t i = 0; i < files.size(); ++i)
     result.files.push_back(files[i].file);
   return result;

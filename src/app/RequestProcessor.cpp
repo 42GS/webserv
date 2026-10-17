@@ -5,11 +5,10 @@
  */
 #include "app/RequestProcessor.hpp"
 
-#include <cstdio>
-
 #include "config/ConfigLimits.hpp"
 #include "core/HttpDate.hpp"
 #include "handler/AutoindexHandler.hpp"
+#include "handler/DeleteHandler.hpp"
 #include "handler/StaticHandler.hpp"
 #include "handler/StatusPage.hpp"
 #include "handler/UploadHandler.hpp"
@@ -63,15 +62,8 @@ Response RequestProcessor::respond(const RouteResult& route,
     case RouteResult::UPLOAD:
       return uploadResponse(route, request);
     case RouteResult::DELETE:
-      // std::remove: unlink() is not on the list of allowed functions
-      // (design decision 15). 204: done, with nothing more to say (RFC 9110
-      // 9.3.5).
-      // std::remove: unlink()는 허용 함수 목록에 없다 (설계 결정 15).
-      // 204: 실행했고 더 알릴 것이 없다 (RFC 9110 9.3.5절).
-      if (std::remove(route.fsPath.c_str()) != 0)
-        return statusPage(http_status::kInternalServerError);
-      response.status = http_status::kNoContent;
-      return response;
+      if (deleteFile(route, response)) return response;
+      return statusPage(http_status::kInternalServerError);
     case RouteResult::ERROR:
       break;
   }

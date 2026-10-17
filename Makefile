@@ -46,6 +46,7 @@ FS_SRCS		:= fs/FileInfo.cpp \
 			   fs/FileWriter.cpp
 
 HANDLER_SRCS	:= handler/AutoindexHandler.cpp \
+			   handler/DeleteHandler.cpp \
 			   handler/StaticHandler.cpp \
 			   handler/StatusPage.cpp \
 			   handler/UploadHandler.cpp
