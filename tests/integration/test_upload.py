@@ -6,7 +6,7 @@ import unittest
 
 import harness
 from harness import get, request
-from constants import HOST
+from constants import HOST, WRAPPER_SLOWDOWN
 
 BOUNDARY = "----WebKitFormBoundary7MA4YWxkTrZu0gW"  # as browsers make them
 # Ends with CRLF and holds a near-delimiter, which a parser that keeps the
@@ -188,7 +188,8 @@ class UploadTest(unittest.TestCase):
         started = time.monotonic()
         status, _, _ = self.fetch(post("/upload/", body))
         self.assertEqual(400, status)  # fields only, no file
-        self.assertLess(time.monotonic() - started, PARSE_SECONDS)
+        self.assertLess(time.monotonic() - started,
+                        PARSE_SECONDS * WRAPPER_SLOWDOWN)
 
     def test_f08_existing_or_repeated_names_are_409(self):
         status, _, body = self.fetch(post("/upload/", multipart(

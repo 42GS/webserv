@@ -5,6 +5,7 @@ evaluation machine (Ubuntu 22.04, Python 3.10) without installing anything.
 """
 
 import os
+import signal
 import socket
 import subprocess
 import tempfile
@@ -19,6 +20,7 @@ from constants import (
     SOCKET_TIMEOUT_SECONDS,
     STARTUP_TIMEOUT_SECONDS,
     WEBSERV,
+    WRAPPER,
 )
 
 
@@ -56,7 +58,8 @@ class Workspace:
 
 def run_to_exit(args, cwd):
     """Runs webserv expected to stop by itself; returns (code, stderr)."""
-    finished = subprocess.run([WEBSERV] + args, cwd=cwd, capture_output=True,
+    finished = subprocess.run(WRAPPER + [WEBSERV] + args, cwd=cwd,
+                              capture_output=True,
                               text=True, timeout=EXIT_TIMEOUT_SECONDS)
     return finished.returncode, finished.stderr
 
@@ -66,7 +69,7 @@ class RunningServer:
 
     def __init__(self, args, cwd, ports):
         self.ports = ports
-        self.process = subprocess.Popen([WEBSERV] + args, cwd=cwd,
+        self.process = subprocess.Popen(WRAPPER + [WEBSERV] + args, cwd=cwd,
                                         stdout=subprocess.DEVNULL,
                                         stderr=subprocess.PIPE, text=True)
         self._wait_until_listening()
@@ -136,6 +139,15 @@ class RunningServer:
         return self.process.wait(timeout=EXIT_TIMEOUT_SECONDS)
 
     def stop(self):
+        """Ends the server. Under WRAPPER it gets SIGINT and must exit with
+        0, so that the wrapper's checks (leaks, errors) count."""
+        if WRAPPER and self.is_running():
+            self.process.send_signal(signal.SIGINT)
+            code = self.process.wait(timeout=EXIT_TIMEOUT_SECONDS)
+            self.process.stderr.close()
+            if code != 0:
+                raise AssertionError("wrapped webserv exited with %d" % code)
+            return
         if self.is_running():
             self.process.kill()
             self.process.wait(timeout=EXIT_TIMEOUT_SECONDS)

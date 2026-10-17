@@ -11,10 +11,12 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <climits>
 #include <cstdlib>
+#include <exception>
 #include <iostream>
 
 #include "core/Limits.hpp"
@@ -109,7 +111,18 @@ CgiProcess::~CgiProcess() {
   delete stdout_;
   if (pid_ <= 0) return;
   if (!done) static_cast<void>(kill(pid_, SIGKILL));
-  reaper_.adopt(pid_);
+  // An exception must not leave a destructor (it could end the server).
+  // If the reaper cannot take the pid, the child is killed and waited for
+  // here; SIGKILL keeps that wait short.
+  // 소멸자에서 예외가 나가면 안 된다 (서버가 끝날 수 있다). reaper가 pid를
+  // 받지 못하면 여기서 죽이고 기다린다. SIGKILL이라 기다림이 짧다.
+  try {
+    reaper_.adopt(pid_);
+  } catch (const std::exception&) {
+    static_cast<void>(kill(pid_, SIGKILL));
+    int status = 0;
+    static_cast<void>(waitpid(pid_, &status, 0));
+  }
 }
 
 bool CgiProcess::start(std::time_t now) {
@@ -162,22 +175,29 @@ bool CgiProcess::hasTimedOut(std::time_t now) const {
 }
 
 // Never returns. A failing step ends the child with std::exit(1); the
-// parent then reads EOF without output and answers 502 (design 9).
-// SIGPIPE was ignored by the server; the script gets the default back.
+// parent then reads EOF without output and answers 502 (design 9). An
+// exception (std::bad_alloc) must not unwind into the server's code, where
+// the child would go on serving as a second server, so everything is
+// caught. SIGPIPE was ignored by the server; the script gets the default
+// back.
 // 돌아오지 않는다. 실패한 단계는 자식을 std::exit(1)로 끝낸다. 부모는 출력
-// 없이 EOF를 읽고 502로 답한다 (설계 9절). 서버가 무시한 SIGPIPE는
-// 스크립트에 기본 동작으로 돌려준다.
+// 없이 EOF를 읽고 502로 답한다 (설계 9절). 예외(std::bad_alloc)가 서버
+// 코드로 풀려 나가면 자식이 두 번째 서버처럼 계속 돌게 되므로 모두 잡는다.
+// 서버가 무시한 SIGPIPE는 스크립트에 기본 동작으로 돌려준다.
 void CgiProcess::runChild(int input, int output) {
-  if (dup2(input, STDIN_FILENO) < 0 || dup2(output, STDOUT_FILENO) < 0)
-    std::exit(EXIT_FAILURE);
-  closeInheritedDescriptors();
-  if (chdir(launch_.directory.c_str()) != 0) std::exit(EXIT_FAILURE);
-  signal(SIGPIPE, SIG_DFL);
-  std::vector<std::string> arguments;
-  arguments.push_back(launch_.interpreter);
-  arguments.push_back(launch_.scriptFile);
-  const std::vector<char*> argv = pointersTo(arguments);
-  const std::vector<char*> envp = pointersTo(launch_.environment);
-  execve(argv[0], &argv[0], &envp[0]);
+  try {
+    if (dup2(input, STDIN_FILENO) < 0 || dup2(output, STDOUT_FILENO) < 0)
+      std::exit(EXIT_FAILURE);
+    closeInheritedDescriptors();
+    if (chdir(launch_.directory.c_str()) != 0) std::exit(EXIT_FAILURE);
+    signal(SIGPIPE, SIG_DFL);
+    std::vector<std::string> arguments;
+    arguments.push_back(launch_.interpreter);
+    arguments.push_back(launch_.scriptFile);
+    const std::vector<char*> argv = pointersTo(arguments);
+    const std::vector<char*> envp = pointersTo(launch_.environment);
+    execve(argv[0], &argv[0], &envp[0]);
+  } catch (...) {
+  }
   std::exit(EXIT_FAILURE);
 }

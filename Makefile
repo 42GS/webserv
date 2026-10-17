@@ -83,7 +83,8 @@ TEST_SRCS	:= tests/unit/test_main.cpp \
 			   tests/unit/ascii_test.cpp \
 			   tests/unit/field_syntax_test.cpp \
 			   tests/unit/multipart_test.cpp \
-			   tests/unit/cgi_test.cpp
+			   tests/unit/cgi_test.cpp \
+			   tests/unit/signals_test.cpp
 TEST_OBJS	:= $(addprefix $(OBJ_DIR)/, $(TEST_SRCS:.cpp=.o))
 
 DEPS		:= $(OBJS:.o=.d) $(TEST_OBJS:.o=.d)

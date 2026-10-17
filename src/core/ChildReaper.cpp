@@ -24,12 +24,16 @@ ChildReaper::~ChildReaper() {
 
 void ChildReaper::adopt(pid_t pid) { children_.push_back(pid); }
 
+// Collected pids are removed in place: reap() runs outside the
+// per-connection exception handling, so it must not allocate.
+// 회수한 pid는 제자리에서 뺀다. reap()은 연결별 예외 처리 밖에서 돌므로
+// 할당하면 안 된다.
 void ChildReaper::reap() {
-  std::vector<pid_t> running;
+  std::size_t kept = 0;
   for (std::size_t i = 0; i < children_.size(); ++i) {
     int status = 0;
     if (waitpid(children_[i], &status, WNOHANG) == 0)
-      running.push_back(children_[i]);
+      children_[kept++] = children_[i];
   }
-  children_.swap(running);
+  children_.resize(kept);
 }

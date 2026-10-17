@@ -11,11 +11,17 @@ import re
 REPO_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", ".."))
 WEBSERV = os.path.join(REPO_ROOT, "webserv")
+# Optional command the server runs under, such as
+# "valgrind --error-exitcode=99 --leak-check=full ...". With it every
+# server is stopped with SIGINT and must exit with 0 (test plan N-23).
+WRAPPER = os.environ.get("WEBSERV_WRAPPER", "").split()
+# How much slower a wrapped server is allowed to be in timing checks.
+WRAPPER_SLOWDOWN = 10 if WRAPPER else 1
 HOST = "127.0.0.1"
 
 # Harness timing
-STARTUP_TIMEOUT_SECONDS = 5.0
-EXIT_TIMEOUT_SECONDS = 5.0
+STARTUP_TIMEOUT_SECONDS = 30.0 if WRAPPER else 5.0
+EXIT_TIMEOUT_SECONDS = 30.0 if WRAPPER else 5.0
 SOCKET_TIMEOUT_SECONDS = 5.0
 RETRY_INTERVAL_SECONDS = 0.05
 RECV_SIZE = 65536
@@ -68,3 +74,6 @@ README_FIRST_LINE = re.compile(
     r"^\*This project has been created as part of the 42 curriculum by "
     r"[a-z0-9-]+(, [a-z0-9-]+)*\.\*$")
 README_SECTIONS = ["## Description", "## Instructions", "## Resources"]
+LARGE_RESPONSE_SIZE = 8 * 1024 * 1024  # many send() calls per response
+RESET_DURING_SEND_CLIENTS = 5
+RESET_SETTLE_SECONDS = 1  # lets the server's next send() meet the reset

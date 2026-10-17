@@ -16,8 +16,11 @@ from constants import (
     HEAD_LIMIT_BYTES,
     IDLE_CLIENTS,
     IDLE_SECONDS,
+    LARGE_RESPONSE_SIZE,
     MAX_IDLE_CPU_SHARE,
     RECV_SIZE,
+    RESET_DURING_SEND_CLIENTS,
+    RESET_SETTLE_SECONDS,
     RETRY_INTERVAL_SECONDS,
     RUN_SLOW,
     SIMPLE_GET,
@@ -88,6 +91,31 @@ class ConnectionTest(unittest.TestCase):
             reset_on_close(sock)
             sock.sendall(SIMPLE_GET)
             sock.close()
+        self.assert_still_serving()
+
+    # A large file needs many send() calls. The client empties its buffer
+    # and closes with FIN, so the server's next send() still succeeds, the
+    # client answers it with RST, and the send() after that raises SIGPIPE,
+    # which ends the process unless it is ignored (raw/macos-observed-
+    # sigpipe-leaks.md:114-117 in the wiki). Closing with unread data
+    # would send RST at once; then the first send() fails and the server
+    # closes before a second one.
+    def test_n07_client_leaves_while_a_large_response_is_sent(self):
+        with open(os.path.join(self.workspace.path, "www/large.bin"),
+                  "wb") as out:
+            out.write(b"L" * LARGE_RESPONSE_SIZE)
+        for _ in range(RESET_DURING_SEND_CLIENTS):
+            sock = harness.connect(self.ports[0])
+            sock.sendall(harness.get("/large.bin"))
+            sock.recv(RECV_SIZE)  # the response has started
+            sock.setblocking(False)
+            try:
+                while sock.recv(RECV_SIZE):
+                    pass
+            except BlockingIOError:
+                pass  # nothing unread left: close() sends FIN
+            sock.close()
+        time.sleep(RESET_SETTLE_SECONDS)
         self.assert_still_serving()
 
     @unittest.skipUnless(os.path.isdir("/proc/self/fd"),
