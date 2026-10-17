@@ -10,13 +10,29 @@
 #include <set>
 #include <vector>
 
+#include "core/Limits.hpp"
 #include "fs/FileInfo.hpp"
 #include "fs/FileWriter.hpp"
 #include "http/HeaderNames.hpp"
+#include "http/MimeTypes.hpp"
 #include "http/Multipart.hpp"
 #include "http/StatusCodes.hpp"
+#include "route/PathResolver.hpp"
 
 namespace {
+
+/**
+ * @brief Longest file name in bytes.
+ *        파일 이름의 최대 바이트 수.
+ *
+ * Ubuntu 22.04 refuses longer names with "File name too long"; macOS
+ * counted characters and took more (measured 2026-10-17). A longer name
+ * is the client's error, not a failed write.
+ * Ubuntu 22.04는 더 긴 이름을 "File name too long"으로 거부했고, macOS는
+ * 글자 수로 세어 더 받았다 (2026-10-17 실측). 더 긴 이름은 쓰기 실패가
+ * 아니라 클라이언트 오류다.
+ */
+const std::string::size_type kMaxFileNameBytes = 255;
 
 /**
  * @brief A file part with the name and path it is stored under.
@@ -52,14 +68,17 @@ UploadResult resultWith(int status) {
  *
  * @param[in]  filename "filename" as sent. / 보낸 그대로의 "filename".
  * @param[out] name     The last path segment. / 경로의 마지막 조각.
- * @return False if that is empty, "." or "..". / 그것이 비었거나 "."이나
- * ".."이면 false.
+ * @return False if that is empty, "." or "..", or longer than
+ *         kMaxFileNameBytes.
+ *         그것이 비었거나 "."이나 ".."이거나, kMaxFileNameBytes보다 길면
+ *         false.
  */
 bool safeFileName(const std::string& filename, std::string& name) {
   const std::string::size_type separator = filename.find_last_of("/\\");
   name = separator == std::string::npos ? filename
                                         : filename.substr(separator + 1);
-  return !name.empty() && name != "." && name != "..";
+  return !name.empty() && name != "." && name != ".." &&
+         name.size() <= kMaxFileNameBytes;
 }
 
 /**
@@ -90,9 +109,9 @@ std::string pathIn(const std::string& directory, const std::string& name) {
  * @param[in]  parts Parts of the body. / 본문의 part.
  * @param[out] files Files to store. / 저장할 파일.
  * @return 201 if they can all be stored, else the failure as for
- *         storeUpload(): 400, or 409 with the name.
+ *         storeUpload(): 400, 413, or 409 with the name.
  *         모두 저장할 수 있으면 201, 아니면 storeUpload()와 같은 실패:
- *         400, 또는 이름이 있는 409.
+ *         400, 413, 또는 이름이 있는 409.
  */
 UploadResult planFiles(const std::string& store,
                        const std::vector<FormPart>& parts,
@@ -100,6 +119,10 @@ UploadResult planFiles(const std::string& store,
   std::set<std::string> names;
   for (std::size_t i = 0; i < parts.size(); ++i) {
     if (!parts[i].hasFilename || parts[i].filename.empty()) continue;
+    // Checked first, so that no more names are looked up on disk.
+    // 디스크에서 이름을 더 찾지 않도록 먼저 검사한다.
+    if (files.size() == limits::kMaxUploadFiles)
+      return resultWith(http_status::kContentTooLarge);
     StoredFile stored;
     if (!safeFileName(parts[i].filename, stored.file.name))
       return resultWith(http_status::kBadRequest);
@@ -162,4 +185,31 @@ UploadResult storeUpload(const RouteResult& route, const Request& request) {
   for (std::size_t i = 0; i < files.size(); ++i)
     result.files.push_back(files[i].file);
   return result;
+}
+
+Response createdResponse(const UploadResult& result,
+                         const std::string& targetPath, const Router& router) {
+  Response response;
+  response.status = http_status::kCreated;
+  response.headers.add(header_name::kContentType, mime_types::kTextType);
+  const std::string directory = targetPath.substr(0, targetPath.rfind('/') + 1);
+  for (std::size_t i = 0; i < result.files.size(); ++i) {
+    const std::string uri = encodePath(directory + result.files[i].name);
+    std::string mapped;
+    const bool reachable =
+        router.mapToFile(uri, mapped) && mapped == result.files[i].path;
+    if (reachable && !response.headers.has(header_name::kLocation))
+      response.headers.add(header_name::kLocation, uri);
+    response.body += (reachable ? uri : result.files[i].name) + "\n";
+  }
+  return response;
+}
+
+Response conflictResponse(const UploadResult& result) {
+  Response response;
+  response.status = http_status::kConflict;
+  response.headers.add(header_name::kContentType, mime_types::kTextType);
+  response.body = "\"" + result.conflict +
+                  "\" exists or is sent twice; nothing was stored.\n";
+  return response;
 }

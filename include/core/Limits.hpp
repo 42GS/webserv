@@ -109,6 +109,17 @@ const std::size_t kFileReadSize = 65536;
  */
 const std::size_t kMaxErrorPageSize = 1024 * 1024;
 
+/**
+ * @brief Files one upload request may store; more get 413.
+ *        업로드 요청 하나가 저장할 수 있는 파일 수. 넘으면 413.
+ *
+ * Without a limit one body of the size limit could create thousands of
+ * files and hold the event loop while doing so.
+ * 상한이 없으면 크기 상한 안의 본문 하나로 파일 수천 개를 만들 수 있고,
+ * 그동안 이벤트 루프가 멈춘다.
+ */
+const std::size_t kMaxUploadFiles = 5;
+
 }  // namespace limits
 
 #endif

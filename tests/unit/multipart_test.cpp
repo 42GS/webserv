@@ -88,6 +88,16 @@ TEST_CASE(f04_partWithEmptyContent) {
   if (parts.size() == 1) CHECK_EQ(0u, parts[0].contentLength);
 }
 
+TEST_CASE(f04_headersEndingAtTheDelimiter) {
+  // The empty line after the headers is cut by the delimiter's CRLF.
+  const std::string body =
+      "--b\r\nContent-Disposition: form-data; name=h\r\n\r\n--b--";
+  std::vector<FormPart> parts;
+  CHECK(parseFormData(body, "b", parts));
+  CHECK_EQ(1u, parts.size());
+  if (parts.size() == 1) CHECK_EQ(0u, parts[0].contentLength);
+}
+
 TEST_CASE(f06_malformedBodiesAreRejected) {
   const std::string disposition =
       "Content-Disposition: form-data; name=f\r\n\r\n";

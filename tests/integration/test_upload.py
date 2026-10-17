@@ -1,6 +1,7 @@
 """Uploads and DELETE (test plan F-xx and D-xx, step 6)."""
 
 import os
+import time
 import unittest
 
 import harness
@@ -10,6 +11,9 @@ from constants import HOST
 BOUNDARY = "----WebKitFormBoundary7MA4YWxkTrZu0gW"  # as browsers make them
 # Ends with CRLF and holds a near-delimiter, which a parser that keeps the
 # CRLF before the delimiter or stops at "--" would get wrong.
+MAX_UPLOAD_FILES = 5  # limits::kMaxUploadFiles
+MAX_NAME_BYTES = 255  # kMaxFileNameBytes of UploadHandler.cpp
+PARSE_SECONDS = 2  # a 1 MB body took 8 s when the parser was quadratic
 BINARY = bytes(range(256)) + b"\r\n--" + BOUNDARY[:-1].encode() + b"\r\n"
 
 
@@ -157,6 +161,34 @@ class UploadTest(unittest.TestCase):
             status, _, _ = self.fetch(post("/upload/", multipart(
                 [file_part(filename, b"x")])))
             self.assertEqual(400, status, filename)
+
+    def test_f07_name_length_is_limited(self):
+        status, _, _ = self.fetch(post("/upload/", multipart(
+            [file_part("n" * MAX_NAME_BYTES, b"n")])))
+        self.assertEqual(201, status)
+        status, _, _ = self.fetch(post("/upload/", multipart(
+            [file_part("m" * (MAX_NAME_BYTES + 1), b"m")])))
+        self.assertEqual(400, status)
+
+    def test_f15_too_many_files_is_413(self):
+        names = ["f%d" % i for i in range(MAX_UPLOAD_FILES + 1)]
+        status, _, _ = self.fetch(post("/upload/", multipart(
+            [file_part(name, b"x") for name in names])))
+        self.assertEqual(413, status)
+        self.assertFalse(os.path.exists(self.stored(names[0])))
+        status, _, _ = self.fetch(post("/upload/", multipart(
+            [file_part(name, b"x") for name in names[:-1]])))
+        self.assertEqual(201, status)
+
+    # Parts without an empty line made the parser scan the rest of the
+    # body once per part; the event loop waited 8 s for 1 MB.
+    def test_f16_many_parts_parse_in_linear_time(self):
+        part = b'Content-Disposition: form-data; name="a"'
+        body = multipart([part] * (1000000 // (len(part) + 48)))
+        started = time.monotonic()
+        status, _, _ = self.fetch(post("/upload/", body))
+        self.assertEqual(400, status)  # fields only, no file
+        self.assertLess(time.monotonic() - started, PARSE_SECONDS)
 
     def test_f08_existing_or_repeated_names_are_409(self):
         status, _, body = self.fetch(post("/upload/", multipart(

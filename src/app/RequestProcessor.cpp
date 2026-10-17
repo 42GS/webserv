@@ -12,11 +12,10 @@
 #include "handler/AutoindexHandler.hpp"
 #include "handler/StaticHandler.hpp"
 #include "handler/StatusPage.hpp"
+#include "handler/UploadHandler.hpp"
 #include "http/HeaderNames.hpp"
 #include "http/Methods.hpp"
-#include "http/MimeTypes.hpp"
 #include "http/StatusCodes.hpp"
-#include "route/PathResolver.hpp"
 
 RequestProcessor::RequestProcessor(const ServerConfig& server)
     : server_(server), router_(server) {}
@@ -87,34 +86,10 @@ Response RequestProcessor::respond(const RouteResult& route,
 Response RequestProcessor::uploadResponse(const RouteResult& route,
                                           const Request& request) const {
   const UploadResult result = storeUpload(route, request);
-  Response response;
-  response.status = result.status;
-  if (result.status == http_status::kConflict) {
-    // 409 SHOULD tell the user what conflicts (RFC 9110 15.5.10).
-    // 409는 무엇이 충돌하는지 알려야 한다 (RFC 9110 15.5.10절, SHOULD).
-    response.headers.add(header_name::kContentType, mime_types::kTextType);
-    response.body = "\"" + result.conflict +
-                    "\" exists or is sent twice; nothing was stored.\n";
-    return response;
-  }
-  if (result.status != http_status::kCreated) return statusPage(result.status);
-  response.headers.add(header_name::kContentType, mime_types::kTextType);
-  for (std::size_t i = 0; i < result.files.size(); ++i) {
-    const std::string uri = uriOfUpload(route.urlPath, result.files[i]);
-    if (!uri.empty() && !response.headers.has(header_name::kLocation))
-      response.headers.add(header_name::kLocation, uri);
-    response.body += (uri.empty() ? result.files[i].name : uri) + "\n";
-  }
-  return response;
-}
-
-std::string RequestProcessor::uriOfUpload(const std::string& targetPath,
-                                          const UploadedFile& file) const {
-  const std::string uri =
-      encodePath(targetPath.substr(0, targetPath.rfind('/') + 1) + file.name);
-  std::string mapped;
-  if (router_.mapToFile(uri, mapped) && mapped == file.path) return uri;
-  return "";
+  if (result.status == http_status::kCreated)
+    return createdResponse(result, route.urlPath, router_);
+  if (result.status == http_status::kConflict) return conflictResponse(result);
+  return statusPage(result.status);
 }
 
 // HEAD gets the GET head without content, errors included (RFC 9110 9.3.2,

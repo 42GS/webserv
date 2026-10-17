@@ -8,6 +8,7 @@
  */
 #include "http/Multipart.hpp"
 
+#include <algorithm>
 #include <map>
 
 #include "http/Ascii.hpp"
@@ -125,12 +126,19 @@ bool readPartHeaders(const std::string& headers, FormPart& part) {
  */
 bool readPart(const std::string& body, std::string::size_type start,
               std::string::size_type end, FormPart& part) {
+  // Searched within the part only: a body of many parts without an empty
+  // line would otherwise be scanned to its end once per part.
+  // part 안에서만 찾는다. 그렇지 않으면 빈 줄 없는 part가 많은 본문을
+  // part마다 끝까지 훑는다.
+  const std::string blankLine(kBlankLine);
+  const std::string::const_iterator partEnd = body.begin() + end;
+  const std::string::const_iterator blank = std::search(
+      body.begin() + start, partEnd, blankLine.begin(), blankLine.end());
   std::string::size_type headerEnd = end;
   std::string::size_type contentStart = end;
-  const std::string::size_type blank = body.find(kBlankLine, start);
-  if (blank < end) {
-    headerEnd = blank;
-    contentStart = blank + 4 < end ? blank + 4 : end;
+  if (blank != partEnd) {
+    headerEnd = blank - body.begin();
+    contentStart = headerEnd + blankLine.size();
   }
   part.contentStart = contentStart;
   part.contentLength = end - contentStart;
