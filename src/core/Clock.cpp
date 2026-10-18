@@ -22,6 +22,7 @@ bool Clock::refresh() {
   // 보여 준다.
   close(fd);
   if (written != 1) return false;
+
   struct stat info;
   if (stat(path_.c_str(), &info) != 0) return false;
   now_ = info.st_mtime;

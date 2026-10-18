@@ -14,6 +14,7 @@ bool readWholeFile(const std::string& path, std::size_t maxSize,
                    std::string& content) {
   const int fd = open(path.c_str(), O_RDONLY);
   if (fd < 0) return false;
+
   content.clear();
   char buffer[limits::kFileReadSize];
   bool ok = true;
@@ -26,6 +27,7 @@ bool readWholeFile(const std::string& path, std::size_t maxSize,
     }
     content.append(buffer, static_cast<std::size_t>(got));
   }
+
   // Read-only descriptor: a close() error loses nothing.
   // 읽기 전용 디스크립터라 close()가 실패해도 잃는 것이 없다.
   close(fd);

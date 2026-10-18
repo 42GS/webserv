@@ -80,6 +80,7 @@ std::vector<ServerConfig> buildServerConfigs(const DirectiveTree& tree,
   const BuildContext context = {tree, source};
   std::vector<ServerConfig> servers;
   std::vector<ListenEntry> listens;
+
   for (std::size_t i = 0; i < tree.topLevel.size(); ++i) {
     const Directive& directive = context.node(tree.topLevel[i]);
     if (directive.name != "server")
@@ -89,10 +90,12 @@ std::vector<ServerConfig> buildServerConfigs(const DirectiveTree& tree,
     if (!directive.isBlock)
       throw ConfigError(context.source, directive.line,
                         "\"server\" requires a block");
+
     const BuiltServer server = buildServer(context, directive);
     collectListens(server, listens);
     servers.push_back(server.config);
   }
+
   if (servers.empty()) throw ConfigError(source, 1, "no \"server\" block");
   checkListenConflicts(listens, source);
   return servers;

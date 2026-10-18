@@ -96,10 +96,12 @@ void applyLimitExcept(const BuildContext& context, const Directive& directive,
                             "\" in \"limit_except\"");
     location.allowedMethods.insert(directive.args[i]);
   }
+
   // NGINX: allowing GET also allows HEAD.
   // NGINX와 같이 GET을 허용하면 HEAD도 허용한다.
   if (location.allowedMethods.count(methods::kGet) != 0)
     location.allowedMethods.insert(methods::kHead);
+
   const char* const onlyDeny =
       "\"limit_except\" block must contain only \"deny all;\"";
   if (directive.children.size() != 1)
@@ -180,11 +182,13 @@ LocationConfig buildLocation(const BuildContext& context,
   if (block.args[0].empty() || block.args[0][0] != '/')
     throw ConfigError(context.source, block.line,
                       "location path must start with \"/\"");
+
   LocationConfig location = makeLocation(block.args[0], server);
   SharedSettings own = server;
   // Cleared to tell this location's own root from the inherited one.
   // 이 location이 직접 지정한 root와 물려받은 root를 구분하려고 비운다.
   own.root.clear();
+
   BlockChecker checker(context.source, CONTEXT_LOCATION);
   for (std::size_t i = 0; i < block.children.size(); ++i) {
     const Directive& directive = context.node(block.children[i]);
@@ -192,6 +196,7 @@ LocationConfig buildLocation(const BuildContext& context,
     if (!applySharedDirective(context, directive, own))
       applyLocationDirective(context, directive, location);
   }
+
   copySharedSettings(own, location);
   if (!own.root.empty() && !location.alias.empty())
     throw ConfigError(context.source, block.line,

@@ -57,6 +57,7 @@ bool normalizePath(const std::string& encodedPath, std::string& normalized) {
   std::vector<std::string> kept;
   bool endsAsDirectory = false;
   std::string::size_type start = 0;
+
   while (start <= encodedPath.size()) {
     std::string::size_type slash = encodedPath.find('/', start);
     if (slash == std::string::npos) slash = encodedPath.size();
@@ -72,6 +73,7 @@ bool normalizePath(const std::string& encodedPath, std::string& normalized) {
     }
     start = slash + 1;
   }
+
   normalized = "/";
   for (std::size_t i = 0; i < kept.size(); ++i) {
     normalized += kept[i];
@@ -92,6 +94,7 @@ std::string encodePath(const std::string& decodedPath) {
     encoded.append(decodedPath, start,
                    special == std::string::npos ? special : special - start);
     if (special == std::string::npos) break;
+
     const unsigned char c = static_cast<unsigned char>(decodedPath[special]);
     encoded += '%';
     encoded += hex::kUpperDigits[c / hex::kBase];

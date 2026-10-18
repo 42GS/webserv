@@ -67,6 +67,7 @@ CivilDate civilFromDays(long days) {
   const long dayOfYear =  // from March 1 / 3월 1일부터
       dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100);
   const long monthFromMarch = (5 * dayOfYear + 2) / 153;
+
   CivilDate date;
   date.day = static_cast<int>(dayOfYear - (153 * monthFromMarch + 2) / 5 + 1);
   date.month = static_cast<int>(monthFromMarch < 10 ? monthFromMarch + 3
@@ -96,6 +97,7 @@ std::string formatHttpDate(std::time_t secondsSinceEpoch) {
     secondOfDay += kSecondsPerDay;
     --days;
   }
+
   const CivilDate date = civilFromDays(days);
   long weekday = (days + kEpochWeekday) % 7;
   if (weekday < 0) weekday += 7;

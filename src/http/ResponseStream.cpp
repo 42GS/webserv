@@ -50,6 +50,7 @@ std::string serializeHead(const Response& response) {
     if (isSafeFieldValue(field.second))
       head << field.first << ": " << field.second << "\r\n";
   }
+
   // Never for 204; for 304 only the length a 200 would have, which is not
   // known (RFC 9110 8.6). For HEAD it is the GET value.
   // 204에는 절대 보내지 않는다. 304에는 200의 길이만 보낼 수 있는데 그
@@ -76,6 +77,7 @@ bool ResponseStream::reset(const Response& response) {
   out_ = serializeHead(response);
   offset_ = 0;
   fileRemaining_ = 0;
+
   if (response.omitBody ||
       (!response.bodyFile.empty() && response.bodyFileSize == 0))
     return true;
@@ -83,6 +85,7 @@ bool ResponseStream::reset(const Response& response) {
     out_ += response.body;
     return true;
   }
+
   fileFd_ = open(response.bodyFile.c_str(), O_RDONLY);
   if (fileFd_ < 0) return false;
   fileRemaining_ = response.bodyFileSize;
@@ -118,6 +121,7 @@ bool ResponseStream::readFilePiece() {
     fileRemaining_ = 0;
     return false;
   }
+
   out_.assign(buffer, static_cast<std::size_t>(got));
   offset_ = 0;
   fileRemaining_ -= static_cast<std::size_t>(got);

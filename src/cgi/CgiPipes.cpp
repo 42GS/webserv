@@ -25,6 +25,7 @@ void CgiStdin::onEvent(short revents) {
     close();
     return;
   }
+
   std::size_t size = body_.size() - written_;
   if (size > limits::kPipeIoSize) size = limits::kPipeIoSize;
   const ssize_t put = write(fd_, body_.data() + written_, size);
@@ -35,6 +36,7 @@ void CgiStdin::onEvent(short revents) {
     close();
     return;
   }
+
   written_ += static_cast<std::size_t>(put);
   if (written_ == body_.size()) close();
 }
@@ -62,6 +64,7 @@ void CgiStdout::onEvent(short revents) {
     close(true);
     return;
   }
+
   char buffer[limits::kPipeIoSize];
   const ssize_t got = read(fd_, buffer, sizeof(buffer));
   if (got == 0) {

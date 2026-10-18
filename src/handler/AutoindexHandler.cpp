@@ -68,6 +68,7 @@ std::string escapeHtml(const std::string& text) {
 bool readNames(const std::string& directory, std::vector<std::string>& names) {
   DIR* stream = opendir(directory.c_str());
   if (stream == 0) return false;
+
   for (dirent* entry = readdir(stream); entry != 0; entry = readdir(stream)) {
     const std::string name(entry->d_name);
     if (name == "." || name == "..") continue;
@@ -102,6 +103,7 @@ std::string listItem(const std::string& name) {
 bool listDirectory(const RouteResult& route, Response& response) {
   std::vector<std::string> names;
   if (!readNames(route.fsPath, names)) return false;
+
   const std::string title = "Index of " + escapeHtml(route.urlPath);
   std::string html =
       "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\">"
@@ -110,6 +112,7 @@ bool listDirectory(const RouteResult& route, Response& response) {
   if (route.urlPath != "/") html += "<li><a href=\"../\">../</a></li>\n";
   for (std::size_t i = 0; i < names.size(); ++i) html += listItem(names[i]);
   html += "</ul>\n</body></html>\n";
+
   response.status = http_status::kOk;
   response.headers.add(header_name::kContentType, mime_types::kHtmlType);
   response.body = html;

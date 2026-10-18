@@ -86,6 +86,7 @@ void applyErrorPage(const BuildContext& context, const Directive& directive,
   if (uri.empty() || uri[0] != '/')
     throw ConfigError(context.source, directive.line,
                       "\"error_page\" URI must start with \"/\"");
+
   for (std::size_t i = 0; i + 1 < directive.args.size(); ++i) {
     unsigned long code = 0;
     if (!parseDecimal(directive.args[i], http_status::kMaxCode, code) ||
@@ -130,6 +131,7 @@ void addLocations(const BuildContext& context,
                         "duplicate location \"" + location.path + "\"");
     server.locations.push_back(location);
   }
+
   if (paths.count("/") == 0 && !settings.root.empty())
     server.locations.push_back(makeImplicitRootLocation(settings));
   std::stable_sort(server.locations.begin(), server.locations.end(),
@@ -142,6 +144,7 @@ BuiltServer buildServer(const BuildContext& context, const Directive& block) {
   if (!block.args.empty())
     throw ConfigError(context.source, block.line,
                       "\"server\" takes no arguments");
+
   BuiltServer server;
   SharedSettings settings = SharedSettings::defaults();
   std::vector<const Directive*> locationBlocks;
@@ -160,6 +163,7 @@ BuiltServer buildServer(const BuildContext& context, const Directive& block) {
       // BlockChecker가 "server"에서 허용했으므로 공통 지시어다.
       static_cast<void>(applySharedDirective(context, directive, settings));
   }
+
   if (server.config.listens.empty())
     throw ConfigError(context.source, block.line,
                       "\"server\" has no \"listen\"");

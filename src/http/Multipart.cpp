@@ -65,6 +65,7 @@ bool applyDisposition(const std::string& value, FormPart& part) {
   if (valueBeforeParameters(value) != kFormDataDisposition ||
       !parseParameters(value, parameters) || parameters.count("name") == 0)
     return false;
+
   part.name = parameters["name"];
   part.hasFilename = parameters.count("filename") != 0;
   if (part.hasFilename) part.filename = parameters["filename"];
@@ -95,6 +96,7 @@ bool readPartHeaders(const std::string& headers, FormPart& part) {
     if (end == std::string::npos) end = headers.size();
     const std::string line = headers.substr(start, end - start);
     start = end + 2;
+
     const std::string::size_type colon = line.find(':');
     if (colon == std::string::npos) return false;
     if (toAsciiLower(line.substr(0, colon)) != kContentDisposition) continue;
@@ -134,12 +136,14 @@ bool readPart(const std::string& body, std::string::size_type start,
   const std::string::const_iterator partEnd = body.begin() + end;
   const std::string::const_iterator blank = std::search(
       body.begin() + start, partEnd, blankLine.begin(), blankLine.end());
+
   std::string::size_type headerEnd = end;
   std::string::size_type contentStart = end;
   if (blank != partEnd) {
     headerEnd = blank - body.begin();
     contentStart = headerEnd + blankLine.size();
   }
+
   part.contentStart = contentStart;
   part.contentLength = end - contentStart;
   return readPartHeaders(body.substr(start, headerEnd - start), part);
@@ -177,6 +181,7 @@ bool formDataBoundary(const std::string& contentType, std::string& boundary) {
   if (!parseParameters(contentType, parameters) ||
       parameters.count("boundary") == 0)
     return false;
+
   const std::string& value = parameters["boundary"];
   if (value.empty() || value.size() > kMaxBoundaryLength ||
       value[value.size() - 1] == ' ' ||
@@ -202,11 +207,13 @@ bool parseFormData(const std::string& body, const std::string& boundary,
     if (pos == std::string::npos) return false;
     pos += delimiter.size();
   }
+
   for (;;) {
     if (hasAt(body, pos, kDashes)) return true;
     if (!skipDelimiterLineEnd(body, pos)) return false;
     const std::string::size_type next = body.find(delimiter, pos);
     if (next == std::string::npos) return false;
+
     FormPart part;
     if (!readPart(body, pos, next, part)) return false;
     parts.push_back(part);

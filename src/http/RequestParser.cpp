@@ -173,6 +173,7 @@ int overlongRequestLineStatus(const std::string& text) {
  */
 bool keepsConnection(const Request& request) {
   if (request.version != request_parser::kHttp11) return false;
+
   const std::vector<std::string> options =
       splitList(request.headers.all(header_name::kConnection));
   for (std::size_t i = 0; i < options.size(); ++i) {
@@ -203,6 +204,7 @@ RequestParser::Result RequestParser::feed(std::string& buffer) {
   consumed_ = 0;
   while (step(buffer)) {
   }
+
   buffer.erase(0, consumed_);
   consumed_ = 0;
   return resultOfState();
@@ -283,7 +285,9 @@ bool RequestParser::takeHeaderLine(const std::string& buffer,
       return fail(http_status::kRequestHeaderFieldsTooLarge);
     return false;
   }
+
   if (status == LINE_INVALID) return fail(http_status::kBadRequest);
+
   headerBytes_ += line.size() + 1;
   if (headerBytes_ > limits::kMaxHeaderBytes)
     return fail(http_status::kRequestHeaderFieldsTooLarge);
@@ -297,12 +301,15 @@ std::size_t RequestParser::unread(const std::string& buffer) const {
 bool RequestParser::readRequestLine(std::string& buffer) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
+
   if (status == LINE_INCOMPLETE) {
     if (unread(buffer) > limits::kMaxRequestLine)
       return fail(overlongRequestLineStatus(buffer.substr(consumed_)));
     return false;
   }
+
   if (status == LINE_INVALID) return fail(http_status::kBadRequest);
+
   if (line.empty()) {
     // Empty lines before the request line are ignored (section 2.2), but
     // only as many as would fit in a request line.
@@ -313,6 +320,7 @@ bool RequestParser::readRequestLine(std::string& buffer) {
       return fail(http_status::kBadRequest);
     return true;
   }
+
   if (line.size() > limits::kMaxRequestLine)
     return fail(overlongRequestLineStatus(line));
   if (!parseRequestLine(line)) return false;
@@ -324,6 +332,7 @@ bool RequestParser::readHeaderLine(std::string& buffer) {
   std::string line;
   if (!takeHeaderLine(buffer, line)) return false;
   if (line.empty()) return finishHead();
+
   std::string name;
   std::string value;
   if (!parseFieldLine(line, name, value)) return false;
@@ -336,11 +345,13 @@ bool RequestParser::startBody() {
     state_ = CHUNK_SIZE;
     return true;
   }
+
   if (contentLength_ > maxBodySize_) return fail(http_status::kContentTooLarge);
   if (contentLength_ == 0) {
     state_ = COMPLETE;
     return true;
   }
+
   // Known size: reserve once instead of growing (design decision 11).
   // 크기를 아니까 늘려 가지 않고 한 번에 확보한다 (설계 결정 11).
   request_.body.reserve(contentLength_);
@@ -363,11 +374,13 @@ bool RequestParser::readBodyBytes(std::string& buffer, State whenDone) {
 bool RequestParser::readChunkLine(std::string& buffer) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
+
   if (status == LINE_INCOMPLETE) {
     if (unread(buffer) > limits::kMaxChunkLine)
       return fail(http_status::kBadRequest);
     return false;
   }
+
   if (status == LINE_INVALID || line.size() > limits::kMaxChunkLine)
     return fail(http_status::kBadRequest);
   return readChunkSize(line);
@@ -376,6 +389,7 @@ bool RequestParser::readChunkLine(std::string& buffer) {
 bool RequestParser::readChunkEnd(std::string& buffer) {
   std::string line;
   const LineStatus status = takeLine(buffer, line);
+
   if (status == LINE_INCOMPLETE) {
     // Only a CR may still be waiting for its LF.
     // LF를 기다리는 CR 하나만 남아 있을 수 있다.
@@ -384,6 +398,7 @@ bool RequestParser::readChunkEnd(std::string& buffer) {
       return fail(http_status::kBadRequest);
     return false;
   }
+
   if (status == LINE_INVALID || !line.empty())
     return fail(http_status::kBadRequest);
   state_ = CHUNK_SIZE;
@@ -393,10 +408,12 @@ bool RequestParser::readChunkEnd(std::string& buffer) {
 bool RequestParser::readTrailerLine(std::string& buffer) {
   std::string line;
   if (!takeHeaderLine(buffer, line)) return false;
+
   if (line.empty()) {
     state_ = COMPLETE;
     return true;
   }
+
   std::string name;
   std::string value;
   return parseFieldLine(line, name, value);
@@ -411,11 +428,13 @@ bool RequestParser::parseRequestLine(const std::string& line) {
   const std::string::size_type second =
       (first == std::string::npos) ? first : line.find(' ', first + 1);
   if (second == std::string::npos) return fail(http_status::kBadRequest);
+
   const std::string method = line.substr(0, first);
   const std::string target = line.substr(first + 1, second - first - 1);
   const std::string version = line.substr(second + 1);
   if (!isToken(method) || !isTargetText(target) || !isHttpVersion(version))
     return fail(http_status::kBadRequest);
+
   const char major = version[5];  // "HTTP/x.y": x
   const char minor = version[7];  // "HTTP/x.y": y
   if (major != '1') return fail(http_status::kHttpVersionNotSupported);
@@ -423,6 +442,7 @@ bool RequestParser::parseRequestLine(const std::string& line) {
   // 1.x의 더 높은 minor 버전은 1.1로 처리한다 (RFC 9110 6.2절).
   request_.version =
       (minor == '0') ? request_parser::kHttp10 : request_parser::kHttp11;
+
   if (!isImplementedMethod(method)) return fail(http_status::kNotImplemented);
   request_.method = method;
   if (!parseTarget(target)) return fail(http_status::kBadRequest);
@@ -452,6 +472,7 @@ bool RequestParser::parseTarget(const std::string& target) {
   } else {
     return false;
   }
+
   const std::string::size_type question = pathAndQuery.find('?');
   request_.target = target;
   request_.path = pathAndQuery.substr(0, question);
@@ -469,8 +490,10 @@ bool RequestParser::parseFieldLine(const std::string& line, std::string& name,
                                    std::string& value) {
   const std::string::size_type colon = line.find(':');
   if (colon == std::string::npos) return fail(http_status::kBadRequest);
+
   name = line.substr(0, colon);
   value = trimWhitespace(line.substr(colon + 1));
+
   // A space before the colon makes the name an invalid token (section 5.1).
   // 콜론 앞에 공백이 있으면 이름이 올바른 token이 아니다 (5.1절).
   if (!isToken(name) || !isFieldValue(value))
@@ -487,8 +510,10 @@ bool RequestParser::finishHead() {
       hosts > 1 ||
       (hosts == 1 && !isHostValue(*headers.first(header_name::kHost))))
     return fail(http_status::kBadRequest);
+
   if (!decideBodyLength()) return false;
   request_.persistent = keepsConnection(request_);
+
   // Stop here: feed() reports HEAD_DONE so that the caller can set the
   // body limit of the chosen location before the body is read.
   // 여기서 멈춘다. feed()가 HEAD_DONE을 알려서, 본문을 읽기 전에 호출자가
@@ -502,6 +527,7 @@ bool RequestParser::decideBodyLength() {
       splitList(request_.headers.all(header_name::kTransferEncoding));
   const std::vector<std::string> lengths =
       splitList(request_.headers.all(header_name::kContentLength));
+
   if (request_.headers.has(header_name::kTransferEncoding)) {
     // HTTP/1.0 with Transfer-Encoding is faulty framing (section 6.1);
     // with Content-Length as well it may be smuggling (section 6.3).
@@ -512,16 +538,19 @@ bool RequestParser::decideBodyLength() {
       return fail(http_status::kBadRequest);
     if (codings.empty() || toAsciiLower(codings.back()) != kChunked)
       return fail(http_status::kBadRequest);
+
     // chunked may be applied only once; no other coding is implemented.
     // chunked는 한 번만 적용할 수 있고, 다른 coding은 구현하지 않았다.
     for (std::size_t i = 0; i + 1 < codings.size(); ++i) {
       if (toAsciiLower(codings[i]) == kChunked)
         return fail(http_status::kBadRequest);
     }
+
     if (codings.size() > 1) return fail(http_status::kNotImplemented);
     chunked_ = true;
     return true;
   }
+
   if (request_.headers.has(header_name::kContentLength)) {
     // A list is allowed only if every value is the same (section 6.3).
     // 목록은 모든 값이 같을 때만 허용한다 (6.3절).
@@ -535,6 +564,7 @@ bool RequestParser::decideBodyLength() {
     }
     return true;
   }
+
   // HTTP/1.0 POST must carry Content-Length (RFC 1945 section 8.3).
   // HTTP/1.0 POST에는 Content-Length가 있어야 한다 (RFC 1945 8.3절).
   if (request_.version == request_parser::kHttp10 &&
@@ -552,12 +582,15 @@ bool RequestParser::readChunkSize(const std::string& line) {
       return fail(http_status::kBadRequest);
   }
   if (i == 0) return fail(http_status::kBadRequest);
+
   while (i < line.size() && isWhitespace(line[i])) ++i;
   if (i < line.size() && line[i] != ';') return fail(http_status::kBadRequest);
+
   if (size == 0) {
     state_ = TRAILERS;
     return true;
   }
+
   if (size > maxBodySize_ - request_.body.size())
     return fail(http_status::kContentTooLarge);
   remaining_ = size;

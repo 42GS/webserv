@@ -91,6 +91,7 @@ void closeInheritedDescriptors() {
   std::vector<int> open;
   DIR* directory = opendir(kDescriptorDirectory);
   if (directory == 0) return;
+
   for (dirent* entry = readdir(directory); entry != 0;
        entry = readdir(directory)) {
     unsigned long fd = 0;
@@ -98,6 +99,7 @@ void closeInheritedDescriptors() {
         static_cast<int>(fd) >= kFirstOtherDescriptor)
       open.push_back(static_cast<int>(fd));
   }
+
   closedir(directory);
   for (std::size_t i = 0; i < open.size(); ++i) close(open[i]);
 }
@@ -124,8 +126,10 @@ CgiProcess::~CgiProcess() {
   delete stdin_;
   const bool done = isDone();
   delete stdout_;
+
   if (pid_ <= 0) return;
   if (!done) static_cast<void>(kill(pid_, SIGKILL));
+
   // An exception must not leave a destructor (it could end the server).
   // If the reaper cannot take the pid, the child is killed and waited for
   // here; SIGKILL keeps that wait short.
@@ -144,6 +148,7 @@ bool CgiProcess::start(std::time_t now) {
   int input[2];
   int output[2];
   if (!openPipes(input, output)) return false;
+
   // The parent's ends are owned from here on, so nothing after fork() can
   // leave them open. / 부모 쪽 끝은 여기서부터 소유하므로, fork() 뒤에
   // 무엇이 실패해도 열린 채 남지 않는다.
@@ -155,6 +160,7 @@ bool CgiProcess::start(std::time_t now) {
     close(output[1]);
     return false;
   }
+
   // The child's std::exit() would print what is still buffered here a
   // second time (design decision 12).
   // 여기 버퍼에 남은 것을 자식의 std::exit()이 한 번 더 출력한다 (설계
@@ -166,6 +172,7 @@ bool CgiProcess::start(std::time_t now) {
   close(input[0]);
   close(output[1]);
   if (pid_ < 0) return false;
+
   startedAt_ = now;
   watchPipes();
   return true;
@@ -205,9 +212,11 @@ void CgiProcess::runChild(int input, int output) {
   try {
     if (dup2(input, STDIN_FILENO) < 0 || dup2(output, STDOUT_FILENO) < 0)
       std::exit(EXIT_FAILURE);
+
     closeInheritedDescriptors();
     if (chdir(launch_.directory.c_str()) != 0) std::exit(EXIT_FAILURE);
     signal(SIGPIPE, SIG_DFL);
+
     std::vector<std::string> arguments;
     arguments.push_back(launch_.interpreter);
     arguments.push_back(launch_.scriptFile);

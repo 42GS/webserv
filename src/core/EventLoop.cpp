@@ -39,6 +39,7 @@ void EventLoop::pollOnce() {
     fds[i].events = polled[i]->wantedEvents();
     fds[i].revents = 0;
   }
+
   // -1 means interrupted by a signal or a failure; errno is not consulted.
   // The loop goes on and the observer decides whether to stop.
   // -1은 시그널로 끊겼거나 실패한 것이다. errno는 보지 않는다. 루프는
@@ -47,6 +48,7 @@ void EventLoop::pollOnce() {
       poll(fds.empty() ? 0 : &fds[0], static_cast<nfds_t>(fds.size()),
            limits::kPollTimeoutMs);
   if (ready <= 0) return;
+
   std::vector<short> revents(fds.size());
   for (std::size_t i = 0; i < fds.size(); ++i) revents[i] = fds[i].revents;
   dispatch(polled, revents);

@@ -82,8 +82,10 @@ void Server::afterIteration(std::time_t now) {
     }
     if (it->second->isClosed()) closed.push_back(it->second);
   }
+
   for (std::size_t i = 0; i < closed.size(); ++i) closeConnection(closed[i]);
   reaper_.reap();
+
   // A paused listener is retried once a descriptor may be free: a
   // connection closed, or a second passed (the clock's step).
   // 멈춘 listener는 fd가 풀렸을 수 있을 때 다시 시도한다: 연결이 닫혔거나

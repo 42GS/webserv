@@ -82,6 +82,7 @@ bool readParameterValue(const std::string& text, std::string::size_type& pos,
                         std::string& value) {
   if (pos < text.size() && text[pos] == '"')
     return readQuotedString(text, pos, value);
+
   std::string::size_type end = text.find_first_not_of(kTokenChars, pos);
   if (end == std::string::npos) end = text.size();
   value = text.substr(pos, end - pos);
@@ -138,6 +139,7 @@ bool parseParameters(const std::string& fieldValue,
     skipWhitespace(fieldValue, pos);
     if (pos == fieldValue.size()) break;
     if (fieldValue[pos] == ';') continue;
+
     const std::string::size_type equals =
         fieldValue.find_first_not_of(kTokenChars, pos);
     if (equals == pos || equals == std::string::npos ||
@@ -145,11 +147,13 @@ bool parseParameters(const std::string& fieldValue,
       return false;
     const std::string name = toAsciiLower(fieldValue.substr(pos, equals - pos));
     pos = equals + 1;
+
     std::string value;
     if (!readParameterValue(fieldValue, pos, value) ||
         parameters.count(name) != 0)
       return false;
     parameters[name] = value;
+
     skipWhitespace(fieldValue, pos);
     if (pos < fieldValue.size() && fieldValue[pos] != ';') return false;
   }

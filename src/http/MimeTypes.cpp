@@ -51,6 +51,7 @@ std::string lowerExtension(const std::string& fileName) {
   const std::string::size_type dot = fileName.rfind('.');
   if (dot == std::string::npos || (slash != std::string::npos && dot < slash))
     return "";
+
   std::string extension = fileName.substr(dot + 1);
   for (std::string::size_type i = 0; i < extension.size(); ++i)
     extension[i] = toAsciiLower(extension[i]);

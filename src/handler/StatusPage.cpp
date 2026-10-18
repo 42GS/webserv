@@ -54,6 +54,7 @@ Response buildStatusPage(int status,
                          const Router& router) {
   Response response;
   response.status = status;
+
   const std::map<int, std::string>::const_iterator page =
       configuredPages.find(status);
   std::string fsPath;

@@ -101,6 +101,7 @@ void addHeaderVariables(const Request& request, std::vector<std::string>& env) {
         std::find(done.begin(), done.end(), variable) != done.end())
       continue;
     done.push_back(variable);
+
     const std::vector<std::string> values = request.headers.all(name);
     std::string joined;
     for (std::size_t j = 0; j < values.size(); ++j)
@@ -139,6 +140,7 @@ std::vector<std::string> buildCgiEnvironment(const Request& request,
   // No name lookup is done; the address may stand in (section 4.1.9).
   // 이름을 찾지 않으므로 주소로 대신한다 (4.1.9절).
   env.push_back("REMOTE_HOST=" + where.remoteAddress);
+
   // If and only if the request has a body, after decoding (section 4.1.2).
   // 요청에 본문이 있을 때만, 해제한 길이로 (4.1.2절).
   if (request.headers.has(header_name::kContentLength) ||
@@ -147,15 +149,18 @@ std::vector<std::string> buildCgiEnvironment(const Request& request,
   const std::string* contentType =
       request.headers.first(header_name::kContentType);
   if (contentType != 0) env.push_back("CONTENT_TYPE=" + *contentType);
+
   if (!script.pathInfo.empty()) {
     env.push_back("PATH_INFO=" + script.pathInfo);
     if (!script.pathTranslated.empty() && script.pathTranslated[0] == '/')
       env.push_back("PATH_TRANSLATED=" + script.pathTranslated);
   }
+
   env.push_back(std::string("REDIRECT_STATUS=") + kRedirectStatus);
   env.push_back("SCRIPT_FILENAME=" + (script.fsPath[0] == '/'
                                           ? script.fsPath
                                           : baseName(script.fsPath)));
+
   addHeaderVariables(request, env);
   return env;
 }

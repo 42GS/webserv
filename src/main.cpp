@@ -50,6 +50,7 @@ int main(int argc, char** argv) {
     std::cerr << "usage: " << argv[0] << " [configuration file]" << std::endl;
     return EXIT_FAILURE;
   }
+
   const char* configPath =
       (argc == limits::kMaxArgc) ? argv[1] : limits::kDefaultConfigPath;
   std::vector<ServerConfig> configs;
@@ -74,6 +75,7 @@ int main(int argc, char** argv) {
   std::string error;
   if (!server.openListeners(error)) return fail(error);
   std::cout << "webserv: listening (" << configPath << ")" << std::endl;
+
   // Exceptions from a single connection are handled inside the loop. One
   // that still gets here (std::bad_alloc while polling) ends the server
   // with a message instead of std::terminate().
@@ -85,6 +87,7 @@ int main(int argc, char** argv) {
   } catch (const std::exception& error) {
     return fail(std::string("stopped: ") + error.what());
   }
+
   std::cout << "webserv: shutting down" << std::endl;
   return EXIT_SUCCESS;
 }

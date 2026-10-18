@@ -25,6 +25,7 @@ bool consistsOf(const std::string& text, const std::string& allowed) {
 bool parseDecimal(const std::string& text, unsigned long maxValue,
                   unsigned long& value) {
   if (text.empty() || !consistsOf(text, ascii::kDigits)) return false;
+
   unsigned long result = 0;
   for (std::string::size_type i = 0; i < text.size(); ++i) {
     const unsigned long digit = static_cast<unsigned long>(text[i] - '0');

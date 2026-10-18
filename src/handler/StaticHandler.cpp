@@ -15,8 +15,10 @@
 bool serveStaticFile(const RouteResult& route, Response& response) {
   std::size_t size = 0;
   if (!regularFileSize(route.fsPath, size)) return false;
+
   response.status = http_status::kOk;
   response.headers.add(header_name::kContentType, mimeTypeFor(route.fsPath));
+
   if (size <= limits::kInMemoryFileLimit)
     return readWholeFile(route.fsPath, limits::kInMemoryFileLimit,
                          response.body);

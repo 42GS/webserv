@@ -126,6 +126,7 @@ UploadResult planFiles(const std::string& store,
     // 디스크에서 이름을 더 찾지 않도록 먼저 검사한다.
     if (files.size() == limits::kMaxUploadFiles)
       return resultWith(http_status::kContentTooLarge);
+
     StoredFile stored;
     if (!safeFileName(parts[i].filename, stored.file.name))
       return resultWith(http_status::kBadRequest);
@@ -136,9 +137,11 @@ UploadResult planFiles(const std::string& store,
       result.conflict = stored.file.name;
       return result;
     }
+
     stored.part = parts[i];
     files.push_back(stored);
   }
+
   return resultWith(files.empty() ? http_status::kBadRequest : kNoFailure);
 }
 
@@ -196,16 +199,20 @@ UploadResult storeUpload(const RouteResult& route, const Request& request) {
       request.headers.first(header_name::kContentType);
   if (contentType == 0 || !isFormData(*contentType))
     return resultWith(http_status::kUnsupportedMediaType);
+
   std::string boundary;
   std::vector<FormPart> parts;
   if (!formDataBoundary(*contentType, boundary) ||
       !parseFormData(request.body, boundary, parts))
     return resultWith(http_status::kBadRequest);
+
   std::vector<StoredFile> files;
   const UploadResult failure = planFiles(route.uploadStore, parts, files);
   if (failure.status != kNoFailure) return failure;
+
   if (!writeFiles(request.body, files))
     return resultWith(http_status::kInternalServerError);
+
   UploadResult result = resultWith(http_status::kCreated);
   for (std::size_t i = 0; i < files.size(); ++i)
     result.files.push_back(files[i].file);
@@ -217,6 +224,7 @@ Response createdResponse(const UploadResult& result,
   Response response;
   response.status = http_status::kCreated;
   response.headers.add(header_name::kContentType, mime_types::kTextType);
+
   const std::string directory = targetPath.substr(0, targetPath.rfind('/') + 1);
   for (std::size_t i = 0; i < result.files.size(); ++i) {
     const std::string uri = encodePath(directory + result.files[i].name);
@@ -227,6 +235,7 @@ Response createdResponse(const UploadResult& result,
       response.headers.add(header_name::kLocation, uri);
     response.body += (reachable ? uri : result.files[i].name) + "\n";
   }
+
   return response;
 }
 

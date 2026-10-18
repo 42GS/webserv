@@ -36,6 +36,7 @@ bool Listener::open(std::string& error) {
   const int enable = 1;
   const sockaddr_in address = toSockaddr(addr_);
   const sockaddr* rawAddress = reinterpret_cast<const sockaddr*>(&address);
+
   bool ok = (fd_ = socket(AF_INET, SOCK_STREAM, 0)) >= 0;
   ok = ok &&
        setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == 0;
@@ -64,6 +65,7 @@ short Listener::wantedEvents() const { return paused_ ? 0 : POLLIN; }
 
 void Listener::onEvent(short revents) {
   if ((revents & POLLIN) == 0) return;
+
   sockaddr_in remote = sockaddr_in();
   socklen_t remoteSize = sizeof(remote);
   const int clientFd =
@@ -76,6 +78,7 @@ void Listener::onEvent(short revents) {
     paused_ = true;
     return;
   }
+
   // The local end tells which address a "0.0.0.0" listener was reached on.
   // "0.0.0.0" listener가 어느 주소로 연결됐는지는 로컬 끝이 알려 준다.
   sockaddr_in local = sockaddr_in();
@@ -86,6 +89,7 @@ void Listener::onEvent(short revents) {
     close(clientFd);
     return;
   }
+
   ListenContext where;
   where.server = &server_;
   where.remoteAddress = formatIpv4(remote.sin_addr.s_addr);

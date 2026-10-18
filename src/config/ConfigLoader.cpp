@@ -24,6 +24,7 @@ std::vector<ServerConfig> loadConfigFile(const std::string& path) {
     throw ConfigError(path, 0, "cannot open configuration file");
   if (kind != FILE_REGULAR)
     throw ConfigError(path, 0, "configuration file is not a regular file");
+
   std::ifstream file(path.c_str());
   if (!file) throw ConfigError(path, 0, "cannot open configuration file");
   std::ostringstream content;

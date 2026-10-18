@@ -47,6 +47,7 @@ void Connection::onEvent(short revents) {
     changeState(CLOSED);
     return;
   }
+
   const bool reading = (wantedEvents() == POLLIN);
   // POLLHUP may come with data still unread; recv() returns 0 once the
   // data is consumed, which closes the connection.
@@ -73,6 +74,7 @@ void Connection::checkTimeout(std::time_t now) {
     followCgi();
     return;
   }
+
   if (!hasTimedOut()) return;
   const bool requestUnfinished =
       (state_ == READ_HEAD || state_ == READ_BODY) && parser_.hasStarted();
@@ -95,6 +97,7 @@ void Connection::checkTimeout(std::time_t now) {
 bool Connection::hasTimedOut() const {
   const std::time_t elapsed = now_ - stateSince_;
   const std::time_t idle = now_ - lastProgress_;
+
   switch (state_) {
     case READ_HEAD:
       if (!parser_.hasStarted())
@@ -128,8 +131,10 @@ void Connection::receiveOnce() {
     changeState(CLOSED);
     return;
   }
+
   lastProgress_ = now_;
   if (state_ == DRAIN) return;
+
   // The head timeout starts with the first byte of a request.
   // 머리 시간 제한은 요청의 첫 바이트부터 잰다.
   if (state_ == READ_HEAD && !parser_.hasStarted()) stateSince_ = now_;
@@ -165,6 +170,7 @@ void Connection::sendOnce() {
     changeState(CLOSED);
     return;
   }
+
   lastProgress_ = now_;
   // A file body that cannot be read further cannot match the
   // Content-Length already sent: the connection has to end.
@@ -206,11 +212,13 @@ void Connection::handleOutcome(const ProcessOutcome& outcome) {
     case ProcessOutcome::LOCAL_REDIRECT:
       break;
   }
+
   if (++localRedirects_ > limits::kMaxInternalRedirects) {
     startResponse(processor_.statusResponse(http_status::kInternalServerError,
                                             *current_, now_));
     return;
   }
+
   redirected_ = outcome.redirect;
   current_ = &redirected_;
   handleOutcome(processor_.process(redirected_, now_));

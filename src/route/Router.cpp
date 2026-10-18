@@ -161,6 +161,7 @@ RouteResult deletion(const std::string& fsPath) {
   if (kind == FILE_MISSING) return error(http_status::kNotFound);
   if (kind != FILE_REGULAR || !canChangeEntries(parentDirectory(fsPath)))
     return error(http_status::kForbidden);
+
   RouteResult result;
   result.kind = RouteResult::DELETE;
   result.fsPath = fsPath;
@@ -236,6 +237,7 @@ RouteResult findScript(const LocationConfig& location,
                        const std::string& path) {
   RouteResult result;
   if (location.cgiByExtension.empty()) return result;
+
   std::string::size_type end = path.find('/', location.path.size());
   for (;;) {
     const std::string scriptName = path.substr(0, end);
@@ -251,6 +253,7 @@ RouteResult findScript(const LocationConfig& location,
       result.urlPath = path;
       return result;
     }
+
     if (end == std::string::npos) return result;
     end = path.find('/', end + 1);
   }
@@ -337,6 +340,7 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
   if (location == 0) return error(http_status::kNotFound);
   if (location->returnCode != 0)
     return redirect(location->returnCode, location->returnUrl);
+
   RouteResult script = findScript(*location, path);
   if (script.kind == RouteResult::CGI) {
     if (!allows(*location, request.method))
@@ -344,16 +348,19 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
     translatePathInfo(script);
     return script;
   }
+
   if (!answers(*location, request.method))
     return methodNotAllowed(*location, answers);
   if (request.method == methods::kPost) return upload(*location, path);
 
   const std::string fsPath = mapPath(*location, path);
   if (request.method == methods::kDelete) return deletion(fsPath);
+
   const FileKind kind = fileKind(fsPath);
   if (kind == FILE_MISSING) return error(http_status::kNotFound);
   if (kind == FILE_DIRECTORY)
     return routeDirectory(path, request, *location, internalRedirects);
+
   // Devices, FIFOs and the like are never served (RFC 9110 section 17.3).
   // 장치 파일이나 FIFO 같은 것은 절대 보내지 않는다 (RFC 9110 17.3절).
   if (kind != FILE_REGULAR || !isReadable(fsPath))
@@ -380,6 +387,7 @@ RouteResult Router::routeDirectory(const std::string& path,
   if (path[path.size() - 1] != '/')
     return redirect(http_status::kMovedPermanently,
                     withQuery(encodePath(path + "/"), request.query));
+
   const std::string fsPath = mapPath(location, path);
   for (std::size_t i = 0; i < location.indexFiles.size(); ++i) {
     if (fileKind(fsPath + location.indexFiles[i]) != FILE_REGULAR) continue;
@@ -388,6 +396,7 @@ RouteResult Router::routeDirectory(const std::string& path,
     return routePath(path + location.indexFiles[i], request,
                      internalRedirects + 1);
   }
+
   if (!location.autoindex) return error(http_status::kForbidden);
   RouteResult result;
   result.kind = RouteResult::DIRECTORY_LISTING;

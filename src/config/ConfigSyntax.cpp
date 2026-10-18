@@ -120,6 +120,7 @@ std::size_t SyntaxParser::parseDirective() {
     throw ConfigError(
         source_, current().line,
         "expected a directive name, found \"" + current().text + "\"");
+
   Directive directive;
   directive.name = current().text;
   directive.line = current().line;
@@ -129,10 +130,12 @@ std::size_t SyntaxParser::parseDirective() {
     directive.args.push_back(current().text);
     ++pos_;
   }
+
   if (current().type == TOKEN_SEMICOLON) {
     ++pos_;
     return store(directive);
   }
+
   if (current().type == TOKEN_OPEN_BRACE) {
     if (depth_ == kMaxBlockDepth)
       throw ConfigError(source_, directive.line,
@@ -148,6 +151,7 @@ std::size_t SyntaxParser::parseDirective() {
     ++pos_;
     return store(directive);
   }
+
   throw ConfigError(
       source_, directive.line,
       "directive \"" + directive.name + "\" is not terminated by \";\"");

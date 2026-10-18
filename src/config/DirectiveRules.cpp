@@ -100,6 +100,7 @@ BlockChecker::BlockChecker(const std::string& source, BlockContext context)
 void BlockChecker::check(const Directive& directive) {
   const std::string quoted = "\"" + directive.name + "\"";
   const DirectiveRule* rule = findRule(directive.name);
+
   if (rule == 0)
     throw ConfigError(source_, directive.line, "unknown directive " + quoted);
   if ((rule->contexts & (1 << context_)) == 0)

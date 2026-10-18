@@ -146,6 +146,7 @@ bool applyLine(const std::string& line, CgiFields& fields, Response& response) {
   const std::string name = line.substr(0, colon);
   const std::string value = trimWhitespace(line.substr(colon + 1));
   if (!isToken(name) || !isSafeValue(value)) return false;
+
   ++fields.fieldCount;
   const std::string lowered = toAsciiLower(name);
   if (lowered == kStatus) {
@@ -153,16 +154,19 @@ bool applyLine(const std::string& line, CgiFields& fields, Response& response) {
     fields.hasStatus = true;
     return true;
   }
+
   if (lowered == toAsciiLower(header_name::kLocation)) {
     if (fields.hasLocation) return false;
     fields.hasLocation = true;
     fields.location = value;
     return true;
   }
+
   if (lowered == toAsciiLower(header_name::kContentType)) {
     if (fields.hasType) return false;
     fields.hasType = true;
   }
+
   if (!isDropped(lowered)) response.headers.add(name, value);
   return true;
 }
@@ -186,6 +190,7 @@ std::string::size_type readHeader(const std::string& output, CgiFields& fields,
     std::string line = output.substr(start, newline - start);
     if (!line.empty() && line[line.size() - 1] == '\r')
       line.erase(line.size() - 1);
+
     start = newline + 1;
     if (line.empty()) return start;
     if (!applyLine(line, fields, response)) return std::string::npos;
@@ -224,12 +229,14 @@ bool isRedirection(int status) { return status / 100 == 3; }
 CgiOutput redirectOutput(const CgiFields& fields, const Response& response) {
   CgiOutput result;
   const bool alone = fields.fieldCount == 1 && response.body.empty();
+
   if (!fields.location.empty() && fields.location[0] == '/') {
     if (!alone) return result;
     result.kind = CgiOutput::LOCAL_REDIRECT;
     result.localTarget = fields.location;
     return result;
   }
+
   if (!isAbsoluteUri(fields.location)) return result;
   result.response = response;
   if (alone) {
@@ -243,6 +250,7 @@ CgiOutput redirectOutput(const CgiFields& fields, const Response& response) {
       return result;
     result.response.status = fields.status;
   }
+
   result.response.headers.add(header_name::kLocation, fields.location);
   result.kind = CgiOutput::RESPONSE;
   return result;
@@ -280,12 +288,15 @@ CgiOutput parseCgiOutput(std::string& output) {
   const std::string::size_type body =
       readHeader(output, fields, result.response);
   if (body == std::string::npos || fields.fieldCount == 0) return result;
+
   output.erase(0, body);
   result.response.body.swap(output);
+
   if (fields.hasLocation) {
     result = redirectOutput(fields, result.response);
     return result;
   }
+
   // A document MUST have Content-Type (section 6.2.1).
   // 문서에는 Content-Type이 있어야 한다 (6.2.1절).
   if (!fields.hasType) return result;

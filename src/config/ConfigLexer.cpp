@@ -53,6 +53,7 @@ std::vector<Token> tokenizeConfig(const std::string& text,
   std::vector<Token> tokens;
   int line = 1;
   std::string::size_type i = 0;
+
   while (i < text.size()) {
     const char c = text[i];
     if (c == '\n') {
@@ -82,6 +83,7 @@ std::vector<Token> tokenizeConfig(const std::string& text,
           makeToken(TOKEN_WORD, text.substr(start, i - start), line));
     }
   }
+
   tokens.push_back(makeToken(TOKEN_END, "", line));
   return tokens;
 }

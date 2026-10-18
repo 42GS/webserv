@@ -72,6 +72,7 @@ bool parseSize(const std::string& text, std::size_t& out) {
   else if (suffix == 'm' || suffix == 'M')
     unit = kMegabyte;
   if (unit != 1) digits = text.substr(0, text.size() - 1);
+
   // The largest count whose product with unit still fits in size_t.
   // unit을 곱해도 size_t에 들어가는 가장 큰 수.
   const unsigned long maxCount =
@@ -91,6 +92,7 @@ bool parseListenAddr(const std::string& text, ListenAddr& out) {
     portText = text.substr(colon + 1);
     if (!isIpv4Address(host)) return false;
   }
+
   unsigned long port;
   if (!parseDecimal(portText, kMaxPort, port) || port == 0) return false;
   out.host = host;

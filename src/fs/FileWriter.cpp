@@ -20,6 +20,7 @@ const mode_t kNewFileMode = 0644;
 bool writeNewFile(const std::string& path, const char* data, std::size_t size) {
   const int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL, kNewFileMode);
   if (fd < 0) return false;
+
   bool ok = true;
   std::size_t written = 0;
   while (ok && written < size) {
@@ -31,6 +32,7 @@ bool writeNewFile(const std::string& path, const char* data, std::size_t size) {
     else
       written += static_cast<std::size_t>(put);
   }
+
   // close() can report a write error that came late.
   // close()가 늦게 드러난 쓰기 오류를 알릴 수 있다.
   if (close(fd) != 0) ok = false;

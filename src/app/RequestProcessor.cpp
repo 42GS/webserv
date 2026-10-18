@@ -43,15 +43,18 @@ Request localRedirectRequest(const Request& original,
   Request request;
   request.method =
       original.method == methods::kHead ? methods::kHead : methods::kGet;
+
   request.target = target;
   const std::string::size_type question = target.find('?');
   request.path = target.substr(0, question);
   if (question != std::string::npos)
     request.query = target.substr(question + 1);
+
   request.version = original.version;
   request.persistent = original.persistent;
   const std::string* host = original.headers.first(header_name::kHost);
   if (host != 0) request.headers.add(header_name::kHost, *host);
+
   return request;
 }
 
@@ -157,8 +160,6 @@ ProcessOutcome RequestProcessor::process(const Request& request,
 // (it may be limits::kMaxCgiOutputBytes long).
 // 본문은 스크립트 출력에서 결과로 복사하지 않고 옮긴다
 // (limits::kMaxCgiOutputBytes까지 길 수 있다).
-// The body is moved, not copied, from the script's output to the outcome.
-// 본문은 스크립트 출력에서 결과로 복사하지 않고 옮긴다.
 ProcessOutcome RequestProcessor::afterCgi(const Request& request,
                                           CgiProcess& cgi,
                                           std::time_t now) const {
@@ -169,12 +170,14 @@ ProcessOutcome RequestProcessor::afterCgi(const Request& request,
   CgiOutput output = cgi.failed() ? CgiOutput() : parseCgiOutput(text);
   if (output.kind == CgiOutput::INVALID)
     return statusOutcome(http_status::kBadGateway, request, now);
+
   ProcessOutcome outcome;
   if (output.kind == CgiOutput::LOCAL_REDIRECT) {
     outcome.kind = ProcessOutcome::LOCAL_REDIRECT;
     outcome.redirect = localRedirectRequest(request, output.localTarget);
     return outcome;
   }
+
   moveResponse(output.response, outcome.response);
   finish(outcome.response, request.method,
          keepsConnection(request, outcome.response), now);
@@ -191,10 +194,12 @@ ProcessOutcome RequestProcessor::startCgi(const RouteResult& script,
                                           std::time_t now) const {
   const int refusal = cgiRefusal(script);
   if (refusal != 0) return statusOutcome(refusal, request, now);
+
   std::auto_ptr<CgiProcess> cgi(new CgiProcess(
       launchFor(script, request, where_), request.body, services_));
   if (!cgi->start(now))
     return statusOutcome(http_status::kInternalServerError, request, now);
+
   ProcessOutcome outcome;
   outcome.kind = ProcessOutcome::CGI;
   outcome.cgi = cgi.release();
@@ -254,6 +259,7 @@ Response RequestProcessor::respond(const RouteResult& route,
     case RouteResult::ERROR:
       break;
   }
+
   response = statusPage(route.status);
   // 405 must list what the resource supports (RFC 9110 15.5.6).
   // 405는 리소스가 지원하는 메서드를 알려야 한다 (RFC 9110 15.5.6절).
