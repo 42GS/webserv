@@ -46,6 +46,21 @@ void closePipe(const int ends[2]) {
 }
 
 /**
+ * @brief Creates the input and the output pipe.
+ *        입력 pipe와 출력 pipe를 만든다.
+ * @param[out] input  Ends of the input pipe. / 입력 pipe의 두 끝.
+ * @param[out] output Ends of the output pipe. / 출력 pipe의 두 끝.
+ * @return False if either could not be created; nothing is left open.
+ *         어느 하나라도 만들지 못하면 false. 열린 것은 남기지 않는다.
+ */
+bool openPipes(int input[2], int output[2]) {
+  if (pipe(input) != 0) return false;
+  if (pipe(output) == 0) return true;
+  closePipe(input);
+  return false;
+}
+
+/**
  * @brief Pointers to the texts, ending in a null pointer, for execve().
  *        execve()에 넘길, 널 포인터로 끝나는 텍스트 포인터 목록.
  * @param[in] texts Texts that outlive the result. / 결과보다 오래 사는 텍스트.
@@ -128,11 +143,7 @@ CgiProcess::~CgiProcess() {
 bool CgiProcess::start(std::time_t now) {
   int input[2];
   int output[2];
-  if (pipe(input) != 0) return false;
-  if (pipe(output) != 0) {
-    closePipe(input);
-    return false;
-  }
+  if (!openPipes(input, output)) return false;
   // The parent's ends are owned from here on, so nothing after fork() can
   // leave them open. / 부모 쪽 끝은 여기서부터 소유하므로, fork() 뒤에
   // 무엇이 실패해도 열린 채 남지 않는다.
@@ -156,12 +167,18 @@ bool CgiProcess::start(std::time_t now) {
   close(output[1]);
   if (pid_ < 0) return false;
   startedAt_ = now;
+  watchPipes();
+  return true;
+}
+
+// An empty body is closed at once, so the script reads EOF.
+// 본문이 비었으면 바로 닫아 스크립트가 EOF를 읽게 한다.
+void CgiProcess::watchPipes() {
   registry_.watch(stdout_);
   if (body_.empty())
     stdin_->close();
   else
     registry_.watch(stdin_);
-  return true;
 }
 
 bool CgiProcess::isDone() const { return stdout_ != 0 && stdout_->isClosed(); }

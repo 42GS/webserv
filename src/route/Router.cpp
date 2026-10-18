@@ -46,8 +46,20 @@ RouteResult redirect(int status, const std::string& target) {
 }
 
 /**
- * @brief True if the location both allows the method and can answer it.
- *        location이 이 메서드를 허용하고 답할 수도 있으면 true.
+ * @brief True if limit_except of the location allows the method.
+ *        location의 limit_except가 이 메서드를 허용하면 true.
+ * @param[in] location The location. / location.
+ * @param[in] method   Implemented method. / 구현한 메서드.
+ * @return Whether it is allowed. / 허용하는지.
+ */
+bool allows(const LocationConfig& location, const std::string& method) {
+  return location.allowedMethods.count(method) != 0;
+}
+
+/**
+ * @brief True if the location both allows the method and can answer it
+ *        for a file.
+ *        location이 이 메서드를 허용하고 파일에 대해 답할 수도 있으면 true.
  *
  * POST needs an upload store; GET, HEAD and DELETE work on any file.
  * POST는 업로드 저장 위치가 있어야 한다. GET, HEAD, DELETE는 어느 파일에나
@@ -58,39 +70,31 @@ RouteResult redirect(int status, const std::string& target) {
  * @return Whether the location answers it. / location이 답하는지.
  */
 bool answers(const LocationConfig& location, const std::string& method) {
-  if (location.allowedMethods.count(method) == 0) return false;
-  return method != methods::kPost || !location.uploadStore.empty();
+  return allows(location, method) &&
+         (method != methods::kPost || !location.uploadStore.empty());
 }
 
-/**
- * @brief The Allow value of a 405.
- *        405의 Allow 값.
- *
- * The methods this location answers (RFC 9110 section 10.2.1).
- * 이 location이 답하는 메서드다 (RFC 9110 10.2.1절).
- *
- * @param[in] location The location. / location.
- * @return Comma-separated methods. / 쉼표로 구분한 메서드.
- */
-std::string allowFor(const LocationConfig& location) {
-  std::string allow;
-  for (std::size_t i = 0; i < methods::kImplementedCount; ++i) {
-    if (!answers(location, methods::kImplemented[i])) continue;
-    if (!allow.empty()) allow += ", ";
-    allow += methods::kImplemented[i];
-  }
-  return allow;
-}
+/** allows() or answers(). / allows()나 answers(). */
+typedef bool (*MethodTest)(const LocationConfig&, const std::string&);
 
 /**
- * @brief A 405 decision with its Allow value.
- *        Allow 값을 담은 405 결정.
+ * @brief A 405 decision whose Allow lists the methods @p accepts lets
+ *        through (RFC 9110 section 10.2.1).
+ *        @p accepts가 통과시키는 메서드를 Allow에 담은 405 결정 (RFC 9110
+ *        10.2.1절).
  * @param[in] location The location. / location.
+ * @param[in] accepts  Which methods the resource supports.
+ *                     리소스가 지원하는 메서드를 가리는 함수.
  * @return The decision. / 결정.
  */
-RouteResult methodNotAllowed(const LocationConfig& location) {
+RouteResult methodNotAllowed(const LocationConfig& location,
+                             MethodTest accepts) {
   RouteResult result = error(http_status::kMethodNotAllowed);
-  result.allow = allowFor(location);
+  for (std::size_t i = 0; i < methods::kImplementedCount; ++i) {
+    if (!accepts(location, methods::kImplemented[i])) continue;
+    if (!result.allow.empty()) result.allow += ", ";
+    result.allow += methods::kImplemented[i];
+  }
   return result;
 }
 
@@ -180,40 +184,33 @@ RouteResult upload(const LocationConfig& location, const std::string& path) {
 }
 
 /**
- * @brief The Allow value of a 405 for a script: what limit_except allows.
- *        스크립트에 대한 405의 Allow 값: limit_except가 허용한 메서드.
- * @param[in] location The location. / location.
- * @return Comma-separated methods. / 쉼표로 구분한 메서드.
+ * @brief True if @p name is longer than @p extension and ends with it.
+ *        @p name이 @p extension보다 길고 그것으로 끝나면 true.
+ * @param[in] name      Last path segment. / 경로의 마지막 조각.
+ * @param[in] extension Such as ".py". / ".py" 같은 것.
+ * @return Whether the name has the extension. / 이름에 그 확장자가 있는지.
  */
-std::string allowForScript(const LocationConfig& location) {
-  std::string allow;
-  for (std::size_t i = 0; i < methods::kImplementedCount; ++i) {
-    if (location.allowedMethods.count(methods::kImplemented[i]) == 0) continue;
-    if (!allow.empty()) allow += ", ";
-    allow += methods::kImplemented[i];
-  }
-  return allow;
+bool hasExtension(const std::string& name, const std::string& extension) {
+  return name.size() > extension.size() &&
+         name.compare(name.size() - extension.size(), extension.size(),
+                      extension) == 0;
 }
 
 /**
- * @brief The interpreter for a path segment by its extension.
- *        경로 조각의 확장자에 맞는 인터프리터.
+ * @brief The interpreter for a file name by its extension.
+ *        파일 이름의 확장자에 맞는 인터프리터.
  * @param[in] location The location. / location.
- * @param[in] segment  Last segment of a candidate script path.
+ * @param[in] name     Last segment of a candidate script path.
  *                     후보 스크립트 경로의 마지막 조각.
  * @return The interpreter, or 0 if no "cgi" extension matches.
  *         인터프리터. 맞는 "cgi" 확장자가 없으면 0.
  */
 const std::string* interpreterFor(const LocationConfig& location,
-                                  const std::string& segment) {
+                                  const std::string& name) {
   for (std::map<std::string, std::string>::const_iterator it =
            location.cgiByExtension.begin();
        it != location.cgiByExtension.end(); ++it) {
-    const std::string& extension = it->first;
-    if (segment.size() > extension.size() &&
-        segment.compare(segment.size() - extension.size(), extension.size(),
-                        extension) == 0)
-      return &it->second;
+    if (hasExtension(name, it->first)) return &it->second;
   }
   return 0;
 }
@@ -224,8 +221,10 @@ const std::string* interpreterFor(const LocationConfig& location,
  *        경로 안의 스크립트를 찾는다: 마지막 조각이 "cgi" 확장자이고 일반
  *        파일인 첫 앞부분.
  *
- * The rest of the path is for the script (RFC 3875 section 3.2).
- * 경로의 나머지는 스크립트가 해석한다 (RFC 3875 3.2절).
+ * The leading parts end at each "/" after the location, then at the end
+ * of the path; the rest is for the script (RFC 3875 section 3.2).
+ * 앞부분은 location 뒤의 "/"마다, 마지막에는 경로 끝에서 끊는다. 나머지는
+ * 스크립트가 해석한다 (RFC 3875 3.2절).
  *
  * @param[in] location Matched location. / 고른 location.
  * @param[in] path     Normalized path. / 정규화한 경로.
@@ -237,25 +236,38 @@ RouteResult findScript(const LocationConfig& location,
                        const std::string& path) {
   RouteResult result;
   if (location.cgiByExtension.empty()) return result;
-  std::string::size_type end = location.path.size();
-  while (end <= path.size()) {
-    end = path.find('/', end);
-    if (end == std::string::npos) end = path.size();
+  std::string::size_type end = path.find('/', location.path.size());
+  for (;;) {
     const std::string scriptName = path.substr(0, end);
     const std::string* interpreter =
-        interpreterFor(location, scriptName.substr(scriptName.rfind('/') + 1));
+        interpreterFor(location, baseName(scriptName));
     if (interpreter != 0 &&
         fileKind(mapPath(location, scriptName)) == FILE_REGULAR) {
       result.kind = RouteResult::CGI;
       result.fsPath = mapPath(location, scriptName);
       result.interpreter = *interpreter;
       result.scriptName = scriptName;
-      result.pathInfo = path.substr(end);
+      if (end != std::string::npos) result.pathInfo = path.substr(end);
       result.urlPath = path;
       return result;
     }
-    ++end;
+    if (end == std::string::npos) return result;
+    end = path.find('/', end + 1);
   }
+}
+
+/**
+ * @brief A STATIC_FILE decision.
+ *        STATIC_FILE 결정.
+ * @param[in] fsPath File to send. / 보낼 파일.
+ * @param[in] path   Normalized request path. / 정규화한 요청 경로.
+ * @return The decision. / 결정.
+ */
+RouteResult staticFile(const std::string& fsPath, const std::string& path) {
+  RouteResult result;
+  result.kind = RouteResult::STATIC_FILE;
+  result.fsPath = fsPath;
+  result.urlPath = path;
   return result;
 }
 
@@ -325,20 +337,15 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
   if (location == 0) return error(http_status::kNotFound);
   if (location->returnCode != 0)
     return redirect(location->returnCode, location->returnUrl);
-  const RouteResult script = findScript(*location, path);
+  RouteResult script = findScript(*location, path);
   if (script.kind == RouteResult::CGI) {
-    if (location->allowedMethods.count(request.method) != 0) {
-      RouteResult result = script;
-      if (!result.pathInfo.empty())
-        static_cast<void>(
-            mapToFile(encodePath(result.pathInfo), result.pathTranslated));
-      return result;
-    }
-    RouteResult refused = error(http_status::kMethodNotAllowed);
-    refused.allow = allowForScript(*location);
-    return refused;
+    if (!allows(*location, request.method))
+      return methodNotAllowed(*location, allows);
+    translatePathInfo(script);
+    return script;
   }
-  if (!answers(*location, request.method)) return methodNotAllowed(*location);
+  if (!answers(*location, request.method))
+    return methodNotAllowed(*location, answers);
   if (request.method == methods::kPost) return upload(*location, path);
 
   const std::string fsPath = mapPath(*location, path);
@@ -351,11 +358,17 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
   // 장치 파일이나 FIFO 같은 것은 절대 보내지 않는다 (RFC 9110 17.3절).
   if (kind != FILE_REGULAR || !isReadable(fsPath))
     return error(http_status::kForbidden);
-  RouteResult result;
-  result.kind = RouteResult::STATIC_FILE;
-  result.fsPath = fsPath;
-  result.urlPath = path;
-  return result;
+  return staticFile(fsPath, path);
+}
+
+void Router::translatePathInfo(RouteResult& script) const {
+  // Left empty if PATH_INFO maps to no location (RFC 3875 section 4.1.6
+  // makes the variable optional then).
+  // PATH_INFO가 어느 location에도 매핑되지 않으면 비워 둔다 (RFC 3875
+  // 4.1.6절은 그때 변수를 선택으로 둔다).
+  if (!script.pathInfo.empty())
+    static_cast<void>(
+        mapToFile(encodePath(script.pathInfo), script.pathTranslated));
 }
 
 // Follows concepts/configuration-file "디렉토리 요청 처리 순서".

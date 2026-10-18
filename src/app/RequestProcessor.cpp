@@ -73,6 +73,67 @@ bool keepsConnection(const Request& request, const Response& response) {
   return request.persistent && response.status != http_status::kBadRequest;
 }
 
+/**
+ * @brief Moves a response without copying its body.
+ *        본문을 복사하지 않고 응답을 옮긴다.
+ *
+ * A CGI body may be limits::kMaxCgiOutputBytes long.
+ * CGI 본문은 limits::kMaxCgiOutputBytes까지 길 수 있다.
+ *
+ * @param[in,out] from Source; its body is left empty. / 원본. 본문은 빈다.
+ * @param[out]    to   Destination. / 대상.
+ */
+void moveResponse(Response& from, Response& to) {
+  to.status = from.status;
+  to.headers = from.headers;
+  to.body.clear();
+  to.body.swap(from.body);
+}
+
+/**
+ * @brief The status that refuses a script before fork() (design decision
+ *        12), or 0 if it may run.
+ *        fork() 전에 스크립트를 거절하는 상태 코드 (설계 결정 12). 실행해도
+ *        되면 0.
+ *
+ * Checking first keeps execve() from failing in the child for the usual
+ * causes.
+ * 먼저 검사해서 흔한 원인으로 자식에서 execve()가 실패하는 일을 막는다.
+ *
+ * @param[in] script CGI decision. / CGI 결정.
+ * @return 403 for an unreadable script or a program that cannot run, 404
+ *         for a missing program, or 0.
+ *         읽을 수 없는 스크립트나 실행할 수 없는 프로그램이면 403, 프로그램이
+ *         없으면 404, 아니면 0.
+ */
+int cgiRefusal(const RouteResult& script) {
+  if (!isReadable(script.fsPath)) return http_status::kForbidden;
+  if (fileKind(script.interpreter) == FILE_MISSING)
+    return http_status::kNotFound;
+  if (!isExecutable(script.interpreter)) return http_status::kForbidden;
+  return 0;
+}
+
+/**
+ * @brief What to run for a script: the program, the script's directory
+ *        and file name, and the meta-variables.
+ *        스크립트에 대해 실행할 것: 프로그램, 스크립트의 디렉토리와 파일
+ *        이름, 메타변수.
+ * @param[in] script  CGI decision. / CGI 결정.
+ * @param[in] request The request. / 요청.
+ * @param[in] where   Both ends of the connection. / 연결의 두 끝.
+ * @return The launch. / 실행 정보.
+ */
+CgiLaunch launchFor(const RouteResult& script, const Request& request,
+                    const ListenContext& where) {
+  CgiLaunch launch;
+  launch.interpreter = script.interpreter;
+  launch.directory = parentDirectory(script.fsPath);
+  launch.scriptFile = baseName(script.fsPath);
+  launch.environment = buildCgiEnvironment(request, script, where);
+  return launch;
+}
+
 }  // namespace
 
 RequestProcessor::RequestProcessor(const ListenContext& where,
@@ -96,26 +157,25 @@ ProcessOutcome RequestProcessor::process(const Request& request,
 // (it may be limits::kMaxCgiOutputBytes long).
 // 본문은 스크립트 출력에서 결과로 복사하지 않고 옮긴다
 // (limits::kMaxCgiOutputBytes까지 길 수 있다).
+// The body is moved, not copied, from the script's output to the outcome.
+// 본문은 스크립트 출력에서 결과로 복사하지 않고 옮긴다.
 ProcessOutcome RequestProcessor::afterCgi(const Request& request,
                                           CgiProcess& cgi,
                                           std::time_t now) const {
-  ProcessOutcome outcome;
   std::string text;
   cgi.takeOutput(text);
   // Initialized, not assigned, so the result is not copied once more.
   // 대입하지 않고 초기화해서 결과를 한 번 더 복사하지 않는다.
   CgiOutput output = cgi.failed() ? CgiOutput() : parseCgiOutput(text);
-  if (output.kind == CgiOutput::INVALID) {
-    outcome.response = statusPage(http_status::kBadGateway);
-  } else if (output.kind == CgiOutput::LOCAL_REDIRECT) {
+  if (output.kind == CgiOutput::INVALID)
+    return statusOutcome(http_status::kBadGateway, request, now);
+  ProcessOutcome outcome;
+  if (output.kind == CgiOutput::LOCAL_REDIRECT) {
     outcome.kind = ProcessOutcome::LOCAL_REDIRECT;
     outcome.redirect = localRedirectRequest(request, output.localTarget);
     return outcome;
-  } else {
-    outcome.response.status = output.response.status;
-    outcome.response.headers = output.response.headers;
-    outcome.response.body.swap(output.response.body);
   }
+  moveResponse(output.response, outcome.response);
   finish(outcome.response, request.method,
          keepsConnection(request, outcome.response), now);
   return outcome;
@@ -123,32 +183,28 @@ ProcessOutcome RequestProcessor::afterCgi(const Request& request,
 
 Response RequestProcessor::statusResponse(int status, const Request& request,
                                           std::time_t now) const {
-  return finished(statusPage(status), request, now).response;
+  return statusOutcome(status, request, now).response;
 }
 
 ProcessOutcome RequestProcessor::startCgi(const RouteResult& script,
                                           const Request& request,
                                           std::time_t now) const {
-  if (!isReadable(script.fsPath))
-    return finished(statusPage(http_status::kForbidden), request, now);
-  if (fileKind(script.interpreter) == FILE_MISSING)
-    return finished(statusPage(http_status::kNotFound), request, now);
-  if (!isExecutable(script.interpreter))
-    return finished(statusPage(http_status::kForbidden), request, now);
-  CgiLaunch launch;
-  launch.interpreter = script.interpreter;
-  launch.directory = parentDirectory(script.fsPath);
-  launch.scriptFile = baseName(script.fsPath);
-  launch.environment = buildCgiEnvironment(request, script, where_);
-  std::auto_ptr<CgiProcess> cgi(
-      new CgiProcess(launch, request.body, services_));
+  const int refusal = cgiRefusal(script);
+  if (refusal != 0) return statusOutcome(refusal, request, now);
+  std::auto_ptr<CgiProcess> cgi(new CgiProcess(
+      launchFor(script, request, where_), request.body, services_));
   if (!cgi->start(now))
-    return finished(statusPage(http_status::kInternalServerError), request,
-                    now);
+    return statusOutcome(http_status::kInternalServerError, request, now);
   ProcessOutcome outcome;
   outcome.kind = ProcessOutcome::CGI;
   outcome.cgi = cgi.release();
   return outcome;
+}
+
+ProcessOutcome RequestProcessor::statusOutcome(int status,
+                                               const Request& request,
+                                               std::time_t now) const {
+  return finished(statusPage(status), request, now);
 }
 
 ProcessOutcome RequestProcessor::finished(const Response& response,

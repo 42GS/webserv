@@ -160,11 +160,6 @@ class RequestProcessor {
    * @brief Checks a script and its program, then starts it.
    *        스크립트와 프로그램을 검사한 뒤 시작한다.
    *
-   * Checked before fork() so that execve() rarely fails in the child: a
-   * missing file is 404, one without permission 403 (design decision 12).
-   * execve()가 자식에서 실패하는 일이 드물도록 fork() 전에 검사한다.
-   * 없는 파일은 404, 권한이 없는 파일은 403이다 (설계 결정 12).
-   *
    * @param[in] script  CGI decision. / CGI 결정.
    * @param[in] request The request. / 요청.
    * @param[in] now     Start time. / 시작 시각.
@@ -172,6 +167,17 @@ class RequestProcessor {
    */
   ProcessOutcome startCgi(const RouteResult& script, const Request& request,
                           std::time_t now) const;
+
+  /**
+   * @brief A RESPONSE outcome with a status page and the common fields.
+   *        상태 페이지와 공통 필드를 담은 RESPONSE 결과.
+   * @param[in] status  Status code. / 상태 코드.
+   * @param[in] request The request. / 요청.
+   * @param[in] now     Time for the Date field. / Date 필드에 쓸 시각.
+   * @return The outcome. / 결과.
+   */
+  ProcessOutcome statusOutcome(int status, const Request& request,
+                               std::time_t now) const;
 
   /**
    * @brief A RESPONSE outcome with the common fields added.

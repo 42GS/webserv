@@ -143,6 +143,35 @@ UploadResult planFiles(const std::string& store,
 }
 
 /**
+ * @brief Writes the content of one part to its new file.
+ *        part 하나의 내용을 새 파일에 쓴다.
+ * @param[in] body   Request body holding the content. / 내용이 든 요청 본문.
+ * @param[in] stored The part and its path. / part와 그 경로.
+ * @return False if the file could not be written. / 쓰지 못하면 false.
+ */
+bool writeFile(const std::string& body, const StoredFile& stored) {
+  return writeNewFile(stored.file.path, body.data() + stored.part.contentStart,
+                      stored.part.contentLength);
+}
+
+/**
+ * @brief Removes the first @p count files.
+ *        앞의 @p count개 파일을 지운다.
+ *
+ * std::remove: design decision 15. If it fails too, the file stays;
+ * nothing more can be done here.
+ * std::remove: 설계 결정 15. 이것도 실패하면 파일이 남는다. 여기서 더 할
+ * 수 있는 것이 없다.
+ *
+ * @param[in] files Files written. / 쓴 파일.
+ * @param[in] count How many to remove. / 지울 개수.
+ */
+void removeFiles(const std::vector<StoredFile>& files, std::size_t count) {
+  for (std::size_t i = 0; i < count; ++i)
+    static_cast<void>(std::remove(files[i].file.path.c_str()));
+}
+
+/**
  * @brief Writes the files, or none of them.
  *        파일을 모두 쓰거나 하나도 쓰지 않는다.
  * @param[in] body  Request body holding the contents. / 내용이 든 요청 본문.
@@ -152,17 +181,10 @@ UploadResult planFiles(const std::string& store,
  */
 bool writeFiles(const std::string& body, const std::vector<StoredFile>& files) {
   for (std::size_t i = 0; i < files.size(); ++i) {
-    if (writeNewFile(files[i].file.path,
-                     body.data() + files[i].part.contentStart,
-                     files[i].part.contentLength))
-      continue;
-    // std::remove: design decision 15. If it fails too, the file stays;
-    // nothing more can be done here.
-    // std::remove: 설계 결정 15. 이것도 실패하면 파일이 남는다. 여기서 더
-    // 할 수 있는 것이 없다.
-    for (std::size_t done = 0; done < i; ++done)
-      static_cast<void>(std::remove(files[done].file.path.c_str()));
-    return false;
+    if (!writeFile(body, files[i])) {
+      removeFiles(files, i);
+      return false;
+    }
   }
   return true;
 }

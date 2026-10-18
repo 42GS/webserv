@@ -138,6 +138,12 @@ class CgiProcess {
   /// @endcond
 
   /**
+   * @brief Starts polling the output, and the input if there is a body.
+   *        출력을, 본문이 있으면 입력도 poll하기 시작한다.
+   */
+  void watchPipes();
+
+  /**
    * @brief In the child: connects the pipes, closes every other inherited
    *        descriptor, enters the script directory and runs the program.
    *        자식에서: pipe를 잇고, 상속받은 다른 디스크립터를 모두 닫고,

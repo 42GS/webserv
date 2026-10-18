@@ -205,6 +205,15 @@ bool isAbsoluteUri(const std::string& location) {
 }
 
 /**
+ * @brief True for a 3xx status: client redirection (RFC 9110 section
+ *        15.4).
+ *        3xx 상태이면 true: 클라이언트 리다이렉트 (RFC 9110 15.4절).
+ * @param[in] status Status code. / 상태 코드.
+ * @return Whether it redirects. / 리다이렉트인지.
+ */
+bool isRedirection(int status) { return status / 100 == 3; }
+
+/**
  * @brief The output for Location fields (sections 6.2.2 to 6.2.4).
  *        Location 필드가 있는 출력 (6.2.2~6.2.4절).
  * @param[in] fields   CGI fields. / CGI 필드.
@@ -230,7 +239,7 @@ CgiOutput redirectOutput(const CgiFields& fields, const Response& response) {
     // required (section 6.2.4).
     // 문서가 있으면 Status는 리다이렉트여야 하고 Content-Type이 필요하다
     // (6.2.4절).
-    if (!fields.hasStatus || !fields.hasType || fields.status / 100 != 3)
+    if (!fields.hasStatus || !fields.hasType || !isRedirection(fields.status))
       return result;
     result.response.status = fields.status;
   }

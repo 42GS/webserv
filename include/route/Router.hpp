@@ -100,6 +100,15 @@ class Router {
                         int internalRedirects) const;
 
   /**
+   * @brief Fills pathTranslated of a CGI decision: PATH_INFO mapped like a
+   *        request path.
+   *        CGI 결정의 pathTranslated를 채운다: PATH_INFO를 요청 경로처럼
+   *        매핑한 것.
+   * @param[in,out] script CGI decision. / CGI 결정.
+   */
+  void translatePathInfo(RouteResult& script) const;
+
+  /**
    * @brief Handles a directory: redirect to "/", index file, listing or 403.
    *        디렉토리를 처리한다: "/"로 리다이렉트, index 파일, 목록, 또는 403.
    * @param[in] path              Normalized path. / 정규화한 경로.
