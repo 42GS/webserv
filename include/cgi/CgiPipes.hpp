@@ -31,7 +31,8 @@ class CgiStdin : public IoHandler {
    *                     non-blocking 쓰는 쪽. 이제 소유한다.
    * @param[in] body     Kept by reference; must outlive this object.
    *                     참조로 보관한다. 이 객체보다 오래 살아야 한다.
-   * @param[in] registry Event loop; kept by reference. / 이벤트 루프.
+   * @param[in] registry Event loop; kept by reference.
+   *                     이벤트 루프. 참조로 보관한다.
    */
   CgiStdin(int fd, const std::string& body, IoRegistry& registry);
   /** @brief Stops writing. / 쓰기를 멈춘다. */
@@ -91,7 +92,8 @@ class CgiStdout : public IoHandler {
    *        읽는 쪽 @p fd에서 읽는다.
    * @param[in] fd       Non-blocking read end, now owned.
    *                     non-blocking 읽는 쪽. 이제 소유한다.
-   * @param[in] registry Event loop; kept by reference. / 이벤트 루프.
+   * @param[in] registry Event loop; kept by reference.
+   *                     이벤트 루프. 참조로 보관한다.
    */
   CgiStdout(int fd, IoRegistry& registry);
   /** @brief Stops reading. / 읽기를 멈춘다. */

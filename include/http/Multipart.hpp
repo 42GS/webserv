@@ -71,8 +71,8 @@ bool formDataBoundary(const std::string& contentType, std::string& boundary);
  * 구분자에 속한다.
  *
  * @param[in]  body     Request body. / 요청 본문.
- * @param[in]  boundary Boundary from formDataBoundary(). / formDataBoundary()가
- * 준 boundary.
+ * @param[in]  boundary Boundary from formDataBoundary().
+ *                      formDataBoundary()가 준 boundary.
  * @param[out] parts    The parts in order. / 순서대로의 part.
  * @return False if there is no first or close delimiter, a delimiter line
  *         has other text, or a part lacks "Content-Disposition: form-data"

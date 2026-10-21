@@ -66,10 +66,12 @@ void Server::adopt(int clientFd, const ListenContext& where) {
   registry_.watch(connection);
 }
 
-// A timeout may build a 408 response; if that throws (std::bad_alloc), only
-// that connection is given up, as EventLoop does for onEvent().
-// 시간 초과는 408 응답을 만들 수 있다. 그때 예외(std::bad_alloc)가 나면,
-// EventLoop가 onEvent()에서 하듯이 그 연결만 포기한다.
+// checkTimeout() may build a response (408, 504, or the result of a CGI
+// script); if that throws (std::bad_alloc), only that connection is given
+// up, as EventLoop does for onEvent().
+// checkTimeout()은 응답(408, 504, CGI 스크립트의 결과)을 만들 수 있다.
+// 그때 예외(std::bad_alloc)가 나면, EventLoop가 onEvent()에서 하듯이 그
+// 연결만 포기한다.
 void Server::afterIteration(std::time_t now) {
   now_ = now;
   std::vector<Connection*> closed;

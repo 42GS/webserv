@@ -92,8 +92,8 @@ class Router {
    *        정규화한 경로를 설계 7절의 순서로 처리한다.
    * @param[in] path              Normalized path. / 정규화한 경로.
    * @param[in] request           The request. / 요청.
-   * @param[in] internalRedirects Index redirects so far. / 지금까지의 index
-   * 리다이렉트 수.
+   * @param[in] internalRedirects Index redirects so far.
+   *                              지금까지의 index 리다이렉트 수.
    * @return The decision. / 결정.
    */
   RouteResult routePath(const std::string& path, const Request& request,
@@ -114,8 +114,8 @@ class Router {
    * @param[in] path              Normalized path. / 정규화한 경로.
    * @param[in] request           The request. / 요청.
    * @param[in] location          Its location. / 경로의 location.
-   * @param[in] internalRedirects Index redirects so far. / 지금까지의 index
-   * 리다이렉트 수.
+   * @param[in] internalRedirects Index redirects so far.
+   *                              지금까지의 index 리다이렉트 수.
    * @return The decision. / 결정.
    */
   RouteResult routeDirectory(const std::string& path, const Request& request,

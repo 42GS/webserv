@@ -57,8 +57,8 @@ bool hasAt(const std::string& text, std::string::size_type pos,
  *        part의 Content-Disposition을 적용한다.
  * @param[in]     value Field value. / 필드 값.
  * @param[in,out] part  Gets name and filename. / name과 filename을 받는다.
- * @return False if it is not form-data with a name. / name이 있는
- * form-data가 아니면 false.
+ * @return False if it is not form-data with a name.
+ *         name이 있는 form-data가 아니면 false.
  */
 bool applyDisposition(const std::string& value, FormPart& part) {
   std::map<std::string, std::string> parameters;
@@ -119,12 +119,12 @@ bool readPartHeaders(const std::string& headers, FormPart& part) {
  * 없으므로 어느 쪽이든 실패한다.
  *
  * @param[in]  body  Request body. / 요청 본문.
- * @param[in]  start First octet after the delimiter line. / 구분자 줄 다음 첫
- * 옥텟.
+ * @param[in]  start First octet after the delimiter line.
+ *                   구분자 줄 다음 첫 옥텟.
  * @param[in]  end   Start of the next delimiter. / 다음 구분자의 시작.
  * @param[out] part  The part. / part.
- * @return False as for readPartHeaders(). / readPartHeaders()와 같은 경우에
- * false.
+ * @return False as for readPartHeaders().
+ *         readPartHeaders()와 같은 경우에 false.
  */
 bool readPart(const std::string& body, std::string::size_type start,
               std::string::size_type end, FormPart& part) {

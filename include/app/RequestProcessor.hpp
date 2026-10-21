@@ -34,8 +34,10 @@ class RequestProcessor {
    * @param[in] where    Server block and both ends of the connection;
    *                     copied.
    *                     server 블록과 연결의 두 끝. 복사한다.
-   * @param[in] services For CGI; kept by reference. / CGI용. 참조로
-   * 보관한다.
+   * @param[in] services For CGI; copied, and the copy refers to the same
+   *                     loop and reaper.
+   *                     CGI용. 복사하며, 복사본도 같은 루프와 reaper를
+   *                     가리킨다.
    */
   RequestProcessor(const ListenContext& where, const CgiServices& services);
 
@@ -140,8 +142,8 @@ class RequestProcessor {
    *        라우팅 결정에 맞는 handler를 부른다.
    * @param[in] route   The decision. / 결정.
    * @param[in] request The request, for uploads. / 요청. 업로드에 쓴다.
-   * @return The response before the common fields. / 공통 필드를 붙이기 전의
-   * 응답.
+   * @return The response before the common fields.
+   *         공통 필드를 붙이기 전의 응답.
    */
   Response respond(const RouteResult& route, const Request& request) const;
 

@@ -27,7 +27,10 @@ struct ListenContext {
   const ServerConfig* server;
   /** Client address, dotted. / 점 표기 클라이언트 주소. */
   std::string remoteAddress;
-  /** Server address of the connection, dotted. / 연결의 서버 쪽 주소. */
+  /**
+   * @brief Server address of the connection, dotted.
+   *        점 표기로 쓴 연결의 서버 쪽 주소.
+   */
   std::string localAddress;
   /** Server port of the connection. / 연결의 서버 쪽 포트. */
   unsigned short localPort;

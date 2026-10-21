@@ -47,8 +47,8 @@ struct Response {
    */
   std::size_t bodyFileSize;
   /**
-   * @brief HEAD: same head as GET, no content (RFC 9110 9.3.2).
-   *        HEAD: GET과 같은 머리, 내용 없음 (RFC 9110 9.3.2).
+   * @brief HEAD: same head as GET, no content (RFC 9110 section 9.3.2).
+   *        HEAD: GET과 같은 머리, 내용 없음 (RFC 9110 9.3.2절).
    */
   bool omitBody;
   /**

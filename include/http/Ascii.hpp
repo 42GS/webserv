@@ -4,14 +4,16 @@
  *        HTTP와 설정 텍스트용 문자·숫자 검사.
  *
  * Built on the C++ standard library (std::string, `<locale>`) instead of
- * `<cctype>` and `<cstring>`: those C functions are not on the subject's list
- * of allowed functions (raw/subject.md:113). HTTP is parsed as octets of a
- * US-ASCII superset (RFC 9112 section 2.2), so the classic locale is used
+ * `<cctype>` and `<cstring>`: their character and string functions are not
+ * on the subject's list of allowed functions, which has only strerror()
+ * from them (raw/subject.md:113). HTTP is parsed as octets of a US-ASCII
+ * superset (RFC 9112 section 2.2), so the classic locale is used
  * throughout.
  * `<cctype>`와 `<cstring>` 대신 C++ 표준 라이브러리(std::string, `<locale>`)로
- * 만들었다. 그 C 함수들은 과제의 허용 함수 목록에 없다
- * (raw/subject.md:113). HTTP는 US-ASCII 상위 집합의 옥텟으로 해석하므로
- * (RFC 9112 2.2절) 항상 classic locale을 쓴다.
+ * 만들었다. 그 헤더의 문자·문자열 함수는 과제의 허용 함수 목록에 없고,
+ * 목록에는 그중 strerror()만 있다 (raw/subject.md:113). HTTP는 US-ASCII
+ * 상위 집합의 옥텟으로 해석하므로 (RFC 9112 2.2절) 항상 classic locale을
+ * 쓴다.
  */
 #ifndef HTTP_ASCII_HPP
 #define HTTP_ASCII_HPP

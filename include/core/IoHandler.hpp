@@ -58,13 +58,15 @@ class IoRegistry {
   virtual ~IoRegistry() {}
 
   /**
-   * @brief Starts polling @p handler. / @p handler를 poll하기 시작한다.
+   * @brief Starts polling @p handler.
+   *        @p handler를 poll하기 시작한다.
    * @param[in] handler Handler; not owned. / handler. 소유하지 않는다.
    */
   virtual void watch(IoHandler* handler) = 0;
 
   /**
-   * @brief Stops polling @p handler. / @p handler의 poll을 멈춘다.
+   * @brief Stops polling @p handler.
+   *        @p handler의 poll을 멈춘다.
    * @param[in] handler Handler. / handler.
    */
   virtual void unwatch(IoHandler* handler) = 0;

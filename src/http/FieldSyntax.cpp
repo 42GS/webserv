@@ -44,8 +44,8 @@ void skipWhitespace(const std::string& text, std::string::size_type& pos) {
  * qdtext는 DQUOTE와 backslash를 뺀, 감쌀 수 있는 옥텟이다.
  *
  * @param[in]     text  Text; text[pos] is DQUOTE. / 텍스트. text[pos]는 DQUOTE.
- * @param[in,out] pos   Moved past the closing DQUOTE. / 닫는 DQUOTE 뒤로
- * 옮긴다.
+ * @param[in,out] pos   Moved past the closing DQUOTE.
+ *                      닫는 DQUOTE 뒤로 옮긴다.
  * @param[out]    value Content without quoting. / 따옴표 처리를 푼 내용.
  * @return False if it is not closed or has a control character.
  *         닫히지 않았거나 제어 문자가 있으면 false.
@@ -72,8 +72,8 @@ bool readQuotedString(const std::string& text, std::string::size_type& pos,
  * @brief Reads a parameter-value: a token or a quoted-string.
  *        parameter-value를 읽는다: token이나 quoted-string.
  * @param[in]     text  Text. / 텍스트.
- * @param[in,out] pos   Start; moved past the value. / 시작 위치. 값 뒤로
- * 옮긴다.
+ * @param[in,out] pos   Start; moved past the value.
+ *                      시작 위치. 값 뒤로 옮긴다.
  * @param[out]    value The value. / 값.
  * @return False for an empty token or a bad quoted-string.
  *         token이 비었거나 quoted-string이 잘못됐으면 false.

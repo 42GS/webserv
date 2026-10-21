@@ -261,7 +261,7 @@ Response RequestProcessor::respond(const RouteResult& route,
   }
 
   response = statusPage(route.status);
-  // 405 must list what the resource supports (RFC 9110 15.5.6).
+  // 405 must list what the resource supports (RFC 9110 section 15.5.6).
   // 405는 리소스가 지원하는 메서드를 알려야 한다 (RFC 9110 15.5.6절).
   if (route.status == http_status::kMethodNotAllowed)
     response.headers.add(header_name::kAllow, route.allow);
@@ -277,15 +277,17 @@ Response RequestProcessor::uploadResponse(const RouteResult& route,
   return statusPage(result.status);
 }
 
-// HEAD gets the GET head without content, errors included (RFC 9110 9.3.2,
-// decision 5). Date: an origin server with a clock MUST send it (RFC 9110
-// 6.6.1, design decision 10). In a response, "Connection: close" says that
-// the server closes the connection after it (RFC 9112 9.6).
+// HEAD gets the GET head without content, errors included (RFC 9110
+// section 9.3.2, design decision 5). Date: an origin server with a clock
+// MUST send it in 2xx to 4xx responses and MAY in the others; it is sent
+// in all of them (RFC 9110 section 6.6.1, design decision 10). In a
+// response, "Connection: close" says that the server closes the
+// connection after it (RFC 9112 section 9.6).
 // HEAD는 오류 응답까지 포함해 GET의 머리만 받고 내용은 받지 않는다
-// (RFC 9110 9.3.2절, 결정 5). Date: 시계가 있는 origin server는 반드시
-// 보내야 한다 (RFC 9110 6.6.1절, 설계 결정 10). 응답의
-// "Connection: close"는 서버가 그 응답 뒤에 연결을 닫는다는 뜻이다
-// (RFC 9112 9.6절).
+// (RFC 9110 9.3.2절, 설계 결정 5). Date: 시계가 있는 origin server는
+// 2xx~4xx 응답에 반드시 보내야 하고 나머지에는 보내도 된다. 모든 응답에
+// 보낸다 (RFC 9110 6.6.1절, 설계 결정 10). 응답의 "Connection: close"는
+// 서버가 그 응답 뒤에 연결을 닫는다는 뜻이다 (RFC 9112 9.6절).
 void RequestProcessor::finish(Response& response, const std::string& method,
                               bool keepAlive, std::time_t now) const {
   response.omitBody = (method == methods::kHead);

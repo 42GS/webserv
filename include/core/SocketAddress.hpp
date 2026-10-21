@@ -27,8 +27,8 @@ unsigned long parseIpv4(const std::string& text);
  * @brief A listen address as sockaddr_in.
  *        listen 주소를 sockaddr_in으로 바꾼다.
  * @param[in] addr The address. / 주소.
- * @return Port and address in network order. / 네트워크 바이트 순서의 포트와
- * 주소.
+ * @return Port and address in network order.
+ *         네트워크 바이트 순서의 포트와 주소.
  */
 sockaddr_in toSockaddr(const ListenAddr& addr);
 

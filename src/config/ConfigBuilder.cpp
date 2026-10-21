@@ -25,13 +25,17 @@ struct ListenEntry {
 };
 
 /**
- * @brief Rejects listen addresses that cannot all be bound.
- *        모두 bind할 수는 없는 listen 주소를 거부한다.
+ * @brief Rejects listen addresses that overlap.
+ *        겹치는 listen 주소를 거부한다.
  *
- * The same interface:port twice, or 0.0.0.0 and a specific address on the
- * same port, cannot both be bound (design decision 4).
- * 같은 인터페이스:포트가 두 번 나오거나, 같은 포트에 0.0.0.0과 특정
- * 주소가 함께 있으면 둘 다 bind할 수 없다 (설계 결정 4).
+ * The same interface:port twice is an error without virtual hosts (design
+ * decision 4). 0.0.0.0 and a specific address on the same port bind on
+ * macOS but not on Ubuntu, so they are rejected on both (wiki
+ * concepts/configuration-file "포트 관련 엣지 케이스").
+ * 같은 인터페이스:포트가 두 번 나오면 virtual host가 없으므로 오류다 (설계
+ * 결정 4). 같은 포트의 0.0.0.0과 특정 주소는 macOS에서는 둘 다 bind되고
+ * Ubuntu에서는 안 되므로, 어느 쪽에서든 거부한다 (위키
+ * concepts/configuration-file "포트 관련 엣지 케이스").
  *
  * @param[in] listens Every listen of every server. / 모든 server의 listen.
  * @param[in] source  Name used in error messages. / 오류 메시지에 쓸 이름.

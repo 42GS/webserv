@@ -198,8 +198,6 @@ void Connection::finishResponse() {
   parseInput();
 }
 
-// The 500 for a vanished file is built in memory, so it always starts.
-// 사라진 파일 대신 보내는 500은 메모리에서 만들므로 항상 시작된다.
 void Connection::handleOutcome(const ProcessOutcome& outcome) {
   switch (outcome.kind) {
     case ProcessOutcome::RESPONSE:
@@ -238,6 +236,8 @@ void Connection::followCgi() {
   }
 }
 
+// The 500 for a vanished file is built in memory, so it always starts.
+// 사라진 파일 대신 보내는 500은 메모리에서 만들므로 항상 시작된다.
 void Connection::startResponse(const Response& response) {
   if (stream_.reset(response)) {
     keepAlive_ = response.keepAlive;

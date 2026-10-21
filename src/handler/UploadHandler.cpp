@@ -26,14 +26,18 @@ namespace {
  *        파일 이름의 최대 바이트 수.
  *
  * Ubuntu 22.04 refuses longer names with "File name too long"; macOS
- * counted characters and took more (measured 2026-10-17). A longer name
- * is the client's error, not a failed write.
+ * counted characters and took more (measured 2026-10-17, wiki
+ * raw/fs-observed-remove-name-length.md:95-105). A longer name is the
+ * client's error, not a failed write.
  * Ubuntu 22.04는 더 긴 이름을 "File name too long"으로 거부했고, macOS는
- * 글자 수로 세어 더 받았다 (2026-10-17 실측). 더 긴 이름은 쓰기 실패가
+ * 글자 수로 세어 더 받았다 (2026-10-17 실측, 위키
+ * raw/fs-observed-remove-name-length.md:95-105). 더 긴 이름은 쓰기 실패가
  * 아니라 클라이언트 오류다.
  */
 const std::string::size_type kMaxFileNameBytes = 255;
-/** Status of a check that found nothing wrong. / 문제를 찾지 못한 검사의 상태.
+/**
+ * @brief Status of a check that found nothing wrong.
+ *        문제를 찾지 못한 검사의 상태.
  */
 const int kNoFailure = 0;
 

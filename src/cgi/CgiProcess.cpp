@@ -150,8 +150,9 @@ bool CgiProcess::start(std::time_t now) {
   if (!openPipes(input, output)) return false;
 
   // The parent's ends are owned from here on, so nothing after fork() can
-  // leave them open. / 부모 쪽 끝은 여기서부터 소유하므로, fork() 뒤에
-  // 무엇이 실패해도 열린 채 남지 않는다.
+  // leave them open.
+  // 부모 쪽 끝은 여기서부터 소유하므로, fork() 뒤에 무엇이 실패해도 열린
+  // 채 남지 않는다.
   stdin_ = new CgiStdin(input[1], body_, registry_);
   stdout_ = new CgiStdout(output[0], registry_);
   if (fcntl(input[1], F_SETFL, O_NONBLOCK) != 0 ||

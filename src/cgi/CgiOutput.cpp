@@ -19,7 +19,10 @@
 
 namespace {
 
-/** The CGI field for the status (section 6.3.3). / 상태 CGI 필드. */
+/**
+ * @brief The CGI field for the status (section 6.3.3).
+ *        상태 CGI 필드 (6.3.3절).
+ */
 const char* const kStatus = "status";
 /**
  * @brief Fields the server sets or that change the framing.
@@ -53,7 +56,10 @@ struct CgiFields {
         hasLocation(false),
         status(0) {}
 
-  /** All header fields, CGI or not. / CGI 여부와 관계없는 모든 헤더 필드 수. */
+  /**
+   * @brief Number of header fields, CGI or not.
+   *        CGI 여부와 관계없는 모든 헤더 필드 수.
+   */
   std::size_t fieldCount;
   /** A Status field was given. / Status 필드가 있었다. */
   bool hasStatus;
@@ -101,11 +107,16 @@ bool isDropped(const std::string& lowered) {
 }
 
 /**
- * @brief Parses "Status: 3digit [SP reason-phrase]" (section 6.3.3).
- *        "Status: 3digit [SP reason-phrase]"를 해석한다 (6.3.3절).
+ * @brief Parses the value of "Status: status-code SP reason-phrase"
+ *        (section 6.3.3).
+ *        "Status: status-code SP reason-phrase"의 값을 해석한다 (6.3.3절).
  *
- * The reason phrase is not used: the server sends its own.
- * reason phrase는 쓰지 않는다. 서버가 자기 것을 보낸다.
+ * The value arrives trimmed, so a bare code such as "404" is accepted
+ * too, although the grammar has the SP even before an empty reason
+ * phrase. The reason phrase is not used: the server sends its own.
+ * 값은 앞뒤 공백을 지운 채로 오므로, 문법상 빈 reason-phrase 앞에도 SP가
+ * 있어야 하지만 "404"처럼 코드만 있는 값도 받는다. reason phrase는 쓰지
+ * 않는다. 서버가 자기 것을 보낸다.
  *
  * @param[in]  value  Field value. / 필드 값.
  * @param[out] status Status code. / 상태 코드.

@@ -20,10 +20,6 @@ unsigned long parseIpv4(const std::string& text) {
     const std::string octetText =
         text.substr(start, dot == std::string::npos ? dot : dot - start);
     unsigned long octet = 0;
-    // The configuration parser has already checked the address; an octet
-    // that still fails to parse counts as 0.
-    // 설정 파서가 이미 주소를 검사했다. 그래도 해석되지 않는 옥텟은 0으로
-    // 친다.
     static_cast<void>(parseDecimal(octetText, config_values::kMaxOctet, octet));
     address = (address << 8) | octet;
     if (dot == std::string::npos) return address;

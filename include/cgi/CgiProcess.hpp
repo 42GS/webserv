@@ -92,8 +92,10 @@ class CgiProcess {
    * @brief Creates the pipes and the child, and starts polling them.
    *        pipe와 자식을 만들고 poll을 시작한다.
    * @param[in] now Start time, for the timeout. / 시간 초과를 잴 시작 시각.
-   * @return False if pipe() or fork() failed; nothing is left open.
-   *         pipe()나 fork()가 실패하면 false. 열린 것은 남기지 않는다.
+   * @return False if pipe(), fcntl() or fork() failed; nothing is left
+   *         open.
+   *         pipe(), fcntl(), fork()가 실패하면 false. 열린 것은 남기지
+   *         않는다.
    */
   bool start(std::time_t now);
 

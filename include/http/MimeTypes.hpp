@@ -16,7 +16,10 @@ namespace mime_types {
 
 /** Type of generated pages. / 서버가 만드는 페이지의 타입. */
 const char* const kHtmlType = "text/html";
-/** Type of the list of uploaded files. / 업로드한 파일 목록의 타입. */
+/**
+ * @brief Plain text: .txt files and the upload result bodies.
+ *        일반 텍스트: .txt 파일과 업로드 결과 본문.
+ */
 const char* const kTextType = "text/plain";
 
 }  // namespace mime_types

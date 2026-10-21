@@ -259,8 +259,8 @@ class RequestParser {
    * @brief Copies body or chunk bytes until remaining_ is 0.
    *        remaining_이 0이 될 때까지 본문이나 chunk 바이트를 복사한다.
    * @param[in,out] buffer   Received bytes. / 받은 바이트.
-   * @param[in]     whenDone State after the last byte. / 마지막 바이트 뒤의
-   * 상태.
+   * @param[in]     whenDone State after the last byte.
+   *                         마지막 바이트 뒤의 상태.
    * @return True to keep parsing. / 계속하면 true.
    */
   bool readBodyBytes(std::string& buffer, State whenDone);

@@ -38,8 +38,10 @@ class Connection : public IoHandler {
    *                     non-blocking 소켓. 이제 소유한다.
    * @param[in] where    The listening server block and both ends.
    *                     연결을 받은 server 블록과 두 끝.
-   * @param[in] services For CGI; kept by reference. / CGI용. 참조로
-   * 보관한다.
+   * @param[in] services For CGI; copied, and the copy refers to the same
+   *                     loop and reaper.
+   *                     CGI용. 복사하며, 복사본도 같은 루프와 reaper를
+   *                     가리킨다.
    * @param[in] now      Current time. / 현재 시각.
    */
   Connection(int fd, const ListenContext& where, const CgiServices& services,

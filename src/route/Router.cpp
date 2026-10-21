@@ -121,16 +121,16 @@ std::string mapPath(const LocationConfig& location, const std::string& path) {
  * @brief True if the location may serve the path.
  *        location이 이 경로를 맡아도 되면 true.
  *
- * An alias location covers a path only at a segment boundary: what is
- * left after the location must be empty or start with "/". Otherwise
- * "location /k { alias dir/; }" would map "/k../x" to "dir/../x", outside
- * dir (design decision 14). root appends the whole normalized path and
- * cannot leave its directory.
- * alias location은 조각 경계에서만 경로를 맡는다. location 뒤에 남은
- * 부분이 비었거나 "/"로 시작해야 한다. 그렇지 않으면
- * "location /k { alias dir/; }"가 "/k../x"를 dir 밖의 "dir/../x"로
- * 매핑한다 (설계 결정 14). root는 정규화한 경로 전체를 붙이므로 자기
- * 디렉토리를 벗어날 수 없다.
+ * An alias location covers a path only if it ends at a segment boundary:
+ * its own path ends in "/", or what is left after it is empty or starts
+ * with "/". Otherwise "location /k { alias dir/; }" would map "/k../x" to
+ * "dir/../x", outside dir (design decision 14). root appends the whole
+ * normalized path and cannot leave its directory.
+ * alias location은 조각 경계에서 끝날 때만 경로를 맡는다. location 경로가
+ * "/"로 끝나거나, 그 뒤에 남은 부분이 비었거나 "/"로 시작해야 한다.
+ * 그렇지 않으면 "location /k { alias dir/; }"가 "/k../x"를 dir 밖의
+ * "dir/../x"로 매핑한다 (설계 결정 14). root는 정규화한 경로 전체를
+ * 붙이므로 자기 디렉토리를 벗어날 수 없다.
  *
  * @param[in] location Location whose path is a prefix of @p path.
  *                     경로가 @p path의 prefix인 location.
@@ -171,8 +171,8 @@ RouteResult deletion(const std::string& fsPath) {
 /**
  * @brief An UPLOAD decision into the location's store.
  *        location의 저장 위치로 가는 UPLOAD 결정.
- * @param[in] location Location with an upload store. / 업로드 저장 위치가
- * 있는 location.
+ * @param[in] location Location with an upload store.
+ *                    업로드 저장 위치가 있는 location.
  * @param[in] path     Normalized request path. / 정규화한 요청 경로.
  * @return The decision. / 결정.
  */
@@ -328,12 +328,15 @@ bool Router::resolve(const std::string& encodedPath, std::string& path,
   return location != 0;
 }
 
-// Order of design 7: location, return, CGI, limit_except, upload, delete,
-// then the file system. A script answers every method limit_except allows;
-// it reads REQUEST_METHOD itself.
-// 설계 7절의 순서: location, return, CGI, limit_except, 업로드, 삭제,
-// 그다음 파일 시스템. 스크립트는 limit_except가 허용한 메서드를 모두 받고,
-// REQUEST_METHOD를 보고 스스로 처리한다.
+// Order: location, return, CGI, limit_except, upload, delete, then the
+// file system (design 7). The script is looked up before the method check
+// because the two use different tests: a script answers every method
+// limit_except allows and reads REQUEST_METHOD itself, while other paths
+// also need answers().
+// 순서: location, return, CGI, limit_except, 업로드, 삭제, 그다음 파일
+// 시스템 (설계 7절). 두 경우의 메서드 검사가 달라서 스크립트를 먼저 찾는다.
+// 스크립트는 limit_except가 허용한 메서드를 모두 받고 REQUEST_METHOD를
+// 보고 스스로 처리하지만, 다른 경로는 answers()도 통과해야 한다.
 RouteResult Router::routePath(const std::string& path, const Request& request,
                               int internalRedirects) const {
   const LocationConfig* location = matchLocation(path);
@@ -369,10 +372,12 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
 }
 
 void Router::translatePathInfo(RouteResult& script) const {
-  // Left empty if PATH_INFO maps to no location (RFC 3875 section 4.1.6
-  // makes the variable optional then).
-  // PATH_INFO가 어느 location에도 매핑되지 않으면 비워 둔다 (RFC 3875
-  // 4.1.6절은 그때 변수를 선택으로 둔다).
+  // Left empty if PATH_INFO maps to no location: RFC 3875 section 4.1.6
+  // makes the variable a SHOULD, and with no location there is no
+  // directory to map it into.
+  // PATH_INFO가 어느 location에도 매핑되지 않으면 비워 둔다. RFC 3875
+  // 4.1.6절은 이 변수를 SHOULD로 두고, location이 없으면 매핑할
+  // 디렉토리가 없다.
   if (!script.pathInfo.empty())
     static_cast<void>(
         mapToFile(encodePath(script.pathInfo), script.pathTranslated));

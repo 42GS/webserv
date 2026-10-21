@@ -30,8 +30,9 @@ void CgiStdin::onEvent(short revents) {
   if (size > limits::kPipeIoSize) size = limits::kPipeIoSize;
   const ssize_t put = write(fd_, body_.data() + written_, size);
   // -1: the script stopped reading (errno is not read; SIGPIPE is
-  // ignored). / -1: 스크립트가 읽기를 멈췄다 (errno는 읽지 않는다.
-  // SIGPIPE는 무시한다).
+  // ignored).
+  // -1: 스크립트가 읽기를 멈췄다 (errno는 읽지 않는다. SIGPIPE는
+  // 무시한다).
   if (put <= 0) {
     close();
     return;

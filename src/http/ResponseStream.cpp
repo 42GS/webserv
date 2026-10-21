@@ -21,10 +21,13 @@ namespace {
  * @brief True if a field value holds no CR or LF.
  *        필드 값에 CR이나 LF가 없으면 true.
  *
- * RFC 9112 section 11.1: no CR or LF may reach the header section from
- * anywhere but serializeHead(), so a field value holding one is dropped.
- * RFC 9112 11.1절: serializeHead() 말고는 어디서도 CR이나 LF가 헤더
- * 영역에 들어가면 안 되므로, 그런 값을 가진 필드는 버린다.
+ * RFC 9112 section 11.1 names, as the more effective defense against
+ * response splitting, letting only the server's core protocol code write
+ * CR or LF in the header section. Here that is serializeHead(), so a
+ * field value holding one is dropped.
+ * RFC 9112 11.1절은 response splitting에 더 효과적인 방어로, 서버의 핵심
+ * 프로토콜 코드만 헤더 영역에 CR이나 LF를 쓰게 하는 것을 든다. 여기서는
+ * serializeHead()가 그것이므로, 그런 값을 가진 필드는 버린다.
  *
  * @param[in] value Field value. / 필드 값.
  * @return Whether it is safe to write. / 써도 안전한지.
@@ -41,7 +44,7 @@ bool isSafeFieldValue(const std::string& value) {
  */
 std::string serializeHead(const Response& response) {
   std::ostringstream head;
-  // The SP after the code stays even without a reason (RFC 9112 4).
+  // The SP after the code stays even without a reason (RFC 9112 section 4).
   // 이유 문구가 없어도 코드 뒤의 SP는 남긴다 (RFC 9112 4절).
   head << "HTTP/1.1 " << response.status << " " << reasonPhrase(response.status)
        << "\r\n";
@@ -52,7 +55,7 @@ std::string serializeHead(const Response& response) {
   }
 
   // Never for 204; for 304 only the length a 200 would have, which is not
-  // known (RFC 9110 8.6). For HEAD it is the GET value.
+  // known (RFC 9110 section 8.6). For HEAD it is the GET value.
   // 204에는 절대 보내지 않는다. 304에는 200의 길이만 보낼 수 있는데 그
   // 길이를 모른다 (RFC 9110 8.6절). HEAD에는 GET의 값을 쓴다.
   if (response.status != http_status::kNoContent &&

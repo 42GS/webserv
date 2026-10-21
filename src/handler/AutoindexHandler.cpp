@@ -59,11 +59,11 @@ std::string escapeHtml(const std::string& text) {
  * Subdirectories get a trailing "/".
  * 하위 디렉토리에는 끝에 "/"를 붙인다.
  *
- * @param[in]  directory Directory path ending in "/". / "/"로 끝나는 디렉토리
- * 경로.
+ * @param[in]  directory Directory path ending in "/".
+ *                       "/"로 끝나는 디렉토리 경로.
  * @param[out] names     The names. / 이름 목록.
- * @return False if the directory cannot be opened. / 디렉토리를 열 수 없으면
- * false.
+ * @return False if the directory cannot be opened.
+ *         디렉토리를 열 수 없으면 false.
  */
 bool readNames(const std::string& directory, std::vector<std::string>& names) {
   DIR* stream = opendir(directory.c_str());

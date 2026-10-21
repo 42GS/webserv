@@ -26,8 +26,8 @@
  *
  * @param[in] status          Status code. / 상태 코드.
  * @param[in] configuredPages error_page settings. / error_page 설정.
- * @param[in] router          Maps the page URI to a file. / 페이지 URI를 파일로
- * 매핑한다.
+ * @param[in] router          Maps the page URI to a file.
+ *                            페이지 URI를 파일로 매핑한다.
  * @return The response; this never fails. / 응답. 실패하지 않는다.
  */
 Response buildStatusPage(int status,

@@ -7,7 +7,7 @@
  * (RFC 3986 section 2.1, where upper and lower case are equivalent). Both
  * cases are accepted.
  * chunk 크기(RFC 9112 7.1절)와 퍼센트 인코딩(RFC 3986 2.1절, 대문자와
- * 소문자가 같다)에 쓴다. 두 경우 모두 받는다.
+ * 소문자가 같다)에 쓴다. 대문자와 소문자를 모두 받는다.
  */
 #ifndef HTTP_HEX_HPP
 #define HTTP_HEX_HPP
