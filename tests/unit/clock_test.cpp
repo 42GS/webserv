@@ -3,12 +3,6 @@
 #include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
-namespace {
-
-// Relative to the repository root, where "make test" runs the tests.
-
-}  // namespace
-
 TEST_CASE(clockReadsTimeFromFile) {
   Clock clock(test_paths::kClockFile);
   CHECK(clock.refresh());

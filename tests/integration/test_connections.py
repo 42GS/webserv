@@ -1,4 +1,5 @@
-"""Connection handling (test plan N-04, N-05, N-07..N-09, N-19, N-24)."""
+"""Connection handling (test plan N-04, N-05, N-07..N-09, N-19, N-24,
+N-26)."""
 
 import os
 import socket
@@ -85,9 +86,8 @@ class ConnectionTest(unittest.TestCase):
 
     def test_n07_client_resets_before_reading_the_response(self):
         # The server's send() may hit a reset connection. This does not
-        # provoke SIGPIPE yet: the fixed response goes out in one send()
-        # (removing SIG_IGN did not make this test fail). Large responses
-        # in step 4 need a test that keeps sending after the reset.
+        # provoke SIGPIPE: the response goes out in one send() (removing
+        # SIG_IGN did not make this test fail).
         for _ in range(ABORTED_CLIENTS):
             sock = harness.connect(self.ports[0])
             reset_on_close(sock)
@@ -96,12 +96,15 @@ class ConnectionTest(unittest.TestCase):
         self.assert_still_serving()
 
     # A large file needs many send() calls. The client empties its buffer
-    # and closes with FIN, so the server's next send() still succeeds, the
-    # client answers it with RST, and the send() after that raises SIGPIPE,
-    # which ends the process unless it is ignored (raw/macos-observed-
-    # sigpipe-leaks.md:114-117 in the wiki). Closing with unread data
-    # would send RST at once; then the first send() fails and the server
-    # closes before a second one.
+    # and closes with FIN, aiming at this sequence: the server's next
+    # send() still succeeds, the client answers it with RST, and the
+    # send() after that raises SIGPIPE, which ends the process unless it is
+    # ignored (raw/macos-observed-sigpipe-leaks.md:114-117 in the wiki). On
+    # macOS and Ubuntu the server saw POLLERR/POLLHUP of the RST first and
+    # closed without that send() (test plan N-07), so this checks only that
+    # the server survives; signals_test.cpp checks that SIGPIPE is ignored.
+    # Closing with unread data would send RST at once; then the first
+    # send() fails and the server closes before a second one.
     def test_n07_client_leaves_while_a_large_response_is_sent(self):
         with open(os.path.join(self.workspace.path, "www/large.bin"),
                   "wb") as out:
@@ -197,10 +200,6 @@ class ConnectionTest(unittest.TestCase):
         self.assertGreaterEqual(waited, HEADER_TIMEOUT_SECONDS - 1)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 # Not a ConnectionTest: the server gets a small descriptor limit.
 class DescriptorLimitTest(unittest.TestCase):
     def setUp(self):
@@ -233,3 +232,7 @@ class DescriptorLimitTest(unittest.TestCase):
             sock.sendall(SIMPLE_GET)
             response = harness.read_until_closed(sock)
         self.assertIn("200", harness.status_line(response))
+
+
+if __name__ == "__main__":
+    unittest.main()

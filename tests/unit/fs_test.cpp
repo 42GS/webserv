@@ -8,8 +8,6 @@
 
 namespace {
 
-// Relative to the repository root, where "make test" runs the tests.
-
 void writeTestFile() {
   std::ofstream out(fs_test::kFile);
   out << fs_test::kContent;

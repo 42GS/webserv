@@ -115,7 +115,8 @@ TEST_CASE(g01_metaVariables) {
   CHECK(hasVariable(env, "QUERY_STRING=a=1&b=%20"));
   CHECK(hasVariable(env, "SCRIPT_NAME=/cgi/a.py"));
   CHECK(hasVariable(env, "PATH_INFO=/p q"));
-  CHECK(!hasName(env, "PATH_TRANSLATED"));  // relative: not usable there
+  // Relative: wrong from the script's directory, where it runs.
+  CHECK(!hasName(env, "PATH_TRANSLATED"));
   CHECK(hasVariable(env, "SCRIPT_FILENAME=a.py"));
   CHECK(hasVariable(env, "SERVER_PORT=8080"));
   CHECK(hasVariable(env, "SERVER_NAME=127.0.0.1"));

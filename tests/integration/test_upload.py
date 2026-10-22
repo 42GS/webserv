@@ -9,11 +9,11 @@ from harness import get, request
 from constants import HOST, WRAPPER_SLOWDOWN
 
 BOUNDARY = "----WebKitFormBoundary7MA4YWxkTrZu0gW"  # as browsers make them
-# Ends with CRLF and holds a near-delimiter, which a parser that keeps the
-# CRLF before the delimiter or stops at "--" would get wrong.
 MAX_UPLOAD_FILES = 5  # limits::kMaxUploadFiles
 MAX_NAME_BYTES = 255  # kMaxFileNameBytes of UploadHandler.cpp
 PARSE_SECONDS = 2  # a 1 MB body took 8 s when the parser was quadratic
+# Ends with CRLF and holds a near-delimiter, which a parser that keeps the
+# CRLF before the delimiter or stops at "--" would get wrong.
 BINARY = bytes(range(256)) + b"\r\n--" + BOUNDARY[:-1].encode() + b"\r\n"
 
 

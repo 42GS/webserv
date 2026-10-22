@@ -12,8 +12,6 @@
 
 namespace {
 
-// Relative to the repository root, where "make test" runs the tests.
-
 std::string matchedPath(const ServerConfig& server, const std::string& path) {
   const LocationConfig* location = Router(server).matchLocation(path);
   return location == 0 ? "(none)" : location->path;
@@ -37,9 +35,10 @@ void writeFile(const std::string& path, const std::string& content) {
   out << content;
 }
 
-// obj/router-www/{a.txt, dir/, idx/index.html, list/x.txt}. mkdir() results
-// are not checked: the directories may exist from an earlier run, and a
-// real failure shows up as failing checks.
+// obj/router-www/{a.txt, dir/, idx/index.html, list/x.txt, cgi/run.py,
+// cgi/index.py, cgi/sub.py/}. mkdir() results are not checked: the
+// directories may exist from an earlier run, and a real failure shows up
+// as failing checks.
 void makeTree() {
   const std::string root(router_test::kTree);
   static_cast<void>(mkdir(root.c_str(), router_test::kDirectoryMode));
@@ -187,7 +186,8 @@ TEST_CASE(r20_aliasCoversOnlyWholeSegments) {
       std::string("server { listen 8080; root ") + router_test::kTree +
       "; location /k { alias " + router_test::kTree + "/idx/; } }");
   const Router router(server);
-  // "dir/" + "/index.html": the doubled slash names the same file.
+  // The alias ends in "/" and the rest of the path starts with one; the
+  // doubled slash names the same file.
   CHECK_EQ(std::string(router_test::kTree) + "/idx//index.html",
            router.route(requestFor("GET", "/k/index.html")).fsPath);
   CHECK_EQ(404, router.route(requestFor("GET", "/k../a.txt")).status);

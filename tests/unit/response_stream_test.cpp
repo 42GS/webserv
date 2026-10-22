@@ -7,8 +7,6 @@
 
 namespace {
 
-// Relative to the repository root, where "make test" runs the tests.
-
 // Sends everything the way Connection does: a short write each time.
 std::string drain(ResponseStream& stream) {
   std::string sent;

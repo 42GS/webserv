@@ -59,8 +59,8 @@ class RequestTest(unittest.TestCase):
     def test_p03_lf_only_request_is_accepted(self):
         self.assert_status(200, b"GET / HTTP/1.1\nHost: x\n\n")
 
-    # A body within the limit is read completely and then routed. Static
-    # resources answer POST with 405 until uploads come in step 6.
+    # A body within the limit is read completely and then routed. Without
+    # limit_except a location answers POST with 405 (decision 16).
     def test_p16_body_limit_follows_the_location(self):
         self.assert_status(413, request(["POST /small/a HTTP/1.1", "Host: x",
                                          "Content-Length: 11"]))
