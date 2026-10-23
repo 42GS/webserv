@@ -1,3 +1,8 @@
+/**
+ * @file  fs_test.cpp
+ * @brief Unit tests of the file helpers.
+ *        파일 도우미의 단위 테스트.
+ */
 #include <fstream>
 #include <string>
 
@@ -8,6 +13,10 @@
 
 namespace {
 
+/**
+ * @brief Writes fs_test::kContent to fs_test::kFile.
+ *        fs_test::kFile에 fs_test::kContent를 쓴다.
+ */
 void writeTestFile() {
   std::ofstream out(fs_test::kFile);
   out << fs_test::kContent;

@@ -1,9 +1,25 @@
+/**
+ * @file  path_resolver_test.cpp
+ * @brief Unit tests of path normalization and encoding.
+ *        경로 정규화와 인코딩의 단위 테스트.
+ *
+ * Test IDs (R-xx) refer to the test plan in the wiki
+ * (analysis/test-plan).
+ * 테스트 ID(R-xx)는 위키의 테스트 계획(analysis/test-plan)을 가리킨다.
+ */
 #include "route/PathResolver.hpp"
 #include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
 namespace {
 
+/**
+ * @brief normalizePath() as one string for CHECK_EQ.
+ *        CHECK_EQ에 쓰도록 normalizePath()를 문자열 하나로 돌려준다.
+ * @param[in] encoded Request path. / 요청 경로.
+ * @return The normalized path, or path_resolver_test::kRejected.
+ *         정규화한 경로, 또는 path_resolver_test::kRejected.
+ */
 std::string normalized(const std::string& encoded) {
   std::string result;
   return normalizePath(encoded, result) ? result

@@ -1,3 +1,12 @@
+/**
+ * @file  ascii_test.cpp
+ * @brief Unit tests of the ASCII helpers.
+ *        ASCII 도우미의 단위 테스트.
+ *
+ * Test IDs (B-xx) refer to the test plan in the wiki
+ * (analysis/test-plan).
+ * 테스트 ID(B-xx)는 위키의 테스트 계획(analysis/test-plan)을 가리킨다.
+ */
 #include "http/Ascii.hpp"
 
 #include "unit/TestFramework.hpp"

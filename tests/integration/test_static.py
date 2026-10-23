@@ -1,4 +1,6 @@
-"""Routing, static files and responses (test plan R-xx, step 4)."""
+"""Routing, static files and responses (test plan R-xx, step 4).
+라우팅, 정적 파일, 응답 (테스트 계획 R-xx, 4단계).
+"""
 
 import os
 import unittest
@@ -54,6 +56,9 @@ class StaticTest(unittest.TestCase):
         self.addCleanup(self.server.stop)
 
     def fetch(self, raw, port=None):
+        """Sends raw and returns the parsed response.
+        raw를 보내고 해석한 응답을 돌려준다.
+        """
         return harness.parse(harness.exchange(port or self.port, raw))
 
     def test_r06_file_with_type_and_length(self):

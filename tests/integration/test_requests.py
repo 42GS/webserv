@@ -1,4 +1,6 @@
-"""Responses to parsed and malformed requests (test plan P-xx, step 3)."""
+"""Responses to parsed and malformed requests (test plan P-xx, step 3).
+해석한 요청과 잘못된 요청에 대한 응답 (테스트 계획 P-xx, 3단계).
+"""
 
 import time
 import unittest
@@ -31,9 +33,15 @@ class RequestTest(unittest.TestCase):
         self.addCleanup(self.server.stop)
 
     def status_for(self, raw):
+        """The status line of the response to raw.
+        raw에 대한 응답의 상태 줄.
+        """
         return harness.status_line(harness.exchange(self.port, raw))
 
     def assert_status(self, code, raw):
+        """Checks the status of the response and that the server still runs.
+        응답의 상태 코드와 서버가 아직 도는지를 검사한다.
+        """
         line = self.status_for(raw)
         self.assertTrue(line.startswith("HTTP/1.1 %d " % code), line)
         self.assertTrue(self.server.is_running())
@@ -61,6 +69,8 @@ class RequestTest(unittest.TestCase):
 
     # A body within the limit is read completely and then routed. Without
     # limit_except a location answers POST with 405 (decision 16).
+    # 상한 안의 본문은 끝까지 읽은 뒤 라우팅한다. limit_except가 없는
+    # location은 POST에 405로 답한다 (결정 16).
     def test_p16_body_limit_follows_the_location(self):
         self.assert_status(413, request(["POST /small/a HTTP/1.1", "Host: x",
                                          "Content-Length: 11"]))
@@ -103,6 +113,7 @@ class RequestTest(unittest.TestCase):
         self.assertTrue(response.startswith(b"HTTP/1.1 408 "), response)
 
     # A connection that has not sent a byte waits like a keep-alive one.
+    # 한 바이트도 보내지 않은 연결은 keep-alive 연결처럼 기다린다.
     @unittest.skipUnless(RUN_SLOW, "set WEBSERV_SLOW_TESTS=1 (takes ~15s)")
     def test_p18_silent_connection_is_closed_without_response(self):
         with harness.connect(self.port) as sock:

@@ -1,15 +1,30 @@
+/**
+ * @file  request_parser_test.cpp
+ * @brief Unit tests of RequestParser.
+ *        RequestParser의 단위 테스트.
+ *
+ * Test IDs (P-xx, K-xx) refer to the test plan in the wiki
+ * (analysis/test-plan).
+ * 테스트 ID(P-xx, K-xx)는 위키의 테스트 계획(analysis/test-plan)을 가리킨다.
+ */
 #include <string>
 
 #include "http/RequestParser.hpp"
 #include "unit/TestConstants.hpp"
 #include "unit/TestFramework.hpp"
 
-// Test IDs (P-xx) refer to the test plan in the wiki (analysis/test-plan).
-
 namespace {
 
-// Feeds the whole text, setting the body limit after the head as the
-// connection does. Leftover bytes stay in "buffer".
+/**
+ * @brief Feeds the whole text, setting the body limit after the head as
+ *        the connection does.
+ *        연결이 하듯이 머리 다음에 본문 상한을 정하며 텍스트 전체를 넣는다.
+ * @param[in,out] parser    Parser. / 파서.
+ * @param[in,out] buffer    Input; leftover bytes stay in it.
+ *                          입력. 남은 바이트는 여기에 남는다.
+ * @param[in]     bodyLimit Body size limit. / 본문 크기 상한.
+ * @return The parser's last result. / 파서의 마지막 결과.
+ */
 RequestParser::Result parse(RequestParser& parser, std::string& buffer,
                             std::size_t bodyLimit) {
   RequestParser::Result result = parser.feed(buffer);
@@ -20,8 +35,16 @@ RequestParser::Result parse(RequestParser& parser, std::string& buffer,
   return result;
 }
 
-// request_parser_test::kParsed, request_parser_test::kIncomplete, or the error
-// status code.
+/**
+ * @brief The outcome of parsing a text as a number.
+ *        텍스트를 해석한 결과를 숫자로.
+ * @param[in] text      Request text. / 요청 텍스트.
+ * @param[in] bodyLimit Body size limit. / 본문 크기 상한.
+ * @return request_parser_test::kParsed, request_parser_test::kIncomplete,
+ *         or the error status code.
+ *         request_parser_test::kParsed, request_parser_test::kIncomplete,
+ *         또는 오류 상태 코드.
+ */
 int statusOf(const std::string& text,
              std::size_t bodyLimit = request_parser_test::kBodyLimit) {
   RequestParser parser;
@@ -32,16 +55,35 @@ int statusOf(const std::string& text,
   return request_parser_test::kIncomplete;
 }
 
+/**
+ * @brief A GET request for target.
+ *        target에 대한 GET 요청.
+ * @param[in] target Request target. / 요청 대상.
+ * @return Request text. / 요청 텍스트.
+ */
 std::string get(const std::string& target) {
   return "GET " + target + " HTTP/1.1\r\nHost: x\r\n\r\n";
 }
 
+/**
+ * @brief A POST request to "/".
+ *        "/"로 가는 POST 요청.
+ * @param[in] headers Extra header lines, each ending in CRLF.
+ *                    덧붙일 헤더 줄. 각각 CRLF로 끝난다.
+ * @param[in] body    Body. / 본문.
+ * @return Request text. / 요청 텍스트.
+ */
 std::string post(const std::string& headers, const std::string& body) {
   return "POST / HTTP/1.1\r\nHost: x\r\n" + headers + "\r\n" + body;
 }
 
-// Whether the connection stays open after the request, which is parsed
-// completely.
+/**
+ * @brief Whether the connection stays open after the request.
+ *        요청 뒤에 연결이 열려 있는지.
+ * @param[in] text A complete request; the test fails otherwise.
+ *                 끝난 요청. 아니면 테스트가 실패한다.
+ * @return Request::persistent. / Request::persistent.
+ */
 bool persistentAfter(const std::string& text) {
   RequestParser parser;
   std::string buffer(text);
@@ -107,6 +149,7 @@ TEST_CASE(p03_lineEndings) {
   CHECK_EQ(400, statusOf("GET / HTTP/1.1\rX\r\nHost: x\r\n\r\n"));
   CHECK_EQ(400, statusOf("GET / HTTP/1.1\r\nHost: a\rb\r\n\r\n"));
   // Chunk extensions are ignored, so only the line check sees this CR.
+  // chunk 확장은 무시하므로, 이 CR은 줄 검사만 본다.
   CHECK_EQ(400, statusOf(post("Transfer-Encoding: chunked\r\n",
                               "1;a\rb\r\nx\r\n0\r\n\r\n")));
 }
@@ -277,6 +320,7 @@ TEST_CASE(p16_contentLengthOverTheLimitIs413) {
   CHECK_EQ(static_cast<int>(RequestParser::HEAD_DONE),
            static_cast<int>(parser.feed(buffer)));
   // Without a limit from the location, any body is refused.
+  // location에서 상한을 받지 않으면 어떤 본문도 거부한다.
   CHECK_EQ(static_cast<int>(RequestParser::ERROR),
            static_cast<int>(parser.feed(buffer)));
   CHECK_EQ(413, parser.errorStatus());

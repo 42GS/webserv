@@ -1,4 +1,6 @@
-"""Keep-alive, pipelining, draining and timeouts (test plan K-xx, step 5)."""
+"""Keep-alive, pipelining, draining and timeouts (test plan K-xx, step 5).
+keep-alive, pipelining, 버리기, 시간 제한 (테스트 계획 K-xx, 5단계).
+"""
 
 import socket
 import time
@@ -23,7 +25,9 @@ from constants import (
 
 
 def responses_in(received):
-    """Number of status lines in everything a connection received."""
+    """Number of status lines in everything a connection received.
+    연결이 받은 전부에 든 상태 줄 수.
+    """
     return received.count(b"HTTP/1.1 ")
 
 
@@ -43,6 +47,9 @@ class KeepAliveTest(unittest.TestCase):
         self.addCleanup(self.server.stop)
 
     def connect(self):
+        """A connection and its read stream, both closed at the end.
+        연결과 그 읽기 스트림. 둘 다 끝에 닫힌다.
+        """
         sock = harness.connect(self.port)
         stream = sock.makefile("rb")
         self.addCleanup(sock.close)
@@ -101,6 +108,9 @@ class KeepAliveTest(unittest.TestCase):
     # Like the client of raw/close-after-413-observed.md in the wiki: it
     # sends the whole body before reading. Without draining, the server's
     # close made that send fail with a broken pipe.
+    # 위키 raw/close-after-413-observed.md의 클라이언트처럼, 읽기 전에 본문을
+    # 전부 보낸다. 버리기가 없을 때는 서버가 닫아서 그 send가 broken pipe로
+    # 실패했다.
     def test_k06_whole_body_can_be_sent_after_413(self):
         sock, _ = self.connect()
         sock.sendall(request(["POST /small/ HTTP/1.1", "Host: x",
@@ -111,7 +121,10 @@ class KeepAliveTest(unittest.TestCase):
 
     def wait_for_close_while_sending(self, sock, keep_sending):
         """Seconds until the server closes; sends a byte now and then if
-        keep_sending."""
+        keep_sending.
+        서버가 닫을 때까지 걸린 초. keep_sending이면 가끔 한 바이트씩
+        보낸다.
+        """
         sock.settimeout(DRAIN_POLL_SECONDS)
         started = time.monotonic()
         deadline = started + DRAIN_TOTAL_SECONDS + TIMEOUT_MARGIN_SECONDS
@@ -128,6 +141,9 @@ class KeepAliveTest(unittest.TestCase):
         return time.monotonic() - started
 
     def start_drain(self):
+        """A connection whose request got 413 and is being drained.
+        요청이 413을 받고 버리기 중인 연결.
+        """
         sock, stream = self.connect()
         sock.sendall(request(["POST /small/ HTTP/1.1", "Host: x",
                               "Content-Length: %d" % (SMALL_LIMIT + 1)]))
@@ -158,6 +174,9 @@ class KeepAliveTest(unittest.TestCase):
     # The send timeout counts from the last send() that made progress. TCP
     # may still take a little after the buffers fill (on macOS one more
     # send() succeeded 5 seconds later), so the wait has a double margin.
+    # 전송 시간 제한은 진행이 있던 마지막 send()부터 센다. 버퍼가 찬 뒤에도
+    # TCP가 조금 더 받을 수 있어서 (macOS에서는 5초 뒤 send()가 한 번 더
+    # 성공했다), 여유를 두 배로 둔다.
     @unittest.skipUnless(RUN_SLOW, "set WEBSERV_SLOW_TESTS=1 (takes ~40s)")
     def test_k09_unread_response_times_out(self):
         with open(self.workspace.path + "/www/unread.bin", "wb") as out:

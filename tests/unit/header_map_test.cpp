@@ -1,3 +1,8 @@
+/**
+ * @file  header_map_test.cpp
+ * @brief Unit tests of HeaderMap.
+ *        HeaderMap의 단위 테스트.
+ */
 #include "http/HeaderMap.hpp"
 #include "unit/TestFramework.hpp"
 

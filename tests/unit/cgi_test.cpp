@@ -1,3 +1,12 @@
+/**
+ * @file  cgi_test.cpp
+ * @brief Unit tests of the CGI output parser and environment.
+ *        CGI 출력 파서와 환경 변수의 단위 테스트.
+ *
+ * Test IDs (G-xx) refer to the test plan in the wiki
+ * (analysis/test-plan).
+ * 테스트 ID(G-xx)는 위키의 테스트 계획(analysis/test-plan)을 가리킨다.
+ */
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -8,24 +17,53 @@
 #include "fs/FilePath.hpp"
 #include "unit/TestFramework.hpp"
 
-// Test IDs (G-xx) refer to the test plan in the wiki (analysis/test-plan).
-
 namespace {
 
-// parseCgiOutput() takes the body out of its argument, so tests parse a
-// copy.
+/**
+ * @brief parseCgiOutput() on a copy.
+ *        복사본에 parseCgiOutput()을 부른다.
+ *
+ * parseCgiOutput() takes the body out of its argument, so tests parse a
+ * copy.
+ * parseCgiOutput()은 인자에서 본문을 빼 가므로, 테스트는 복사본을
+ * 해석한다.
+ *
+ * @param[in] output Script output. / 스크립트 출력.
+ * @return The parsed output. / 해석한 출력.
+ */
 CgiOutput parse(std::string output) { return parseCgiOutput(output); }
 
+/**
+ * @brief The status of a RESPONSE output.
+ *        RESPONSE 출력의 상태 코드.
+ * @param[in] output Script output. / 스크립트 출력.
+ * @return The status, or -1 for any other kind.
+ *         상태 코드. 다른 종류면 -1.
+ */
 int statusOf(const std::string& output) {
   const CgiOutput parsed = parse(output);
   return parsed.kind == CgiOutput::RESPONSE ? parsed.response.status : -1;
 }
 
+/**
+ * @brief True if the environment holds the entry.
+ *        환경에 그 항목이 있으면 true.
+ * @param[in] env   "NAME=value" entries. / "NAME=value" 항목.
+ * @param[in] entry Whole entry. / 항목 전체.
+ * @return Whether it is there. / 있는지.
+ */
 bool hasVariable(const std::vector<std::string>& env,
                  const std::string& entry) {
   return std::find(env.begin(), env.end(), entry) != env.end();
 }
 
+/**
+ * @brief True if the environment sets the name, whatever the value.
+ *        값과 관계없이 환경이 그 이름을 정하면 true.
+ * @param[in] env  "NAME=value" entries. / "NAME=value" 항목.
+ * @param[in] name Variable name. / 변수 이름.
+ * @return Whether it is set. / 정해져 있는지.
+ */
 bool hasName(const std::vector<std::string>& env, const std::string& name) {
   for (std::size_t i = 0; i < env.size(); ++i) {
     if (env[i].compare(0, name.size() + 1, name + "=") == 0) return true;
@@ -80,6 +118,8 @@ TEST_CASE(g08_redirects) {
   CHECK_EQ(301, statusOf("Location: http://e.com/\nStatus: 301 Moved\n"
                          "Content-Type: text/html\n\nmoved"));
   // A local redirect allows nothing else; a document redirect needs 3xx.
+  // 로컬 리다이렉트에는 다른 것이 올 수 없고, 문서가 있는 리다이렉트는
+  // 3xx가 필요하다.
   CHECK_EQ(-1, statusOf("Location: /x\nContent-Type: a/b\n\n"));
   CHECK_EQ(-1, statusOf("Location: /x\n\nbody"));
   CHECK_EQ(-1, statusOf("Location: http://e.com/\nStatus: 200\n"
@@ -116,6 +156,7 @@ TEST_CASE(g01_metaVariables) {
   CHECK(hasVariable(env, "SCRIPT_NAME=/cgi/a.py"));
   CHECK(hasVariable(env, "PATH_INFO=/p q"));
   // Relative: wrong from the script's directory, where it runs.
+  // 상대 경로라서, 스크립트가 실행되는 그 디렉토리에서는 틀린 경로다.
   CHECK(!hasName(env, "PATH_TRANSLATED"));
   CHECK(hasVariable(env, "SCRIPT_FILENAME=a.py"));
   CHECK(hasVariable(env, "SERVER_PORT=8080"));

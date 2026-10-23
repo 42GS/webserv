@@ -1,3 +1,12 @@
+/**
+ * @file  response_stream_test.cpp
+ * @brief Unit tests of ResponseStream.
+ *        ResponseStream의 단위 테스트.
+ *
+ * Test IDs (R-xx) refer to the test plan in the wiki
+ * (analysis/test-plan).
+ * 테스트 ID(R-xx)는 위키의 테스트 계획(analysis/test-plan)을 가리킨다.
+ */
 #include <fstream>
 #include <string>
 
@@ -7,7 +16,15 @@
 
 namespace {
 
-// Sends everything the way Connection does: a short write each time.
+/**
+ * @brief Sends everything the way Connection does: a short write each
+ *        time.
+ *        Connection처럼 전부 보낸다. 매번 짧게 쓴다.
+ * @param[in,out] stream Stream to empty. / 비울 스트림.
+ * @return The bytes sent, ending in "(read failed)" if a file read
+ *         failed.
+ *         보낸 바이트. 파일 읽기가 실패하면 "(read failed)"로 끝난다.
+ */
 std::string drain(ResponseStream& stream) {
   std::string sent;
   while (stream.hasPending()) {
@@ -20,6 +37,13 @@ std::string drain(ResponseStream& stream) {
   return sent;
 }
 
+/**
+ * @brief A text/plain response.
+ *        text/plain 응답.
+ * @param[in] status Status code. / 상태 코드.
+ * @param[in] body   Body. / 본문.
+ * @return The response. / 응답.
+ */
 Response textResponse(int status, const std::string& body) {
   Response response;
   response.status = status;

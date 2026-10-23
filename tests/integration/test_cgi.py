@@ -1,4 +1,6 @@
-"""CGI (test plan G-xx, step 7)."""
+"""CGI (test plan G-xx, step 7).
+CGI (테스트 계획 G-xx, 7단계).
+"""
 
 import os
 import signal
@@ -22,6 +24,7 @@ MAX_OUTPUT_COPIES = 2.5  # peak memory per byte of CGI output
 
 SCRIPTS = {
     # Every meta-variable, the working directory and the body.
+    # 모든 메타 변수, 작업 디렉토리, 본문.
     "env.py": r'''
 import os, sys
 body = sys.stdin.buffer.read()
@@ -67,6 +70,7 @@ sys.stdout.write("Content-Type: text/plain\n\n")
 sys.stdout.write("f" * %d)
 ''' % (15 * 1024 * 1024),
     # A client redirect with a document (RFC 3875 section 6.2.4).
+    # 문서가 있는 클라이언트 리다이렉트 (RFC 3875 6.2.4절).
     "fifteen_redirect.py": r'''
 import sys
 sys.stdout.write("Status: 302 Found\n")
@@ -84,6 +88,7 @@ for _ in range(%d):
     "noread.py": 'print("Content-Type: text/plain\\n")\nprint("ignored")\n',
     "sleep.py": "import time\ntime.sleep(20)\n",
     # Answers, closes its output, then keeps running.
+    # 답하고, 출력을 닫고, 계속 실행된다.
     "linger.py": r'''
 import os, sys, time
 sys.stdout.write("Content-Type: text/plain\n\ndone early\n")
@@ -93,6 +98,7 @@ time.sleep(20)
 ''',
     "index.py": 'print("Content-Type: text/plain\\n")\nprint("index script")\n',
     # Descriptors open in the script; listdir() opens one more itself.
+    # 스크립트에서 열린 디스크립터. listdir()이 스스로 하나 더 연다.
     "fds.py": r'''
 import os
 fds = sorted(int(n) for n in os.listdir("/dev/fd"))
@@ -103,12 +109,17 @@ print(" ".join(str(fd) for fd in fds))
 
 
 def cgi_env(body):
-    """{name: value} from the output of env.py."""
+    """{name: value} from the output of env.py.
+    env.py 출력에서 얻은 {이름: 값}.
+    """
     lines = body.decode("latin-1").split("\n")
     return dict(line.split("=", 1) for line in lines if "=" in line)
 
 
 def post(path, body, extra=()):
+    """A POST request with the body and extra header lines.
+    본문과 덧붙인 헤더 줄이 있는 POST 요청.
+    """
     return request(["POST %s HTTP/1.1" % path, "Host: x",
                     "Content-Length: %d" % len(body)] + list(extra), body)
 
@@ -152,6 +163,9 @@ class CgiTest(unittest.TestCase):
         self.addCleanup(self.server.stop)
 
     def fetch(self, raw):
+        """Sends raw and returns the parsed response.
+        raw를 보내고 해석한 응답을 돌려준다.
+        """
         return harness.parse(harness.exchange(self.port, raw))
 
     def test_g01_meta_variables(self):
@@ -204,6 +218,8 @@ class CgiTest(unittest.TestCase):
 
     # The loop must not stop the server: another request is answered
     # while the script runs, and the script gets 504 after the timeout.
+    # 루프가 서버를 멈추면 안 된다. 스크립트가 도는 동안 다른 요청에 답하고,
+    # 스크립트는 시간 제한 뒤 504를 받는다.
     def test_g05_infinite_loop_is_504_and_does_not_block(self):
         with harness.connect(self.port) as looping, \
                 looping.makefile("rb") as stream:
@@ -245,6 +261,7 @@ class CgiTest(unittest.TestCase):
         self.assertEqual(302, status)
         self.assertEqual("http://example.com/x", headers["location"])
         # A script redirecting to itself stops at the redirect limit.
+        # 자기 자신으로 리다이렉트하는 스크립트는 리다이렉트 상한에서 멈춘다.
         self.assertEqual(500, self.fetch(get("/cgi/self.py"))[0])
 
     def test_g09_index_script_runs(self):
@@ -259,11 +276,13 @@ class CgiTest(unittest.TestCase):
         self.assertTrue(os.path.exists(
             os.path.join(self.workspace.path, "www/cgi/env.py")))
         # limit_except applies to scripts as to files.
+        # limit_except는 파일처럼 스크립트에도 적용된다.
         status, headers, _ = self.fetch(post("/ro/index.py", b"x"))
         self.assertEqual(405, status)
         self.assertEqual("GET, HEAD", headers["allow"])
         self.assertEqual(200, self.fetch(get("/ro/index.py"))[0])
         # No "cgi" in this location: the file is served, never run.
+        # 이 location에는 "cgi"가 없어서, 파일을 보내기만 하고 실행하지 않는다.
         status, _, body = self.fetch(get("/plain/x.py"))
         self.assertEqual(200, status)
         self.assertEqual(b"print('never run')\n", body)
@@ -308,6 +327,8 @@ class CgiTest(unittest.TestCase):
 
     # A client that resets the connection while its script runs: the
     # script is killed and collected instead of running on.
+    # 스크립트가 도는 중에 연결을 리셋하는 클라이언트: 스크립트는 계속 돌지
+    # 않고 죽고 회수된다.
     @unittest.skipUnless(os.path.isdir("/proc/self"),
                          "needs /proc (run on Linux)")
     def test_g16_reset_client_kills_its_script(self):
@@ -328,6 +349,7 @@ class CgiTest(unittest.TestCase):
         self.assertEqual(200, status)
         fds = [int(fd) for fd in body.split()]
         # 0, 1, 2 and the one listdir() used.
+        # 0, 1, 2와 listdir()이 쓴 것 하나.
         self.assertEqual([0, 1, 2], fds[:3])
         self.assertLessEqual(len(fds), 4, fds)
 
@@ -346,6 +368,8 @@ class CgiTest(unittest.TestCase):
 
     # Output ended but the script runs on: the server only hands it to the
     # reaper, which must still end it when the server stops.
+    # 출력은 끝났지만 스크립트는 계속 돈다. 서버는 이를 reaper에 넘기기만
+    # 하고, reaper는 서버가 멈출 때 그래도 끝내야 한다.
     @unittest.skipUnless(os.path.isdir("/proc/self"),
                          "needs /proc (run on Linux)")
     def test_g20_sigint_ends_scripts_that_outlive_their_output(self):
@@ -359,6 +383,8 @@ class CgiTest(unittest.TestCase):
 
     # The output used to be copied about four times on its way to the
     # response; now it is moved, and only the send buffer copies it.
+    # 출력은 응답이 되기까지 네 번쯤 복사됐다. 지금은 옮기기만 하고, 전송
+    # 버퍼만 복사한다.
     @unittest.skipUnless(os.path.isdir("/proc/self"),
                          "needs /proc (run on Linux)")
     @unittest.skipIf(WRAPPER, "the wrapper's memory counts as the server's")
@@ -371,6 +397,8 @@ class CgiTest(unittest.TestCase):
 
     # The same for a client redirect with a document, which the parser
     # handles on another path.
+    # 문서가 있는 클라이언트 리다이렉트도 같다. 파서는 이를 다른 경로로
+    # 처리한다.
     @unittest.skipUnless(os.path.isdir("/proc/self"),
                          "needs /proc (run on Linux)")
     @unittest.skipIf(WRAPPER, "the wrapper's memory counts as the server's")

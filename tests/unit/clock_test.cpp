@@ -1,3 +1,8 @@
+/**
+ * @file  clock_test.cpp
+ * @brief Unit tests of Clock.
+ *        Clock의 단위 테스트.
+ */
 #include "core/Clock.hpp"
 
 #include "unit/TestConstants.hpp"

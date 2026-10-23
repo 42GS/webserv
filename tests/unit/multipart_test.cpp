@@ -1,3 +1,12 @@
+/**
+ * @file  multipart_test.cpp
+ * @brief Unit tests of the multipart/form-data parser.
+ *        multipart/form-data 파서의 단위 테스트.
+ *
+ * Test IDs (F-xx) refer to the test plan in the wiki
+ * (analysis/test-plan).
+ * 테스트 ID(F-xx)는 위키의 테스트 계획(analysis/test-plan)을 가리킨다.
+ */
 #include "http/Multipart.hpp"
 
 #include <string>
@@ -5,14 +14,25 @@
 
 #include "unit/TestFramework.hpp"
 
-// Test IDs (F-xx) refer to the test plan in the wiki (analysis/test-plan).
-
 namespace {
 
+/**
+ * @brief The content of a part.
+ *        part의 내용.
+ * @param[in] body Parsed body. / 해석한 본문.
+ * @param[in] part One of its parts. / 그 part 중 하나.
+ * @return The content bytes. / 내용 바이트.
+ */
 std::string contentOf(const std::string& body, const FormPart& part) {
   return body.substr(part.contentStart, part.contentLength);
 }
 
+/**
+ * @brief parseFormData() with boundary "b", without the parts.
+ *        boundary가 "b"이고 part를 버리는 parseFormData().
+ * @param[in] body Body. / 본문.
+ * @return Whether it parses. / 해석되는지.
+ */
 bool parses(const std::string& body) {
   std::vector<FormPart> parts;
   return parseFormData(body, "b", parts);
@@ -90,6 +110,7 @@ TEST_CASE(f04_partWithEmptyContent) {
 
 TEST_CASE(f04_headersEndingAtTheDelimiter) {
   // The empty line after the headers is cut by the delimiter's CRLF.
+  // 헤더 뒤의 빈 줄은 구분자의 CRLF에 잘린다.
   const std::string body =
       "--b\r\nContent-Disposition: form-data; name=h\r\n\r\n--b--";
   std::vector<FormPart> parts;

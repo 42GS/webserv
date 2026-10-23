@@ -1,4 +1,6 @@
-"""Makefile rules (test plan B-01..B-03), run on a copy of the sources."""
+"""Makefile rules (test plan B-01..B-03), run on a copy of the sources.
+Makefile 규칙 (테스트 계획 B-01..B-03). 소스 복사본에서 실행한다.
+"""
 
 import os
 import shutil
@@ -30,7 +32,9 @@ class BuildTest(unittest.TestCase):
                 shutil.copy(source, target)
 
     def make(self, *targets):
-        """Runs make; fails the test if it fails. Returns its output."""
+        """Runs make; fails the test if it fails. Returns its output.
+        make를 실행한다. 실패하면 테스트도 실패한다. 출력을 돌려준다.
+        """
         finished = subprocess.run(["make"] + list(targets), cwd=self.tree,
                                   capture_output=True, text=True,
                                   timeout=BUILD_TIMEOUT_SECONDS)
@@ -38,6 +42,9 @@ class BuildTest(unittest.TestCase):
         return finished.stdout
 
     def exists(self, relative_path):
+        """True if the path exists in the copy.
+        복사본에 그 경로가 있으면 True.
+        """
         return os.path.exists(os.path.join(self.tree, relative_path))
 
     def test_b01_b03_rules_build_and_clean(self):

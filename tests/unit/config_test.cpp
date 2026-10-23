@@ -1,3 +1,12 @@
+/**
+ * @file  config_test.cpp
+ * @brief Unit tests of the configuration loader.
+ *        설정 로더의 단위 테스트.
+ *
+ * Test IDs (C-xx, G-xx) refer to the test plan in the wiki
+ * (analysis/test-plan).
+ * 테스트 ID(C-xx, G-xx)는 위키의 테스트 계획(analysis/test-plan)을 가리킨다.
+ */
 #include <map>
 #include <stdexcept>
 
@@ -9,11 +18,24 @@
 
 namespace {
 
+/**
+ * @brief loadConfigText() with the name "test.conf".
+ *        이름을 "test.conf"로 한 loadConfigText().
+ * @param[in] text Configuration. / 설정.
+ * @return The servers. / server 목록.
+ * @throws ConfigError If the text is invalid. / 텍스트가 잘못됐으면.
+ */
 std::vector<ServerConfig> load(const std::string& text) {
   return loadConfigText(text, "test.conf");
 }
 
-// Returns the ConfigError message, or "" if loading succeeded.
+/**
+ * @brief The error of loading a text.
+ *        텍스트를 읽을 때의 오류.
+ * @param[in] text Configuration. / 설정.
+ * @return The ConfigError message, or "" if loading succeeded.
+ *         ConfigError 메시지. 읽기에 성공하면 "".
+ */
 std::string loadError(const std::string& text) {
   try {
     load(text);
@@ -23,8 +45,19 @@ std::string loadError(const std::string& text) {
   return "";
 }
 
-// Throws instead of dereferencing end(), so a missing key fails only the
-// current test.
+/**
+ * @brief The value of a key.
+ *        키의 값.
+ *
+ * Throws instead of dereferencing end(), so a missing key fails only the
+ * current test.
+ * end()를 역참조하는 대신 예외를 던져서, 없는 키는 지금 테스트만 실패시킨다.
+ *
+ * @param[in] values Map. / map.
+ * @param[in] key    Key. / 키.
+ * @return The value. / 값.
+ * @throws std::out_of_range If the key is missing. / 키가 없으면.
+ */
 template <typename Key>
 std::string valueAt(const std::map<Key, std::string>& values, const Key& key) {
   const typename std::map<Key, std::string>::const_iterator it =
@@ -33,10 +66,24 @@ std::string valueAt(const std::map<Key, std::string>& values, const Key& key) {
   return it->second;
 }
 
+/**
+ * @brief True if part occurs in text.
+ *        text 안에 part가 있으면 true.
+ * @param[in] text Text. / 텍스트.
+ * @param[in] part Part to find. / 찾을 부분.
+ * @return Whether it occurs. / 있는지.
+ */
 bool contains(const std::string& text, const std::string& part) {
   return text.find(part) != std::string::npos;
 }
 
+/**
+ * @brief The location with exactly this path.
+ *        경로가 정확히 같은 location.
+ * @param[in] server Server. / server.
+ * @param[in] path   Location path. / location 경로.
+ * @return The location, or 0. / location, 또는 0.
+ */
 const LocationConfig* findLocation(const ServerConfig& server,
                                    const std::string& path) {
   for (std::size_t i = 0; i < server.locations.size(); ++i) {
@@ -77,6 +124,7 @@ TEST_CASE(parsesDesignExample) {
     CHECK_EQ(std::string("/usr/bin/php-cgi"),
              valueAt(cgi->cgiByExtension, std::string(".php")));
     // No limit_except: GET and HEAD only (decision 16).
+    // limit_except가 없으면 GET과 HEAD만 받는다 (결정 16).
     CHECK_EQ(2u, cgi->allowedMethods.size());
     CHECK(cgi->allowedMethods.count("POST") == 0);
   }
@@ -263,6 +311,7 @@ TEST_CASE(rejectsBadLocationDirectives) {
                            ".py /a; cgi .py /b; } }"),
                  "duplicate \"cgi\""));
   // G-18: the script runs in its own directory.
+  // G-18: 스크립트는 자기 디렉토리에서 실행된다.
   CHECK(contains(loadError("server { listen 8080; root /a; location /x/ { cgi "
                            ".py python3; } }"),
                  "absolute path"));
@@ -337,6 +386,8 @@ TEST_CASE(acceptsPortBoundaries) {
 
 // NGINX also accepts these; this server requires an explicit port and a
 // dotted IPv4 address (design decision 13).
+// NGINX는 이것도 받지만, 이 서버는 명시한 포트와 점으로 구분한 IPv4 주소를
+// 요구한다 (설계 결정 13).
 TEST_CASE(rejectsListenWithoutPortOrWithWildcard) {
   CHECK(contains(loadError("server { listen 127.0.0.1; root /a; }"),
                  "expected IPv4:port or port"));

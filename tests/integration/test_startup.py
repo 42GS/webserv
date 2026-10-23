@@ -1,6 +1,8 @@
 """Startup and shutdown.
+시작과 종료.
 
 Test plan C-01..C-03, C-12, C-28, N-06, N-10, N-13.
+테스트 계획 C-01..C-03, C-12, C-28, N-06, N-10, N-13.
 """
 
 import os
@@ -23,6 +25,9 @@ class StartupTest(unittest.TestCase):
         self.workspace.cleanup()
 
     def start(self, args, ports):
+        """Starts a server that is stopped when the test ends.
+        테스트가 끝나면 멈추는 서버를 띄운다.
+        """
         server = harness.RunningServer(args, self.workspace.path, ports)
         self.addCleanup(server.stop)
         return server
@@ -76,6 +81,8 @@ class StartupTest(unittest.TestCase):
     def test_n13_unusable_clock_file_stops_startup(self):
         # A directory cannot be opened for writing, even by root (the
         # container runs as root, so permissions would not block it).
+        # 디렉토리는 root도 쓰기로 열 수 없다 (컨테이너는 root로 돌아서
+        # 권한으로는 막을 수 없다).
         os.mkdir(os.path.join(self.workspace.path, ".webserv_clock"))
         port = harness.free_port()
         path = self.workspace.write("a.conf", harness.server_block(port))

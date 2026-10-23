@@ -1,8 +1,11 @@
 """The demonstration files of the repository (test plan E-xx, step 9).
+저장소의 시연 파일 (테스트 계획 E-xx, 9단계).
 
 conf/*.conf is used as written, with only the ports replaced by free
 ones, from the repository root, so these tests check what the evaluation
 will see.
+conf/*.conf를 포트만 빈 포트로 바꾸고 쓴 그대로, 저장소 루트에서 쓴다.
+그래서 이 테스트는 평가에서 보게 될 것을 검사한다.
 """
 
 import os
@@ -30,11 +33,17 @@ CGI_TIMEOUT_SECONDS = 10  # limits::kCgiTimeoutSeconds
 
 
 def conf_text(name):
+    """The text of conf/name.
+    conf/name의 텍스트.
+    """
     with open(os.path.join(REPO_ROOT, "conf", name)) as conf:
         return conf.read()
 
 
 def post(path, body, content_type="application/x-www-form-urlencoded"):
+    """A POST request with a Content-Type and the body.
+    Content-Type과 본문이 있는 POST 요청.
+    """
     return request(["POST %s HTTP/1.1" % path, "Host: x",
                     "Content-Type: " + content_type,
                     "Content-Length: %d" % len(body)], body)
@@ -55,6 +64,9 @@ class DemoTest(unittest.TestCase):
         self.addCleanup(self.server.stop)
 
     def fetch(self, raw, port=None):
+        """Sends raw and returns the parsed response.
+        raw를 보내고 해석한 응답을 돌려준다.
+        """
         return harness.parse(harness.exchange(port or self.ports[0], raw))
 
     def test_e02_static_site(self):
@@ -89,6 +101,8 @@ class DemoTest(unittest.TestCase):
 
     # The evaluation sheet's command: curl -X POST -H "Content-Type:
     # plain/text" --data "BODY IS HERE ..." with a short and a long body.
+    # 평가표의 명령: curl -X POST -H "Content-Type: plain/text" --data
+    # "BODY IS HERE ..."를 짧은 본문과 긴 본문으로 보낸다.
     def test_e04_body_limit(self):
         short = b"BODY IS HERE"
         status, _, body = self.fetch(post("/limit/echo.py", short,
@@ -153,6 +167,7 @@ class DemoTest(unittest.TestCase):
         self.assertIn(b"Visit number 2", body)
         self.assertNotIn("set-cookie", headers)
         # An identifier the server never issued gets a new session.
+        # 서버가 발급한 적 없는 식별자는 새 세션을 받는다.
         forged = request(["GET /cgi-bin/session.py HTTP/1.1", "Host: x",
                           "Cookie: webserv_session=" + "0" * 32])
         status, headers, body = self.fetch(forged)

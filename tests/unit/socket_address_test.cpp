@@ -1,3 +1,8 @@
+/**
+ * @file  socket_address_test.cpp
+ * @brief Unit tests of the IPv4 address helpers.
+ *        IPv4 주소 도우미의 단위 테스트.
+ */
 #include "core/SocketAddress.hpp"
 #include "unit/TestFramework.hpp"
 

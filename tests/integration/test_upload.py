@@ -1,4 +1,6 @@
-"""Uploads and DELETE (test plan F-xx and D-xx, step 6)."""
+"""Uploads and DELETE (test plan F-xx and D-xx, step 6).
+업로드와 DELETE (테스트 계획 F-xx, D-xx, 6단계).
+"""
 
 import os
 import time
@@ -14,21 +16,32 @@ MAX_NAME_BYTES = 255  # kMaxFileNameBytes of UploadHandler.cpp
 PARSE_SECONDS = 2  # a 1 MB body took 8 s when the parser was quadratic
 # Ends with CRLF and holds a near-delimiter, which a parser that keeps the
 # CRLF before the delimiter or stops at "--" would get wrong.
+# CRLF로 끝나고 구분자와 거의 같은 문자열을 담는다. 구분자 앞의 CRLF를
+# 남기거나 "--"에서 멈추는 파서는 이를 틀리게 처리한다.
 BINARY = bytes(range(256)) + b"\r\n--" + BOUNDARY[:-1].encode() + b"\r\n"
 
 
 def file_part(filename, content, name="file"):
+    """A file part: headers, empty line and content.
+    파일 part: 헤더, 빈 줄, 내용.
+    """
     return ('Content-Disposition: form-data; name="%s"; filename="%s"\r\n'
             "Content-Type: application/octet-stream\r\n\r\n"
             % (name, filename)).encode("utf-8") + content
 
 
 def field_part(name, value):
+    """A form field part without a filename.
+    filename이 없는 폼 필드 part.
+    """
     return ('Content-Disposition: form-data; name="%s"\r\n\r\n'
             % name).encode() + value
 
 
 def multipart(parts):
+    """A multipart/form-data body of the parts, with BOUNDARY.
+    BOUNDARY로 part들을 묶은 multipart/form-data 본문.
+    """
     delimiter = ("--" + BOUNDARY).encode()
     body = b"".join(delimiter + b"\r\n" + part + b"\r\n" for part in parts)
     return body + delimiter + b"--\r\n"
@@ -36,6 +49,9 @@ def multipart(parts):
 
 def post(path, body, content_type="multipart/form-data; boundary=" + BOUNDARY,
          chunked=False):
+    """A POST request; chunked sends the body as one chunk.
+    POST 요청. chunked이면 본문을 chunk 하나로 보낸다.
+    """
     head = ["POST %s HTTP/1.1" % path, "Host: x"]
     if content_type is not None:
         head.append("Content-Type: " + content_type)
@@ -85,9 +101,15 @@ class UploadTest(unittest.TestCase):
         self.addCleanup(self.server.stop)
 
     def fetch(self, raw):
+        """Sends raw and returns the parsed response.
+        raw를 보내고 해석한 응답을 돌려준다.
+        """
         return harness.parse(harness.exchange(self.port, raw))
 
     def stored(self, name):
+        """Path of an uploaded file in the workspace.
+        작업 공간 안의 업로드된 파일 경로.
+        """
         return os.path.join(self.workspace.path, "www/upload", name)
 
     def test_f01_uploaded_file_comes_back_byte_for_byte(self):
@@ -146,6 +168,9 @@ class UploadTest(unittest.TestCase):
     # In a quoted-string "\" quotes the next octet (RFC 9110 section
     # 5.6.4), so a Windows path arrives as "C:\\Users\\win.txt"; a bare
     # "\" is just dropped.
+    # quoted-string 안의 "\"는 다음 옥텟을 quote한다 (RFC 9110 5.6.4절).
+    # 그래서 Windows 경로는 "C:\\Users\\win.txt"로 오고, 홀로 있는
+    # "\"는 그냥 빠진다.
     def test_f07_directory_part_of_filename_is_dropped(self):
         status, _, _ = self.fetch(post("/upload/", multipart(
             [file_part("../../evil.txt", b"e"),
@@ -182,6 +207,8 @@ class UploadTest(unittest.TestCase):
 
     # Parts without an empty line made the parser scan the rest of the
     # body once per part; the event loop waited 8 s for 1 MB.
+    # 빈 줄 없는 part 때문에 파서가 part마다 본문의 나머지를 훑었다. 1 MB에
+    # 이벤트 루프가 8초 기다렸다.
     def test_f16_many_parts_parse_in_linear_time(self):
         part = b'Content-Disposition: form-data; name="a"'
         body = multipart([part] * (1000000 // (len(part) + 48)))

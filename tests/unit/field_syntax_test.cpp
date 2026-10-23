@@ -1,15 +1,29 @@
+/**
+ * @file  field_syntax_test.cpp
+ * @brief Unit tests of the field value syntax.
+ *        필드 값 문법의 단위 테스트.
+ *
+ * Test IDs (F-xx) refer to the test plan in the wiki
+ * (analysis/test-plan).
+ * 테스트 ID(F-xx)는 위키의 테스트 계획(analysis/test-plan)을 가리킨다.
+ */
 #include <map>
 #include <string>
 
 #include "http/FieldSyntax.hpp"
 #include "unit/TestFramework.hpp"
 
-// Test IDs (F-xx) refer to the test plan in the wiki (analysis/test-plan).
-
 namespace {
 
+/** Parameters by lower-case name. / 소문자 이름별 매개변수. */
 typedef std::map<std::string, std::string> Parameters;
 
+/**
+ * @brief parseParameters() without the result.
+ *        결과를 버리는 parseParameters().
+ * @param[in] value Field value. / 필드 값.
+ * @return Whether it parses. / 해석되는지.
+ */
 bool parses(const std::string& value) {
   Parameters parameters;
   return parseParameters(value, parameters);
@@ -38,6 +52,7 @@ TEST_CASE(f11_parametersTokensAndQuotedStrings) {
   CHECK(parseParameters("x; name=\"\"", parameters));
   CHECK_EQ(std::string(""), parameters["name"]);
   // UTF-8 (obs-text) stays as sent.
+  // UTF-8(obs-text)은 보낸 그대로 남는다.
   parameters.clear();
   CHECK(parseParameters("x; filename=\"\xed\x95\x9c.txt\"", parameters));
   CHECK_EQ(std::string("\xed\x95\x9c.txt"), parameters["filename"]);

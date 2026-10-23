@@ -1,3 +1,8 @@
+/**
+ * @file  event_loop_test.cpp
+ * @brief Unit tests of EventLoop.
+ *        EventLoop의 단위 테스트.
+ */
 #include "core/EventLoop.hpp"
 #include "unit/EventLoopDoubles.hpp"
 #include "unit/TestConstants.hpp"
