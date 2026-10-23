@@ -66,6 +66,14 @@ import sys
 sys.stdout.write("Content-Type: text/plain\n\n")
 sys.stdout.write("f" * %d)
 ''' % (15 * 1024 * 1024),
+    # A client redirect with a document (RFC 3875 section 6.2.4).
+    "fifteen_redirect.py": r'''
+import sys
+sys.stdout.write("Status: 302 Found\n")
+sys.stdout.write("Location: http://example.com/x\n")
+sys.stdout.write("Content-Type: text/plain\n\n")
+sys.stdout.write("r" * %d)
+''' % (15 * 1024 * 1024),
     "huge.py": r'''
 import sys
 sys.stdout.write("Content-Type: text/plain\n\n")
@@ -358,6 +366,19 @@ class CgiTest(unittest.TestCase):
         before = self.server.peak_memory_kb()
         status, _, body = self.fetch(get("/cgi/fifteen.py"))
         self.assertEqual((200, 15 * 1024 * 1024), (status, len(body)))
+        grown = (self.server.peak_memory_kb() - before) * 1024
+        self.assertLess(grown, len(body) * MAX_OUTPUT_COPIES)
+
+    # The same for a client redirect with a document, which the parser
+    # handles on another path.
+    @unittest.skipUnless(os.path.isdir("/proc/self"),
+                         "needs /proc (run on Linux)")
+    @unittest.skipIf(WRAPPER, "the wrapper's memory counts as the server's")
+    def test_g22_large_redirect_document_is_not_copied(self):
+        before = self.server.peak_memory_kb()
+        status, headers, body = self.fetch(get("/cgi/fifteen_redirect.py"))
+        self.assertEqual((302, 15 * 1024 * 1024), (status, len(body)))
+        self.assertEqual("http://example.com/x", headers["location"])
         grown = (self.server.peak_memory_kb() - before) * 1024
         self.assertLess(grown, len(body) * MAX_OUTPUT_COPIES)
 

@@ -230,41 +230,34 @@ bool isAbsoluteUri(const std::string& location) {
 bool isRedirection(int status) { return status / 100 == 3; }
 
 /**
- * @brief The output for Location fields (sections 6.2.2 to 6.2.4).
- *        Location 필드가 있는 출력 (6.2.2~6.2.4절).
- * @param[in] fields   CGI fields. / CGI 필드.
- * @param[in] response Other fields and body. / 다른 필드와 본문.
- * @return A local or client redirect, or INVALID.
- *         로컬이나 클라이언트 리다이렉트, 또는 INVALID.
+ * @brief Classifies output with a Location field (sections 6.2.2 to
+ *        6.2.4).
+ *        Location 필드가 있는 출력을 분류한다 (6.2.2~6.2.4절).
+ *
+ * Only the kind is decided here, so that the body stays where it is.
+ * 여기서는 종류만 정해서, 본문이 제자리에 남게 한다.
+ *
+ * @param[in] fields  CGI fields. / CGI 필드.
+ * @param[in] hasBody Whether a body follows the header. / 헤더 뒤에 본문이
+ *                    있는지.
+ * @return LOCAL_REDIRECT, RESPONSE for a client redirect, or INVALID.
+ *         LOCAL_REDIRECT, 클라이언트 리다이렉트면 RESPONSE, 또는 INVALID.
  */
-CgiOutput redirectOutput(const CgiFields& fields, const Response& response) {
-  CgiOutput result;
-  const bool alone = fields.fieldCount == 1 && response.body.empty();
+CgiOutput::Kind redirectKind(const CgiFields& fields, bool hasBody) {
+  const bool alone = fields.fieldCount == 1 && !hasBody;
 
-  if (!fields.location.empty() && fields.location[0] == '/') {
-    if (!alone) return result;
-    result.kind = CgiOutput::LOCAL_REDIRECT;
-    result.localTarget = fields.location;
-    return result;
-  }
+  if (!fields.location.empty() && fields.location[0] == '/')
+    return alone ? CgiOutput::LOCAL_REDIRECT : CgiOutput::INVALID;
+  if (!isAbsoluteUri(fields.location)) return CgiOutput::INVALID;
+  if (alone) return CgiOutput::RESPONSE;
 
-  if (!isAbsoluteUri(fields.location)) return result;
-  result.response = response;
-  if (alone) {
-    result.response.status = http_status::kFound;
-  } else {
-    // With a document: Status MUST be a redirect and Content-Type is
-    // required (section 6.2.4).
-    // 문서가 있으면 Status는 리다이렉트여야 하고 Content-Type이 필요하다
-    // (6.2.4절).
-    if (!fields.hasStatus || !fields.hasType || !isRedirection(fields.status))
-      return result;
-    result.response.status = fields.status;
-  }
-
-  result.response.headers.add(header_name::kLocation, fields.location);
-  result.kind = CgiOutput::RESPONSE;
-  return result;
+  // With a document: Status MUST be a redirect and Content-Type is
+  // required (section 6.2.4).
+  // 문서가 있으면 Status는 리다이렉트여야 하고 Content-Type이 필요하다
+  // (6.2.4절).
+  if (!fields.hasStatus || !fields.hasType || !isRedirection(fields.status))
+    return CgiOutput::INVALID;
+  return CgiOutput::RESPONSE;
 }
 
 /**
@@ -304,7 +297,16 @@ CgiOutput parseCgiOutput(std::string& output) {
   result.response.body.swap(output);
 
   if (fields.hasLocation) {
-    result = redirectOutput(fields, result.response);
+    result.kind = redirectKind(fields, !result.response.body.empty());
+    if (result.kind == CgiOutput::LOCAL_REDIRECT) {
+      result.localTarget = fields.location;
+    } else if (result.kind == CgiOutput::RESPONSE) {
+      // Only a redirect with a document has a Status (section 6.2.4).
+      // Status는 문서가 있는 리다이렉트에만 있다 (6.2.4절).
+      result.response.status =
+          fields.hasStatus ? fields.status : http_status::kFound;
+      result.response.headers.add(header_name::kLocation, fields.location);
+    }
     return result;
   }
 
