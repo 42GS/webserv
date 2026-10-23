@@ -250,7 +250,6 @@ RouteResult findScript(const LocationConfig& location,
       result.interpreter = *interpreter;
       result.scriptName = scriptName;
       if (end != std::string::npos) result.pathInfo = path.substr(end);
-      result.urlPath = path;
       return result;
     }
 
@@ -263,14 +262,12 @@ RouteResult findScript(const LocationConfig& location,
  * @brief A STATIC_FILE decision.
  *        STATIC_FILE 결정.
  * @param[in] fsPath File to send. / 보낼 파일.
- * @param[in] path   Normalized request path. / 정규화한 요청 경로.
  * @return The decision. / 결정.
  */
-RouteResult staticFile(const std::string& fsPath, const std::string& path) {
+RouteResult staticFile(const std::string& fsPath) {
   RouteResult result;
   result.kind = RouteResult::STATIC_FILE;
   result.fsPath = fsPath;
-  result.urlPath = path;
   return result;
 }
 
@@ -368,7 +365,7 @@ RouteResult Router::routePath(const std::string& path, const Request& request,
   // 장치 파일이나 FIFO 같은 것은 절대 보내지 않는다 (RFC 9110 17.3절).
   if (kind != FILE_REGULAR || !isReadable(fsPath))
     return error(http_status::kForbidden);
-  return staticFile(fsPath, path);
+  return staticFile(fsPath);
 }
 
 void Router::translatePathInfo(RouteResult& script) const {
