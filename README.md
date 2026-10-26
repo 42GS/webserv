@@ -97,8 +97,8 @@ curl -i http://127.0.0.1:8080/cgi-bin/hello.php     # bonus: second CGI
 # bonus: cookie session (repeat with the cookie to count visits)
 curl -i -c jar -b jar http://127.0.0.1:8080/cgi-bin/session.py
 
-# stress test
-siege -b -c 50 -t 1M http://127.0.0.1:8080/
+# stress test on an empty page, as the evaluation sheet asks
+siege -b -c 50 -t 1M http://127.0.0.1:8080/empty.html
 ```
 
 ### Configuration file

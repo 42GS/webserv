@@ -184,6 +184,15 @@ class DemoTest(unittest.TestCase):
         self.assertEqual(200, status)
         self.assertIn(b"Hello from PHP, eval!", body)
 
+    # The evaluation sheet runs siege on an empty page; the README command
+    # uses this one.
+    # 평가표는 빈 페이지에 siege를 돌린다. README 명령이 이 페이지를 쓴다.
+    def test_e10_empty_page_for_siege(self):
+        status, headers, body = self.fetch(get("/empty.html"))
+        self.assertEqual(200, status)
+        self.assertEqual("0", headers["content-length"])
+        self.assertEqual(b"", body)
+
 
 class DemoConfigTest(unittest.TestCase):
     def test_e01_same_port_is_refused(self):
