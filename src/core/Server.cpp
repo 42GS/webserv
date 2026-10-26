@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include <exception>
-#include <memory>
 
 #include "core/Signals.hpp"
 #include "http/Connection.hpp"
@@ -33,14 +32,19 @@ bool Server::openListeners(std::string& error) {
   for (std::size_t i = 0; i < configs_.size(); ++i) {
     const ServerConfig& config = configs_[i];
     for (std::size_t j = 0; j < config.listens.size(); ++j) {
-      // auto_ptr owns the listener until listeners_ does, so a failing
-      // push_back() does not leak it.
-      // listeners_가 가질 때까지 auto_ptr가 소유해서, push_back()이
-      // 실패해도 새지 않는다.
-      std::auto_ptr<Listener> owned(
-          new Listener(config, config.listens[j], *this));
-      listeners_.push_back(owned.get());
-      Listener* listener = owned.release();
+      // Deleted here if push_back() fails, before listeners_ owns it. No
+      // std::auto_ptr: it is deprecated in later standards, which the code
+      // must also build with (raw/subject.md:49-50).
+      // listeners_가 갖기 전에 push_back()이 실패하면 여기서 지운다.
+      // std::auto_ptr는 이후 표준에서 deprecated이고, 코드는 그 표준으로도
+      // 빌드돼야 해서 쓰지 않는다 (raw/subject.md:49-50).
+      Listener* listener = new Listener(config, config.listens[j], *this);
+      try {
+        listeners_.push_back(listener);
+      } catch (...) {
+        delete listener;
+        throw;
+      }
       if (!listener->open(error)) return false;
       registry_.watch(listener);
     }

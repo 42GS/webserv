@@ -59,6 +59,18 @@ class BuildTest(unittest.TestCase):
         self.assertTrue(self.exists("webserv"))
         self.make("webserv")
 
+    # The subject asks for c++ with -Wall -Wextra -Werror, and for the code
+    # to still build when -std=c++98 is added; so it must also build with
+    # the compiler's default standard, where C++98-only features such as
+    # std::auto_ptr are deprecated.
+    # subject는 -Wall -Wextra -Werror로 c++ 컴파일을 요구하고, -std=c++98을
+    # 더해도 빌드돼야 한다고 한다. 그래서 std::auto_ptr 같은 C++98 기능이
+    # deprecated인 컴파일러 기본 표준으로도 빌드돼야 한다.
+    def test_b03_builds_without_std_flag(self):
+        output = self.make("CXXFLAGS=-Wall -Wextra -Werror", "all")
+        self.assertNotIn("-std=", output)
+        self.assertTrue(self.exists("webserv"))
+
     def test_b02_second_make_does_not_relink(self):
         self.make()
         self.assertNotIn(COMPILER, self.make())

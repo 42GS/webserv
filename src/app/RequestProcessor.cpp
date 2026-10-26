@@ -5,8 +5,6 @@
  */
 #include "app/RequestProcessor.hpp"
 
-#include <memory>
-
 #include "cgi/CgiEnv.hpp"
 #include "cgi/CgiOutput.hpp"
 #include "config/ConfigLimits.hpp"
@@ -195,14 +193,29 @@ ProcessOutcome RequestProcessor::startCgi(const RouteResult& script,
   const int refusal = cgiRefusal(script);
   if (refusal != 0) return statusOutcome(refusal, request, now);
 
-  std::auto_ptr<CgiProcess> cgi(new CgiProcess(
-      launchFor(script, request, where_), request.body, services_));
-  if (!cgi->start(now))
-    return statusOutcome(http_status::kInternalServerError, request, now);
-
+  // Everything that may throw before the process exists is done first;
+  // after that the process is deleted on every path until the outcome
+  // owns it (no std::auto_ptr, see Server::openListeners()).
+  // 프로세스를 만들기 전에 던질 수 있는 일을 먼저 한다. 그 뒤로는 결과가
+  // 프로세스를 가질 때까지 모든 경로에서 지운다 (std::auto_ptr는 쓰지
+  // 않는다. Server::openListeners() 참고).
+  const CgiLaunch launch = launchFor(script, request, where_);
   ProcessOutcome outcome;
+  CgiProcess* cgi = new CgiProcess(launch, request.body, services_);
+  bool started = false;
+  try {
+    started = cgi->start(now);
+  } catch (...) {
+    delete cgi;
+    throw;
+  }
+  if (!started) {
+    delete cgi;
+    return statusOutcome(http_status::kInternalServerError, request, now);
+  }
+
   outcome.kind = ProcessOutcome::CGI;
-  outcome.cgi = cgi.release();
+  outcome.cgi = cgi;
   return outcome;
 }
 
