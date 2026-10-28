@@ -25,11 +25,14 @@ namespace {
  */
 const char* const kStatus = "status";
 /**
- * @brief Fields the server sets or that change the framing.
- *        서버가 정하거나 framing을 바꾸는 필드.
+ * @brief Fields the server sets, that change the framing, or that belong
+ *        to one connection only (RFC 9110 section 7.6.1).
+ *        서버가 정하거나, framing을 바꾸거나, 연결 하나에만 속하는 필드
+ *        (RFC 9110 7.6.1절).
  */
-const char* const kDroppedFields[] = {"connection", "content-length", "date",
-                                      "transfer-encoding"};
+const char* const kDroppedFields[] = {"connection", "content-length",   "date",
+                                      "keep-alive", "proxy-connection", "te",
+                                      "upgrade",    "transfer-encoding"};
 /** Number of entries in kDroppedFields. / kDroppedFields의 항목 수. */
 const std::size_t kDroppedFieldCount =
     sizeof(kDroppedFields) / sizeof(kDroppedFields[0]);

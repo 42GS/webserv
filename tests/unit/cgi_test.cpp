@@ -76,7 +76,8 @@ bool hasName(const std::vector<std::string>& env, const std::string& name) {
 TEST_CASE(g07_documentResponse) {
   const CgiOutput parsed = parse(
       "Content-Type: text/html\nStatus: 404 Not Found\nSet-Cookie: a=1\n"
-      "Set-Cookie: b=2\nContent-Length: 999\nDate: x\n\n<p>gone</p>\n");
+      "Set-Cookie: b=2\nContent-Length: 999\nDate: x\nKeep-Alive: 5\n"
+      "Upgrade: h2c\nTE: trailers\nProxy-Connection: close\n\n<p>gone</p>\n");
   CHECK_EQ(static_cast<int>(CgiOutput::RESPONSE),
            static_cast<int>(parsed.kind));
   CHECK_EQ(404, parsed.response.status);
@@ -85,6 +86,10 @@ TEST_CASE(g07_documentResponse) {
   CHECK(!parsed.response.headers.has("Content-Length"));
   CHECK(!parsed.response.headers.has("Date"));
   CHECK(!parsed.response.headers.has("Status"));
+  CHECK(!parsed.response.headers.has("Keep-Alive"));
+  CHECK(!parsed.response.headers.has("Upgrade"));
+  CHECK(!parsed.response.headers.has("TE"));
+  CHECK(!parsed.response.headers.has("Proxy-Connection"));
   CHECK_EQ(200, statusOf("content-type: text/plain\r\n\r\nx"));
   CHECK_EQ(204, statusOf("Content-Type: text/plain\nStatus: 204\n\nx"));
   CHECK_EQ(std::string(""),
@@ -139,6 +144,9 @@ TEST_CASE(g01_metaVariables) {
   request.headers.add("Authorization", "secret");
   request.headers.add("X-Multi", "1");
   request.headers.add("x-multi", "2");
+  request.headers.add("Proxy", "http://evil.example");
+  request.headers.add("X_Forwarded_For", "1.2.3.4");
+  request.headers.add("X-Forwarded-For", "10.0.0.1");
   RouteResult script;
   script.fsPath = "www/cgi/a.py";
   script.scriptName = "/cgi/a.py";
@@ -169,6 +177,8 @@ TEST_CASE(g01_metaVariables) {
   CHECK(hasVariable(env, "HTTP_X_MULTI=1, 2"));
   CHECK(!hasName(env, "HTTP_AUTHORIZATION"));
   CHECK(!hasName(env, "HTTP_CONTENT_LENGTH"));
+  CHECK(!hasName(env, "HTTP_PROXY"));
+  CHECK(hasVariable(env, "HTTP_X_FORWARDED_FOR=10.0.0.1"));
   script.fsPath = "/srv/cgi/a.py";
   script.pathTranslated = "/srv/p q";
   const std::vector<std::string> absolute =

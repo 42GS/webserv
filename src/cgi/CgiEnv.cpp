@@ -45,12 +45,17 @@ const char* const kHttpPrefix = "HTTP_";
  * Authorization carries credentials and Content-Length/Content-Type have
  * their own variables (SHOULD remove, section 4.1.18). Transfer-Encoding
  * no longer describes the body, which has been decoded (section 4.2).
+ * Proxy would become HTTP_PROXY, which scripts and their libraries read
+ * as the proxy for outgoing requests ("httpoxy", CVE-2016-5385).
  * Authorization은 인증 정보이고 Content-Length·Content-Type은 자기 변수가
  * 있다 (빼야 함 SHOULD, 4.1.18절). Transfer-Encoding은 해제한 본문을 더는
- * 설명하지 않는다 (4.2절).
+ * 설명하지 않는다 (4.2절). Proxy는 HTTP_PROXY가 되는데, 스크립트와 그
+ * 라이브러리는 이것을 밖으로 나가는 요청의 프록시로 읽는다 ("httpoxy",
+ * CVE-2016-5385).
  */
 const char* const kHiddenHeaders[] = {"authorization", "content-length",
-                                      "content-type", "transfer-encoding"};
+                                      "content-type", "proxy",
+                                      "transfer-encoding"};
 /** Number of entries in kHiddenHeaders. / kHiddenHeaders의 항목 수. */
 const std::size_t kHiddenHeaderCount =
     sizeof(kHiddenHeaders) / sizeof(kHiddenHeaders[0]);
@@ -58,10 +63,19 @@ const std::size_t kHiddenHeaderCount =
 /**
  * @brief True for a header field that gets no HTTP_ variable.
  *        HTTP_ 변수를 만들지 않는 헤더 필드이면 true.
+ *
+ * A name with "_" maps to the same variable as the name with "-" there
+ * (section 4.1.18), so a client could replace a header that a proxy in
+ * front set; NGINX ignores such names by default.
+ * "_"가 든 이름은 그 자리에 "-"를 쓴 이름과 같은 변수가 되므로 (4.1.18절),
+ * 클라이언트가 앞단 프록시가 넣은 헤더를 바꿔칠 수 있다. NGINX도 기본
+ * 설정에서 이런 이름을 무시한다.
+ *
  * @param[in] name Field name. / 필드 이름.
  * @return Whether it is hidden. / 빼는 필드인지.
  */
 bool isHidden(const std::string& name) {
+  if (name.find('_') != std::string::npos) return true;
   const std::string lowered = toAsciiLower(name);
   for (std::size_t i = 0; i < kHiddenHeaderCount; ++i) {
     if (lowered == kHiddenHeaders[i]) return true;
