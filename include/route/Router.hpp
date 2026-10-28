@@ -68,25 +68,15 @@ class Router {
    *        alias (for error pages).
    *        URI 경로를 location의 root나 alias로 파일 시스템 경로로 바꾼다
    *        (오류 페이지용).
-   * @param[in]  uriPath URI path, percent-encoded. / 퍼센트 인코딩된 URI 경로.
-   * @param[out] fsPath  File system path. / 파일 시스템 경로.
-   * @return False if the path is invalid or has no location.
-   *         경로가 잘못됐거나 location이 없으면 false.
+   * @param[in] uriPath URI path, percent-encoded. / 퍼센트 인코딩된 URI 경로.
+   * @return The file system path, or "" if the path is invalid or has no
+   *         location (a mapped path is never empty).
+   *         파일 시스템 경로. 경로가 잘못됐거나 location이 없으면 ""
+   *         (매핑한 경로는 비어 있지 않다).
    */
-  bool mapToFile(const std::string& uriPath, std::string& fsPath) const;
+  std::string mapToFile(const std::string& uriPath) const;
 
  private:
-  /**
-   * @brief Normalizes and matches.
-   *        정규화하고 location을 고른다.
-   * @param[in]  encodedPath Request path. / 요청 경로.
-   * @param[out] path        Normalized path. / 정규화한 경로.
-   * @param[out] location    Matched location. / 고른 location.
-   * @return False as for locationFor(). / locationFor()와 같은 경우에 false.
-   */
-  bool resolve(const std::string& encodedPath, std::string& path,
-               const LocationConfig*& location) const;
-
   /**
    * @brief Routes a normalized path in the order of design 7.
    *        정규화한 경로를 설계 7절의 순서로 처리한다.

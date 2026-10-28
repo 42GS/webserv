@@ -31,19 +31,16 @@ std::string defaultPage(int status) {
 }
 
 /**
- * @brief Reads the page at @p uri if it maps to a regular file.
- *        @p uri가 일반 파일로 매핑되면 그 페이지를 읽는다.
- * @param[in]  uri     error_page URI. / error_page URI.
- * @param[in]  router  Maps the URI. / URI를 매핑한다.
- * @param[out] fsPath  The file, for its media type.
- *                     미디어 타입을 정할 파일 경로.
+ * @brief Reads the configured page if @p fsPath is a regular file.
+ *        @p fsPath가 일반 파일이면 설정한 페이지를 읽는다.
+ * @param[in]  fsPath  The page mapped from its URI, or "" if it did not
+ *                     map. / URI에서 매핑한 페이지. 매핑되지 않았으면 "".
  * @param[out] content Page content. / 페이지 내용.
  * @return False if there is no such readable file within the size limit.
  *         크기 상한 안에서 읽을 수 있는 그런 파일이 없으면 false.
  */
-bool readConfiguredPage(const std::string& uri, const Router& router,
-                        std::string& fsPath, std::string& content) {
-  return router.mapToFile(uri, fsPath) && fileKind(fsPath) == FILE_REGULAR &&
+bool readConfiguredPage(const std::string& fsPath, std::string& content) {
+  return !fsPath.empty() && fileKind(fsPath) == FILE_REGULAR &&
          readWholeFile(fsPath, limits::kMaxErrorPageSize, content);
 }
 
@@ -57,9 +54,10 @@ Response buildStatusPage(int status,
 
   const std::map<int, std::string>::const_iterator page =
       configuredPages.find(status);
-  std::string fsPath;
-  if (page != configuredPages.end() &&
-      readConfiguredPage(page->second, router, fsPath, response.body)) {
+  const std::string fsPath = page == configuredPages.end()
+                                 ? std::string()
+                                 : router.mapToFile(page->second);
+  if (readConfiguredPage(fsPath, response.body)) {
     response.headers.add(header_name::kContentType, mimeTypeFor(fsPath));
   } else {
     response.body = defaultPage(status);

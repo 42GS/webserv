@@ -84,7 +84,17 @@ bool CgiStdout::isClosed() const { return fd_ < 0; }
 
 bool CgiStdout::failed() const { return failed_; }
 
-void CgiStdout::swapData(std::string& other) { data_.swap(other); }
+// Swapped, not copied. With a single named return object C++98 allows the
+// compiler to build it in the caller's variable; test plan G-22 measures
+// that no copy is made.
+// 복사하지 않고 맞바꾼다. 이름 있는 반환 객체가 하나면 C++98은 컴파일러가
+// 그것을 호출자의 변수에 바로 만들도록 허용한다. 테스트 계획 G-22가 복사가
+// 없는지 잰다.
+std::string CgiStdout::takeData() {
+  std::string data;
+  data.swap(data_);
+  return data;
+}
 
 void CgiStdout::close(bool failed) {
   if (fd_ < 0) return;

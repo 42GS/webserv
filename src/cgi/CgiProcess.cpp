@@ -193,7 +193,7 @@ bool CgiProcess::isDone() const { return stdout_ != 0 && stdout_->isClosed(); }
 
 bool CgiProcess::failed() const { return stdout_ != 0 && stdout_->failed(); }
 
-void CgiProcess::takeOutput(std::string& into) { stdout_->swapData(into); }
+std::string CgiProcess::takeOutput() { return stdout_->takeData(); }
 
 bool CgiProcess::hasTimedOut(std::time_t now) const {
   return !isDone() && now - startedAt_ > limits::kCgiTimeoutSeconds;

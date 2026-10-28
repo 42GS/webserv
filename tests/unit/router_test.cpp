@@ -172,10 +172,9 @@ TEST_CASE(r03_rootAndAliasMapping) {
   const Router router(server);
   CHECK_EQ(std::string(router_test::kTree) + "/a.txt",
            router.route(requestFor("GET", "/ro/a.txt")).fsPath);
-  std::string fsPath;
-  CHECK(router.mapToFile("/idx/index.html", fsPath));
-  CHECK_EQ(std::string(router_test::kTree) + "/idx/index.html", fsPath);
-  CHECK(!router.mapToFile("/../x", fsPath));
+  CHECK_EQ(std::string(router_test::kTree) + "/idx/index.html",
+           router.mapToFile("/idx/index.html"));
+  CHECK_EQ(std::string(""), router.mapToFile("/../x"));
 }
 
 TEST_CASE(r04_returnRedirects) {
@@ -248,8 +247,7 @@ TEST_CASE(r20_aliasCoversOnlyWholeSegments) {
            router.route(requestFor("GET", "/k/index.html")).fsPath);
   CHECK_EQ(404, router.route(requestFor("GET", "/k../a.txt")).status);
   CHECK_EQ(404, router.route(requestFor("GET", "/kx")).status);
-  std::string fsPath;
-  CHECK(!router.mapToFile("/k../a.txt", fsPath));
+  CHECK_EQ(std::string(""), router.mapToFile("/k../a.txt"));
   CHECK(router.locationFor("/k../a.txt") == 0);
   CHECK_EQ(std::string("(none)"), matchedPath(server, "/k../a.txt"));
 }

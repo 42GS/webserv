@@ -306,23 +306,14 @@ RouteResult Router::route(const Request& request) const {
 const LocationConfig* Router::locationFor(
     const std::string& encodedPath) const {
   std::string path;
-  const LocationConfig* location = 0;
-  return resolve(encodedPath, path, location) ? location : 0;
+  return normalizePath(encodedPath, path) ? matchLocation(path) : 0;
 }
 
-bool Router::mapToFile(const std::string& uriPath, std::string& fsPath) const {
+std::string Router::mapToFile(const std::string& uriPath) const {
   std::string path;
-  const LocationConfig* location = 0;
-  if (!resolve(uriPath, path, location)) return false;
-  fsPath = mapPath(*location, path);
-  return true;
-}
-
-bool Router::resolve(const std::string& encodedPath, std::string& path,
-                     const LocationConfig*& location) const {
-  if (!normalizePath(encodedPath, path)) return false;
-  location = matchLocation(path);
-  return location != 0;
+  if (!normalizePath(uriPath, path)) return std::string();
+  const LocationConfig* location = matchLocation(path);
+  return location == 0 ? std::string() : mapPath(*location, path);
 }
 
 // Order: location, return, CGI, limit_except, upload, delete, then the
@@ -376,8 +367,7 @@ void Router::translatePathInfo(RouteResult& script) const {
   // 4.1.6절은 이 변수를 SHOULD로 두고, location이 없으면 매핑할
   // 디렉토리가 없다.
   if (!script.pathInfo.empty())
-    static_cast<void>(
-        mapToFile(encodePath(script.pathInfo), script.pathTranslated));
+    script.pathTranslated = mapToFile(encodePath(script.pathInfo));
 }
 
 // Follows concepts/configuration-file "디렉토리 요청 처리 순서".

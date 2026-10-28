@@ -120,11 +120,11 @@ class CgiStdout : public IoHandler {
    */
   bool failed() const;
   /**
-   * @brief Swaps everything read with @p other.
-   *        읽은 전부를 @p other와 맞바꾼다.
-   * @param[in,out] other Text to swap with. / 맞바꿀 텍스트.
+   * @brief Hands over everything read, leaving nothing behind.
+   *        읽은 전부를 넘기고 아무것도 남기지 않는다.
+   * @return What was read. / 읽은 것.
    */
-  void swapData(std::string& other);
+  std::string takeData();
 
  private:
   /// @cond

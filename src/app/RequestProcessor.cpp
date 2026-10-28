@@ -161,8 +161,7 @@ ProcessOutcome RequestProcessor::process(const Request& request,
 ProcessOutcome RequestProcessor::afterCgi(const Request& request,
                                           CgiProcess& cgi,
                                           std::time_t now) const {
-  std::string text;
-  cgi.takeOutput(text);
+  std::string text = cgi.takeOutput();
   // Initialized, not assigned, so the result is not copied once more.
   // 대입하지 않고 초기화해서 결과를 한 번 더 복사하지 않는다.
   CgiOutput output = cgi.failed() ? CgiOutput() : parseCgiOutput(text);

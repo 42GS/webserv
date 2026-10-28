@@ -232,9 +232,9 @@ Response createdResponse(const UploadResult& result,
   const std::string directory = targetPath.substr(0, targetPath.rfind('/') + 1);
   for (std::size_t i = 0; i < result.files.size(); ++i) {
     const std::string uri = encodePath(directory + result.files[i].name);
-    std::string mapped;
-    const bool reachable =
-        router.mapToFile(uri, mapped) && mapped == result.files[i].path;
+    // An unmapped URI gives "", which no stored file path equals.
+    // 매핑되지 않은 URI는 ""이고, 저장한 파일 경로는 ""와 같을 수 없다.
+    const bool reachable = router.mapToFile(uri) == result.files[i].path;
     if (reachable && !response.headers.has(header_name::kLocation))
       response.headers.add(header_name::kLocation, uri);
     response.body += (reachable ? uri : result.files[i].name) + "\n";

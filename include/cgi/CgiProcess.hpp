@@ -112,16 +112,18 @@ class CgiProcess {
    * @brief Hands over everything the script wrote, without copying it.
    *        스크립트가 쓴 전부를 복사하지 않고 넘긴다.
    *
-   * The output may be limits::kMaxCgiOutputBytes long, so it is swapped
-   * into @p into instead of returned.
-   * 출력은 limits::kMaxCgiOutputBytes까지 길 수 있어서, 돌려주지 않고
-   * @p into와 맞바꾼다.
+   * The output may be limits::kMaxCgiOutputBytes long; it is swapped out
+   * of the pipe buffer and returned by value, which C++98 allows the
+   * compiler to build in place (test plan G-22 measures that no copy is
+   * made).
+   * 출력은 limits::kMaxCgiOutputBytes까지 길 수 있다. pipe 버퍼에서 맞바꿔
+   * 꺼내 값으로 돌려주고, C++98은 컴파일러가 이것을 그 자리에 만들도록
+   * 허용한다 (테스트 계획 G-22가 복사가 없는지 잰다).
    *
-   * @param[out] into Gets the output; the process keeps what @p into
-   *                  held.
-   *                  출력을 받는다. 프로세스는 @p into에 있던 것을 갖는다.
+   * @return The output; the process keeps nothing.
+   *         출력. 프로세스에는 아무것도 남지 않는다.
    */
-  void takeOutput(std::string& into);
+  std::string takeOutput();
   /**
    * @brief True if the output has not ended within
    *        limits::kCgiTimeoutSeconds.
