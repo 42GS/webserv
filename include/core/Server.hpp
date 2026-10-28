@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
+#include "app/ConnectionServices.hpp"
 #include "config/ServerConfig.hpp"
-#include "core/ChildReaper.hpp"
 #include "core/IoHandler.hpp"
 #include "core/Listener.hpp"
 
@@ -34,14 +34,14 @@ class Server : public LoopObserver, public AcceptHandler {
    *        서버를 준비한다. 아직 소켓은 열지 않는다.
    * @param[in] configs  Loaded settings; kept by reference.
    *                     읽은 설정. 참조로 보관한다.
-   * @param[in] registry Event loop; kept by reference.
-   *                     이벤트 루프. 참조로 보관한다.
-   * @param[in] reaper   Collects CGI children; kept by reference.
-   *                     CGI 자식을 회수한다. 참조로 보관한다.
+   * @param[in] services Event loop, child reaper and logs; copied, and
+   *                     the copy refers to the same objects.
+   *                     이벤트 루프, 자식 reaper, 로그. 복사하며, 복사본도
+   *                     같은 객체를 가리킨다.
    * @param[in] now      Current time. / 현재 시각.
    */
-  Server(const std::vector<ServerConfig>& configs, IoRegistry& registry,
-         ChildReaper& reaper, std::time_t now);
+  Server(const std::vector<ServerConfig>& configs,
+         const ConnectionServices& services, std::time_t now);
 
   /**
    * @brief Closes every connection and listener.
@@ -76,6 +76,13 @@ class Server : public LoopObserver, public AcceptHandler {
   void adopt(int clientFd, const ListenContext& where);
 
   /**
+   * @brief Writes the failed accept() to the error log.
+   *        실패한 accept()를 오류 로그에 쓴다.
+   * @param[in] listenAddress The listen address as text. / listen 주소 텍스트.
+   */
+  void acceptFailed(const std::string& listenAddress);
+
+  /**
    * @brief Checks timeouts, deletes closed connections and collects
    *        finished CGI children.
    *        시간 초과를 검사하고, 닫힌 연결을 지우고, 끝난 CGI 자식을
@@ -107,10 +114,11 @@ class Server : public LoopObserver, public AcceptHandler {
 
   /** Loaded settings. / 읽은 설정. */
   const std::vector<ServerConfig>& configs_;
-  /** Event loop. / 이벤트 루프. */
-  IoRegistry& registry_;
-  /** Collects CGI children. / CGI 자식을 회수한다. */
-  ChildReaper& reaper_;
+  /**
+   * @brief Event loop, child reaper and logs.
+   *        이벤트 루프, 자식 reaper, 로그.
+   */
+  ConnectionServices services_;
   /** Time of the last iteration. / 마지막 반복의 시각. */
   std::time_t now_;
   /**

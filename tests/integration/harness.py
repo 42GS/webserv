@@ -18,6 +18,7 @@ from constants import (
     DEFAULT_PAGE,
     EXIT_TIMEOUT_SECONDS,
     HOST,
+    LOG_DIR,
     RECV_SIZE,
     RETRY_INTERVAL_SECONDS,
     SIMPLE_GET,
@@ -47,18 +48,30 @@ def server_block(*ports):
 
 class Workspace:
     """A temporary directory used as the server's working directory, with
-    www/index.html so that "root www" serves "/".
+    www/index.html so that "root www" serves "/", and the logs directory
+    the server writes to.
     서버의 작업 디렉토리로 쓰는 임시 디렉토리. "root www"가 "/"를 보내도록
-    www/index.html이 들어 있다.
+    www/index.html이 들어 있고, 서버가 쓰는 logs 디렉토리가 있다.
     """
 
     def __init__(self):
-        """Creates the directory and www/index.html.
-        디렉토리와 www/index.html을 만든다.
+        """Creates the directory, www/index.html and logs/.
+        디렉토리, www/index.html, logs/를 만든다.
         """
         self._dir = tempfile.TemporaryDirectory(prefix="webserv-test-")
         self.path = self._dir.name
         self.write("www/index.html", DEFAULT_PAGE)
+        os.mkdir(os.path.join(self.path, LOG_DIR))
+
+    def log_lines(self, name):
+        """Lines of logs/<name>, without their dates; [] if it is missing.
+        logs/<name>의 줄, 날짜를 뺀 것. 파일이 없으면 [].
+        """
+        try:
+            with open(os.path.join(self.path, LOG_DIR, name)) as log:
+                return [line.rstrip("\n").split("] ", 1)[1] for line in log]
+        except FileNotFoundError:
+            return []
 
     def write(self, relative_path, text):
         """Writes a file under the workspace, making its directories;

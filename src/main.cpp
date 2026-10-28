@@ -15,6 +15,7 @@
 #include "core/Clock.hpp"
 #include "core/EventLoop.hpp"
 #include "core/Limits.hpp"
+#include "core/Logger.hpp"
 #include "core/Server.hpp"
 #include "core/Signals.hpp"
 
@@ -63,6 +64,10 @@ int main(int argc, char** argv) {
   Clock clock(limits::kClockFile);
   if (!clock.refresh())
     return fail(std::string("cannot use clock file ") + limits::kClockFile);
+  Logger logger;
+  if (!logger.open(limits::kAccessLogFile, limits::kErrorLogFile))
+    return fail(std::string("cannot open log files ") + limits::kAccessLogFile +
+                " and " + limits::kErrorLogFile);
   signals::install();
 
   EventLoop loop(clock);
@@ -71,10 +76,11 @@ int main(int argc, char** argv) {
   // server보다 먼저 선언해서 더 오래 산다. server가 지우는 연결이 CGI
   // 자식을 넘기고, 마지막에 그 자식들을 기다린다.
   ChildReaper reaper;
-  Server server(configs, loop, reaper, clock.now());
+  Server server(configs, ConnectionServices(loop, reaper, logger), clock.now());
   std::string error;
   if (!server.openListeners(error)) return fail(error);
   std::cout << "webserv: listening (" << configPath << ")" << std::endl;
+  logger.error(clock.now(), std::string("started: ") + configPath);
 
   // Exceptions from a single connection are handled inside the loop. One
   // that still gets here (std::bad_alloc while polling) ends the server
@@ -89,5 +95,6 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "webserv: shutting down" << std::endl;
+  logger.error(clock.now(), "shutting down");
   return EXIT_SUCCESS;
 }

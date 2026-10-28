@@ -29,6 +29,15 @@ const char* const kDefaultConfigPath = "conf/default.conf";
  *        시계 파일, 실행 디렉토리 기준.
  */
 const char* const kClockFile = ".webserv_clock";
+/**
+ * @brief Access log, relative to the run directory; the directory must
+ *        exist (mkdir() is not an allowed function).
+ *        접근 로그, 실행 디렉토리 기준. 디렉토리는 있어야 한다 (mkdir()은
+ *        허용 함수가 아니다).
+ */
+const char* const kAccessLogFile = "logs/access.log";
+/** Error log, like kAccessLogFile. / 오류 로그, kAccessLogFile과 같다. */
+const char* const kErrorLogFile = "logs/error.log";
 
 /**
  * @brief Program name and an optional configuration file.

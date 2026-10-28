@@ -39,6 +39,9 @@ RECV_SIZE = 65536
 # 요청과 내용
 SIMPLE_GET = b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
 DEFAULT_PAGE = "hello from www\n"  # www/index.html of every workspace
+LOG_DIR = "logs"  # limits::kAccessLogFile and kErrorLogFile are in it
+ACCESS_LOG = "access.log"
+ERROR_LOG = "error.log"
 CUSTOM_404 = "<p>custom not found</p>\n"
 BIG_FILE_SIZE = 10 * 1024 * 1024
 SMALL_LIMIT = 10  # client_max_body_size of the /small/ location

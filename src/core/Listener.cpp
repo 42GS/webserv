@@ -76,6 +76,7 @@ void Listener::onEvent(short revents) {
   // 오류가 아니다. resume() 뒤에 다시 시도한다.
   if (clientFd < 0) {
     paused_ = true;
+    acceptor_.acceptFailed(formatListenAddr(addr_));
     return;
   }
 

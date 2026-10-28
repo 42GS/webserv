@@ -95,6 +95,21 @@ const std::size_t kContentSize = 10;
 }  // namespace fs_test
 
 /**
+ * @brief Constants of logger_test.cpp.
+ *        logger_test.cpp의 상수.
+ */
+namespace logger_test {
+
+/** Access log the tests write. / 테스트가 쓰는 접근 로그. */
+const char* const kAccessFile = "obj/logger-test-access.log";
+/** Error log the tests write. / 테스트가 쓰는 오류 로그. */
+const char* const kErrorFile = "obj/logger-test-error.log";
+/** A file in a missing directory. / 없는 디렉토리 안의 파일. */
+const char* const kUnopenableFile = "obj/no-such-dir/x.log";
+
+}  // namespace logger_test
+
+/**
  * @brief Constants of path_resolver_test.cpp.
  *        path_resolver_test.cpp의 상수.
  */

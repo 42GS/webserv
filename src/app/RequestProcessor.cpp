@@ -138,7 +138,7 @@ CgiLaunch launchFor(const RouteResult& script, const Request& request,
 }  // namespace
 
 RequestProcessor::RequestProcessor(const ListenContext& where,
-                                   const CgiServices& services)
+                                   const ConnectionServices& services)
     : where_(where), services_(services), router_(*where.server) {}
 
 std::size_t RequestProcessor::bodyLimitFor(const Request& request) const {
@@ -166,8 +166,14 @@ ProcessOutcome RequestProcessor::afterCgi(const Request& request,
   // Initialized, not assigned, so the result is not copied once more.
   // 대입하지 않고 초기화해서 결과를 한 번 더 복사하지 않는다.
   CgiOutput output = cgi.failed() ? CgiOutput() : parseCgiOutput(text);
-  if (output.kind == CgiOutput::INVALID)
+  if (output.kind == CgiOutput::INVALID) {
+    services_.logger.error(
+        now, std::string(cgi.failed() ? "CGI output unreadable or "
+                                        "too long: "
+                                      : "CGI response invalid: ") +
+                 request.target + " (502)");
     return statusOutcome(http_status::kBadGateway, request, now);
+  }
 
   ProcessOutcome outcome;
   if (output.kind == CgiOutput::LOCAL_REDIRECT) {
@@ -201,7 +207,7 @@ ProcessOutcome RequestProcessor::startCgi(const RouteResult& script,
   // 않는다. Server::openListeners() 참고).
   const CgiLaunch launch = launchFor(script, request, where_);
   ProcessOutcome outcome;
-  CgiProcess* cgi = new CgiProcess(launch, request.body, services_);
+  CgiProcess* cgi = new CgiProcess(launch, request.body, services_.cgi());
   bool started = false;
   try {
     started = cgi->start(now);
@@ -211,6 +217,8 @@ ProcessOutcome RequestProcessor::startCgi(const RouteResult& script,
   }
   if (!started) {
     delete cgi;
+    services_.logger.error(now, "CGI not started (pipe or fork failed): " +
+                                    script.fsPath + " (500)");
     return statusOutcome(http_status::kInternalServerError, request, now);
   }
 

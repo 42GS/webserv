@@ -28,6 +28,13 @@ class AcceptHandler {
    * @param[in] where    The listening server block. / 연결을 받은 server 블록.
    */
   virtual void adopt(int clientFd, const ListenContext& where) = 0;
+
+  /**
+   * @brief Told when accept() failed and the listener paused.
+   *        accept()가 실패해서 listener가 멈췄을 때 알림을 받는다.
+   * @param[in] listenAddress The listen address as text. / listen 주소 텍스트.
+   */
+  virtual void acceptFailed(const std::string& listenAddress) = 0;
 };
 
 /**

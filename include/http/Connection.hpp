@@ -38,14 +38,14 @@ class Connection : public IoHandler {
    *                     non-blocking 소켓. 이제 소유한다.
    * @param[in] where    The listening server block and both ends.
    *                     연결을 받은 server 블록과 두 끝.
-   * @param[in] services For CGI; copied, and the copy refers to the same
-   *                     loop and reaper.
-   *                     CGI용. 복사하며, 복사본도 같은 루프와 reaper를
+   * @param[in] services For CGI and the logs; copied, and the copy refers
+   *                     to the same objects.
+   *                     CGI와 로그용. 복사하며, 복사본도 같은 객체를
    *                     가리킨다.
    * @param[in] now      Current time. / 현재 시각.
    */
-  Connection(int fd, const ListenContext& where, const CgiServices& services,
-             std::time_t now);
+  Connection(int fd, const ListenContext& where,
+             const ConnectionServices& services, std::time_t now);
 
   /**
    * @brief Closes the socket and ends a CGI process still running.
@@ -194,6 +194,14 @@ class Connection : public IoHandler {
   void startErrorResponse(int status);
 
   /**
+   * @brief Writes the response to the access log, with the request line
+   *        the client sent.
+   *        클라이언트가 보낸 요청 줄과 함께 응답을 접근 로그에 쓴다.
+   * @param[in] response The response being sent. / 보내기 시작한 응답.
+   */
+  void logAccess(const Response& response) const;
+
+  /**
    * @brief Moves to another state and restarts its timers.
    *        다른 상태로 옮기고 시간 기준을 다시 잡는다.
    * @param[in] next New state. / 새 상태.
@@ -208,6 +216,10 @@ class Connection : public IoHandler {
 
   /** Client socket. / 클라이언트 소켓. */
   int fd_;
+  /** Client address, dotted. / 점 표기 클라이언트 주소. */
+  std::string client_;
+  /** Access and error logs. / 접근 로그와 오류 로그. */
+  const Logger& logger_;
   /** Current state. / 현재 상태. */
   State state_;
   /** Request parser. / 요청 파서. */

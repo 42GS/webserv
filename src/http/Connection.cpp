@@ -9,12 +9,43 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <sstream>
+
 #include "core/Limits.hpp"
 #include "http/StatusCodes.hpp"
 
+namespace {
+
+/**
+ * @brief The text, or "-" if it is empty (a request cut short).
+ *        텍스트. 비어 있으면 (중간에 끊긴 요청) "-".
+ * @param[in] text Request part. / 요청의 일부.
+ * @return Text for the log. / 로그에 쓸 텍스트.
+ */
+std::string orDash(const std::string& text) {
+  return text.empty() ? "-" : text;
+}
+
+/**
+ * @brief Body bytes the response sends.
+ *        응답이 보내는 본문 바이트 수.
+ * @param[in] response The response. / 응답.
+ * @return 0 for HEAD, else the body or file size.
+ *         HEAD면 0, 아니면 본문이나 파일 크기.
+ */
+std::size_t bodyBytes(const Response& response) {
+  if (response.omitBody) return 0;
+  return response.bodyFile.empty() ? response.body.size()
+                                   : response.bodyFileSize;
+}
+
+}  // namespace
+
 Connection::Connection(int fd, const ListenContext& where,
-                       const CgiServices& services, std::time_t now)
+                       const ConnectionServices& services, std::time_t now)
     : fd_(fd),
+      client_(where.remoteAddress),
+      logger_(services.logger),
       state_(READ_HEAD),
       processor_(where, services),
       cgi_(0),
@@ -78,10 +109,16 @@ void Connection::checkTimeout(std::time_t now) {
   if (!hasTimedOut()) return;
   const bool requestUnfinished =
       (state_ == READ_HEAD || state_ == READ_BODY) && parser_.hasStarted();
-  if (requestUnfinished)
+  if (requestUnfinished) {
+    logger_.error(now_, "request from " + client_ + " not finished in time");
     startErrorResponse(http_status::kRequestTimeout);
-  else
-    changeState(CLOSED);
+    return;
+  }
+  // An idle keep-alive or a drain ending is normal; a stalled send is not.
+  // keep-alive 대기나 버리기가 끝나는 것은 정상이고, 멈춘 전송은 아니다.
+  if (state_ == WRITE)
+    logger_.error(now_, "response to " + client_ + " stalled; closed");
+  changeState(CLOSED);
 }
 
 // The head must arrive within limits::kHeaderTimeoutSeconds of its first
@@ -231,6 +268,8 @@ void Connection::followCgi() {
   } else if (cgi_->hasTimedOut(now_)) {
     delete cgi_;
     cgi_ = 0;
+    logger_.error(
+        now_, "CGI timed out and was killed: " + current_->target + " (504)");
     startResponse(processor_.statusResponse(http_status::kGatewayTimeout,
                                             *current_, now_));
   }
@@ -241,10 +280,13 @@ void Connection::followCgi() {
 void Connection::startResponse(const Response& response) {
   if (stream_.reset(response)) {
     keepAlive_ = response.keepAlive;
+    logAccess(response);
   } else {
-    static_cast<void>(stream_.reset(processor_.errorResponse(
-        http_status::kInternalServerError, parser_.request().method, now_)));
+    const Response failure = processor_.errorResponse(
+        http_status::kInternalServerError, parser_.request().method, now_);
+    static_cast<void>(stream_.reset(failure));
     keepAlive_ = false;
+    logAccess(failure);
   }
   changeState(WRITE);
 }
@@ -253,6 +295,19 @@ void Connection::startErrorResponse(int status) {
   requestConsumed_ = false;
   startResponse(
       processor_.errorResponse(status, parser_.request().method, now_));
+}
+
+// The parser still holds the client's request: it is reset only after the
+// response is sent, so a local redirect or a CGI wait does not change it.
+// 파서는 아직 클라이언트의 요청을 갖고 있다. 응답을 보낸 뒤에야 초기화하므로
+// 로컬 리다이렉트나 CGI 대기도 이것을 바꾸지 않는다.
+void Connection::logAccess(const Response& response) const {
+  const Request& request = parser_.request();
+  std::ostringstream entry;
+  entry << client_ << " \"" << orDash(request.method) << ' '
+        << orDash(request.target) << ' ' << orDash(request.version) << "\" "
+        << response.status << ' ' << bodyBytes(response);
+  logger_.access(now_, entry.str());
 }
 
 void Connection::changeState(State next) {

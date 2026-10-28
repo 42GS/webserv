@@ -10,6 +10,7 @@
 #include <ctime>
 #include <string>
 
+#include "app/ConnectionServices.hpp"
 #include "app/ProcessOutcome.hpp"
 #include "cgi/CgiProcess.hpp"
 #include "core/ListenContext.hpp"
@@ -34,12 +35,13 @@ class RequestProcessor {
    * @param[in] where    Server block and both ends of the connection;
    *                     copied.
    *                     server 블록과 연결의 두 끝. 복사한다.
-   * @param[in] services For CGI; copied, and the copy refers to the same
-   *                     loop and reaper.
-   *                     CGI용. 복사하며, 복사본도 같은 루프와 reaper를
+   * @param[in] services For CGI and the error log; copied, and the copy
+   *                     refers to the same objects.
+   *                     CGI와 오류 로그용. 복사하며, 복사본도 같은 객체를
    *                     가리킨다.
    */
-  RequestProcessor(const ListenContext& where, const CgiServices& services);
+  RequestProcessor(const ListenContext& where,
+                   const ConnectionServices& services);
 
   /**
    * @brief client_max_body_size of the location for this request.
@@ -215,8 +217,8 @@ class RequestProcessor {
 
   /** Server block and connection ends. / server 블록과 연결의 두 끝. */
   ListenContext where_;
-  /** For CGI processes. / CGI 프로세스용. */
-  CgiServices services_;
+  /** For CGI processes and the error log. / CGI 프로세스와 오류 로그용. */
+  ConnectionServices services_;
   /** Router of the server block. / server 블록의 router. */
   Router router_;
 };

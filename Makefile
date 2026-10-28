@@ -23,6 +23,7 @@ CORE_SRCS	:= core/ChildReaper.cpp \
 			   core/HttpDate.cpp \
 			   core/EventLoop.cpp \
 			   core/Listener.cpp \
+			   core/Logger.cpp \
 			   core/Server.cpp \
 			   core/Signals.cpp \
 			   core/SocketAddress.cpp
@@ -80,6 +81,7 @@ TEST_SRCS	:= tests/unit/test_main.cpp \
 			   tests/unit/path_resolver_test.cpp \
 			   tests/unit/response_stream_test.cpp \
 			   tests/unit/fs_test.cpp \
+			   tests/unit/logger_test.cpp \
 			   tests/unit/ascii_test.cpp \
 			   tests/unit/field_syntax_test.cpp \
 			   tests/unit/multipart_test.cpp \

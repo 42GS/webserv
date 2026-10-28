@@ -12,18 +12,17 @@
 #include "core/Signals.hpp"
 #include "http/Connection.hpp"
 
-Server::Server(const std::vector<ServerConfig>& configs, IoRegistry& registry,
-               ChildReaper& reaper, std::time_t now)
+Server::Server(const std::vector<ServerConfig>& configs,
+               const ConnectionServices& services, std::time_t now)
     : configs_(configs),
-      registry_(registry),
-      reaper_(reaper),
+      services_(services),
       now_(now),
       listenersResumedAt_(now) {}
 
 Server::~Server() {
   while (!connections_.empty()) closeConnection(connections_.begin()->second);
   for (std::size_t i = 0; i < listeners_.size(); ++i) {
-    registry_.unwatch(listeners_[i]);
+    services_.registry.unwatch(listeners_[i]);
     delete listeners_[i];
   }
 }
@@ -46,7 +45,7 @@ bool Server::openListeners(std::string& error) {
         throw;
       }
       if (!listener->open(error)) return false;
-      registry_.watch(listener);
+      services_.registry.watch(listener);
     }
   }
   return true;
@@ -55,8 +54,7 @@ bool Server::openListeners(std::string& error) {
 void Server::adopt(int clientFd, const ListenContext& where) {
   Connection* connection = 0;
   try {
-    connection =
-        new Connection(clientFd, where, CgiServices(registry_, reaper_), now_);
+    connection = new Connection(clientFd, where, services_, now_);
     connections_[clientFd] = connection;
   } catch (const std::exception&) {
     // If construction succeeded, deleting the connection closes clientFd;
@@ -67,7 +65,7 @@ void Server::adopt(int clientFd, const ListenContext& where) {
     if (connection == 0) close(clientFd);
     return;
   }
-  registry_.watch(connection);
+  services_.registry.watch(connection);
 }
 
 // checkTimeout() may build a response (408, 504, or the result of a CGI
@@ -90,7 +88,7 @@ void Server::afterIteration(std::time_t now) {
   }
 
   for (std::size_t i = 0; i < closed.size(); ++i) closeConnection(closed[i]);
-  reaper_.reap();
+  services_.reaper.reap();
 
   // A paused listener is retried once a descriptor may be free: a
   // connection closed, or a second passed (the clock's step).
@@ -102,10 +100,17 @@ void Server::afterIteration(std::time_t now) {
   }
 }
 
+// Logged once per pause: the listener stops polling until resume().
+// 멈출 때마다 한 번 남는다. listener는 resume() 전까지 poll하지 않는다.
+void Server::acceptFailed(const std::string& listenAddress) {
+  services_.logger.error(now_, "accept() failed on " + listenAddress +
+                                   "; listener paused (descriptors used up?)");
+}
+
 bool Server::shouldStop() const { return signals::stopRequested(); }
 
 void Server::closeConnection(Connection* connection) {
-  registry_.unwatch(connection);
+  services_.registry.unwatch(connection);
   connections_.erase(connection->fd());
   delete connection;
 }

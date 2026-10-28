@@ -52,6 +52,12 @@ relative to it. Stop it with Ctrl-C.
 The demo CGI scripts need `/usr/bin/python3`; the PHP example needs
 `/usr/bin/php-cgi` (`sudo apt-get install php-cgi`).
 
+The server appends one line per response to `logs/access.log` (client,
+request line, status, body bytes) and writes start, stop, CGI failures,
+timeouts and failed `accept()` calls to `logs/error.log`. The `logs`
+directory must exist in the directory the server runs from; watch the
+logs with `tail -f logs/*.log`.
+
 ### Demo configurations
 
 | File | What it shows |
