@@ -26,6 +26,7 @@ Features:
   output collected to EOF, 502 for a broken script, 504 after 10 seconds.
 - Clean shutdown on SIGINT/SIGTERM: connections closed, CGI children
   killed and collected, all memory freed.
+- Access and error logs in `logs/` (see Run below).
 
 ## Instructions
 
@@ -58,6 +59,11 @@ timeouts and failed `accept()` calls to `logs/error.log`. The `logs`
 directory must exist in the directory the server runs from; watch the
 logs with `tail -f logs/*.log`.
 
+The server also creates a hidden file, `.webserv_clock`, in the directory
+it runs from. The allowed function list has no time function, so the
+server rewrites this file and reads its modification time with `stat()`
+to know the current time (for timeouts and the `Date` header).
+
 ### Demo configurations
 
 | File | What it shows |
@@ -89,6 +95,8 @@ curl -i -X POST -H "Content-Type: plain/text" \
 curl -i -F "file=@README.md" http://127.0.0.1:8080/upload/   # 201
 curl -i http://127.0.0.1:8080/upload/README.md
 curl -i -X DELETE http://127.0.0.1:8080/upload/README.md     # 204
+# Uploading a name that already exists gives 409; delete it first to
+# upload it again.
 
 # CGI
 curl -i "http://127.0.0.1:8080/cgi-bin/hello.py?name=you"
@@ -164,7 +172,10 @@ tested everything it produced:
 - **Design:** proposing the class structure and listing the open
   decisions; the decisions themselves (for example 400 for `..` above the
   root, uploads with multipart only, GET/HEAD by default) were ours.
-- **Code and tests:** writing the C++ code, the unit tests and the
-  Python integration tests step by step, each followed by our review.
+- **Code:** writing the C++ code step by step, each step reviewed and
+  tested by us.
+- **Refactor:** restructuring and cleaning up the code after reviews
+  (naming, splitting modules, removing copies and out-parameters).
+- **Tests:** writing the unit tests and the Python integration tests.
 - **Review:** code reviews for correctness, security and object-oriented
   design, and stability checks with valgrind, Electric Fence and siege.
