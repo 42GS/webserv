@@ -41,8 +41,10 @@ bool Listener::open(std::string& error) {
   ok = ok &&
        setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == 0;
   ok = ok && bind(fd_, rawAddress, sizeof(address)) == 0;
-  // SOMAXCONN: the longest queue the system allows.
-  // SOMAXCONN: 시스템이 허용하는 가장 긴 대기열.
+  // SOMAXCONN: a queue length every system must support (POSIX listen());
+  // the system may still shorten it.
+  // SOMAXCONN: 모든 시스템이 지원해야 하는 대기열 길이 (POSIX listen()).
+  // 시스템이 그래도 줄일 수는 있다.
   ok = ok && listen(fd_, SOMAXCONN) == 0;
   // Non-blocking only after bind: a non-blocking bind() may fail with
   // EINPROGRESS and finish later (POSIX bind).
