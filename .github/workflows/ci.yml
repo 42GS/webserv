@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3 php-cgi
+
+      - name: Ensure runtime directories exist
+        run: |
+          mkdir -p logs www/upload
+
+      - name: Build webserv (C++98)
+        run: make
+
+      - name: Run C++98 unit tests
+        run: make test
+
+      - name: Run Python integration tests
+        run: make integration
+
+      - name: Check build without -std=c++98
+        run: |
+          make fclean
+          make CXXFLAGS="-Wall -Wextra -Werror"
