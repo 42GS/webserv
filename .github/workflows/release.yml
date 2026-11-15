@@ -93,6 +93,7 @@ jobs:
       - name: Upload assets to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           INPUT_TAG: ${{ inputs.tag }}
           REF_NAME: ${{ github.ref_name }}
         run: |
@@ -101,8 +102,8 @@ jobs:
           else
             TAG="$REF_NAME"
           fi
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" artifacts/* --clobber
+          if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/* --repo "$GH_REPO" --clobber
           else
-            gh release create "$TAG" artifacts/* --title "$TAG" --generate-notes
+            gh release create "$TAG" artifacts/* --repo "$GH_REPO" --title "$TAG" --generate-notes
           fi
