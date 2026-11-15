@@ -4,8 +4,7 @@
   <img src="www/logo.svg" alt="webserv logo" width="72" height="72">
   <h1>webserv</h1>
   <p>
-    <strong>RFC 9112-compliant HTTP/1.1 Server in C++98 — Single-Process <code>poll()</code> Event Loop, Non-Blocking I/O &amp; CGI/1.1</strong><br>
-    <sub>C++98 기반 단일 프로세스 <code>poll()</code> 이벤트 루프 · 논블로킹 I/O · HTTP/1.1 &amp; CGI/1.1 웹 서버</sub>
+    <strong>RFC 9112-compliant HTTP/1.1 Server in C++98 — Single-Process <code>poll()</code> Event Loop, Non-Blocking I/O &amp; CGI/1.1</strong>
   </p>
   <p>
     <a href="https://github.com/42GS/webserv/actions/workflows/ci.yml"><img src="https://github.com/42GS/webserv/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -14,9 +13,12 @@
     <img src="https://img.shields.io/badge/Unit%20Tests-105%20passed-brightgreen" alt="Unit Tests">
   </p>
   <p>
-    <a href="docs/architecture.md">Architecture &amp; Design (아키텍처)</a> ·
-    <a href="docs/configuration.md">Configuration Reference (설정 레퍼런스)</a> ·
-    <a href="CHANGELOG.md">Changelog &amp; Releases (릴리스 노트)</a>
+    <strong>English</strong> | <a href="README.ko.md">한국어</a>
+  </p>
+  <p>
+    <a href="docs/architecture.md">Architecture &amp; Design</a> ·
+    <a href="docs/configuration.md">Configuration Reference</a> ·
+    <a href="CHANGELOG.md">Changelog &amp; Releases</a>
   </p>
 </div>
 
@@ -26,13 +28,11 @@
 
 **webserv** is an HTTP/1.1 web server built from scratch in **C++98 with zero external dependencies**. A single OS process multiplexes every listening socket, client connection, and CGI pipe through one `poll()` event loop—performing at most one non-blocking `recv()`, `send()`, or pipe I/O per readiness event.
 
-**webserv**는 외부 라이브러리 없이 **C++98**로 바닥부터 구현한 **HTTP/1.1 웹 서버**입니다. 단일 프로세스 내 하나의 `poll()` 이벤트 루프가 모든 리스닝 소켓, 클라이언트 연결, CGI 파이프를 다중화하며, 각 준비 이벤트당 최대 한 번의 논블로킹 I/O만 수행합니다.
-
-### Engineering Highlights / 핵심 엔지니어링 포인트
+### Engineering Highlights
 
 Designed and documented to demonstrate both **Backend Engineering** (protocol compliance, routing, CGI, uploads) and **Systems/Network Engineering** (event multiplexing, POSIX IPC, fault isolation, memory safety):
 
-| Domain | Backend Engineering (백엔드 관점) | Systems &amp; Network Engineering (시스템·네트워크 관점) |
+| Domain | Backend Engineering | Systems &amp; Network Engineering |
 | :--- | :--- | :--- |
 | **Core I/O &amp; Concurrency** | Persistent connections (`keep-alive`), HTTP pipelining, chunked transfer decoding | Single `poll()` loop (`EventLoop`), deferred handler removal (`unwatched_`), FD-exhaustion backpressure (`Listener` pause/resume) |
 | **Protocol &amp; Parsing** | RFC 9112 incremental parser, `HEAD`/`GET`/`POST`/`DELETE`, MIME types, IMF-fixdate `Date` | Cursor-based zero-shift buffering, two-phase body limit (`HEAD_DONE`), `DRAIN` state (RFC 9112 §9.6) to prevent TCP `RST` |
@@ -40,7 +40,7 @@ Designed and documented to demonstrate both **Backend Engineering** (protocol co
 | **CGI &amp; Uploads** | CGI/1.1 (`fork`/`execve`), `multipart/form-data` upload (`201`/`409`), cookie/session demo | Non-blocking CGI pipes (`CgiPipes`), `waitpid(WNOHANG)` zombie reaper, `std::string::swap` zero-copy output, `httpoxy` (`CVE-2016-5385`) mitigation |
 | **Resilience &amp; Ops** | Structured `logs/access.log` &amp; `logs/error.log`, configurable `client_max_body_size` (`1B–100MiB`) | Per-state timeouts (Slowloris/stall defense), per-connection exception isolation, clean `SIGINT`/`SIGTERM` shutdown, `stat()`-based `Clock` |
 
-### Architecture Overview / 아키텍처 개요
+### Architecture Overview
 
 ```mermaid
 flowchart LR
@@ -58,35 +58,33 @@ flowchart LR
 ```
 
 > Deep dive into the connection state machine (`READ_HEAD → READ_BODY → WAIT_CGI → WRITE → DRAIN → CLOSED`), timeout constants, and design trade-offs: **[docs/architecture.md](docs/architecture.md)**
->
-> 연결 상태 머신, 상태별 타임아웃 상수, `.webserv_clock` 설계 배경 등 상세 기술 문서: **[docs/architecture.md](docs/architecture.md)**
 
-### Key Design &amp; Security Decisions / 주요 설계 및 보안 결정
+### Key Design &amp; Security Decisions
 
 * **Wall-Clock Time Without Time Functions (`core::Clock`):** Because standard time functions (`time()`, `gettimeofday()`) are outside the allowed function list, `Clock` rewrites `.webserv_clock` once per `poll()` iteration and reads `st_mtime` via `stat()`, driving all timeouts and RFC 9110 `Date` headers cleanly behind a single interface.
 * **Streaming Large Files (`ResponseStream`):** Files up to `1 MiB` are served from memory; larger files are streamed in `64 KiB` chunks per `POLLOUT` event so large transfers never block the single-threaded loop.
 * **CGI Security &amp; Resource Bounds:** `CgiEnv` strips `Proxy` (`CVE-2016-5385` httpoxy) and underscore (`_`) header names (NGINX convention against header spoofing), enforces a `10 s` execution timeout (`504`) and `16 MiB` output cap (`502`), and reaps every child via `ChildReaper`.
 * **Upload DoS Defense:** `UploadHandler` parses `multipart/form-data` in linear time using slice offsets (zero payload copies) and caps uploaded files per request (`5` files max, `413` if exceeded) to prevent event-loop stalls.
 
-### Release Milestones / 릴리스 마일스톤
+### Release Milestones
 
 Reconstructed from the commit history into semantic tags (`v0.1.0` – `v1.0.0`) — see **[CHANGELOG.md](CHANGELOG.md)** for full release notes:
 
-| Tag | Commit | Summary (EN / KR) |
+| Tag | Commit | Summary |
 | :--- | :--- | :--- |
-| `v0.1.0` | `6f48721` | Core `poll()` event loop, NGINX-style config parser, unit &amp; integration harnesses / 코어 이벤트 루프 및 설정 파서 |
-| `v0.2.0` | `7404b94` | Incremental HTTP/1.1 parser, path normalization, router, static streaming &amp; autoindex / 증분 파서, 라우터, 정적 서빙 |
-| `v0.3.0` | `870f06a` | Keep-alive, pipelining, `DRAIN` state, and per-state timeouts / 연결 유지, 파이프라이닝, 타임아웃 |
-| `v0.4.0` | `3385e7e` | `multipart/form-data` uploads, `DELETE`, and upload bounds / 멀티파트 업로드 및 삭제 |
-| `v0.5.0` | `1655980` | Asynchronous CGI/1.1 pipes, `502`/`504` handling, `ChildReaper` / 비동기 CGI 파이프 실행 |
-| `v0.6.0` | `6b4ffc2` | FD-exhaustion pause/resume, zero-copy CGI output, Valgrind &amp; Electric Fence audit / 안정성·메모리 검증 |
-| `v1.0.0` | `4db9510` | Access/error logging, `httpoxy` &amp; header-spoofing fixes, standard C++ portability / 로깅, CGI 보안 패치, 최종 릴리스 |
+| `v0.1.0` | `6f48721` | Core `poll()` event loop, NGINX-style config parser, unit &amp; integration harnesses |
+| `v0.2.0` | `7404b94` | Incremental HTTP/1.1 parser, path normalization, router, static streaming &amp; autoindex |
+| `v0.3.0` | `870f06a` | Keep-alive, pipelining, `DRAIN` state, and per-state timeouts |
+| `v0.4.0` | `3385e7e` | `multipart/form-data` uploads, `DELETE`, and upload bounds |
+| `v0.5.0` | `1655980` | Asynchronous CGI/1.1 pipes, `502`/`504` handling, `ChildReaper` |
+| `v0.6.0` | `6b4ffc2` | FD-exhaustion pause/resume, zero-copy CGI output, Valgrind &amp; Electric Fence audit |
+| `v1.0.0` | `4db9510` | Access/error logging, `httpoxy` &amp; header-spoofing fixes, standard C++ portability, release binaries |
 
 ---
 
 ## Instructions
 
-### Build &amp; Test / 빌드 및 테스트
+### Build &amp; Test
 
 ```sh
 make              # Build ./webserv (c++ -Wall -Wextra -Werror -std=c++98)
@@ -97,16 +95,14 @@ make clean        # Remove object/dependency files
 make fclean       # Remove build artifacts and binaries
 ```
 
-#### Verification Scope / 검증 범위
+#### Verification Scope
 * **Unit Tests (`tests/unit/`):** Custom C++98 test framework ([TestFramework.hpp](tests/unit/TestFramework.hpp)) with `EventLoop` test doubles — **105/105 tests passing** (`make test`).
 * **Integration Tests (`tests/integration/`):** 11 Python `unittest` suites (124 test cases) covering builds, HTTP parsing, keep-alive/pipelining, static/autoindex, uploads, CGI, logging, timeouts (`WEBSERV_SLOW_TESTS=1`), and Valgrind clean-exit checks (`WEBSERV_WRAPPER="valgrind --error-exitcode=99 --leak-check=full"`).
 * **Stress Benchmark:** Supports `siege -b -c 50 -t 1M http://127.0.0.1:8080/empty.html`.
 
-### Run / 실행
+### Run
 
-Run from the repository root so relative paths in the demo configs (`www/`, `logs/`, `conf/`) resolve properly. Ensure `logs/` exists (present in the repo) and stop with `Ctrl-C` (`SIGINT`/`SIGTERM`).
-
-저장소 루트에서 실행하세요. 종료 시 `Ctrl-C`로 시그널을 보내면 진행 중인 연결과 CGI 자식 프로세스를 정리한 뒤 종료합니다.
+Run from the repository root so relative paths in the demo configs (`www/`, `logs/`, `conf/`) resolve properly. Ensure `logs/` exists (present in the repo) and stop with `Ctrl-C` (`SIGINT`/`SIGTERM`) to drain/close active sockets and terminate CGI child processes cleanly.
 
 ```sh
 ./webserv [configuration file]   # default: conf/default.conf
@@ -116,18 +112,18 @@ Run from the repository root so relative paths in the demo configs (`www/`, `log
 * Logs are written to `logs/access.log` and `logs/error.log` (`tail -f logs/*.log`).
 * `.webserv_clock` is created/updated in the working directory for `stat()`-based time tracking.
 
-### Demo Configurations &amp; Endpoints / 데모 설정 및 테스트 명령
+### Demo Configurations &amp; Endpoints
 
 See **[docs/configuration.md](docs/configuration.md)** for the full directive reference (`12` directives) and routing rules.
 
-| File | What it demonstrates (EN / KR) |
+| File | What it demonstrates |
 | :--- | :--- |
 | [conf/default.conf](conf/default.conf) | Full demo on `127.0.0.1:8080` (`www/`) and a second server on `127.0.0.1:8081` (`www2/`) |
 | [conf/ports.conf](conf/ports.conf) | Multi-interface &amp; multi-port listeners (`127.0.0.2` requires Linux or macOS `lo0` alias) |
 | [conf/same-port.conf](conf/same-port.conf) | Duplicate `interface:port` rejection (virtual hosts intentionally unsupported) |
 
 <details>
-<summary><strong>Interactive Browser Demo &amp; curl Commands / 브라우저 데모 및 curl 테스트 명령 (Click to expand)</strong></summary>
+<summary><strong>Interactive Browser Demo &amp; curl Commands (Click to expand)</strong></summary>
 
 With `./webserv conf/default.conf`, open `http://127.0.0.1:8080/` in your browser or run:
 
@@ -170,13 +166,15 @@ siege -b -c 50 -t 1M http://127.0.0.1:8080/empty.html
 
 </details>
 
-### Project Structure / 프로젝트 구조
+### Project Structure
 
 ```text
 .
 ├── .github/workflows/         # GitHub Actions CI & release binary workflows
 ├── conf/                      # NGINX-style configuration presets
-├── docs/                      # Detailed architecture & configuration documentation
+├── docs/                      # Architecture & configuration docs (EN / KO)
+├── CHANGELOG.md / .ko.md      # Release notes (EN / KO)
+├── README.md / README.ko.md   # Project overview (EN / KO)
 ├── include/ & src/
 │   ├── core/                  # EventLoop (poll), Server, Listener, Clock, ChildReaper, Signals, Logger
 │   ├── config/                # ConfigLexer, ConfigSyntax, DirectiveRules, Builders
@@ -202,7 +200,7 @@ siege -b -c 50 -t 1M http://127.0.0.1:8080/empty.html
 * **PHP Manual &amp; `php-cgi` source:** `cgi.force_redirect` / `REDIRECT_STATUS` requirements.
 * **Tooling &amp; Style:** `siege` manual, Valgrind, Electric Fence, C++ Core Guidelines, Google C++ Style Guide (`.clang-format`).
 
-### Use of AI / AI 활용 내역
+### Use of AI
 
 We used **Claude Code (Anthropic)** as an engineering assistant throughout the project, with all architecture decisions, security reviews, and verification owned and executed by the authors:
 
