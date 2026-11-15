@@ -1,84 +1,84 @@
-**English** | [한국어](CHANGELOG.ko.md) · [Back to README](README.md)
+**한국어** | [English](CHANGELOG.en.md) · [README로 돌아가기](README.md)
 
-# Changelog
+# 릴리스 노트
 
-All notable milestones of **webserv** reconstructed from the commit history, organized for Git tags and GitHub Releases.
+`webserv` 커밋 히스토리를 작업 단계별로 정리해서 Git 태그와 릴리스로 나눴다.
 
 ---
 
 ## [v1.0.0] — 2026-10-29 (Commit `4db9510`)
 
-**Production-Ready Release: Observability, CGI Security Hardening & Final Polish**
+**접근/오류 로그, CGI 보안 수정, 최종 릴리스**
 
-### Added
-* **Access & Error Logging (`13982df`):** Per-response access log (`logs/access.log`) and lifecycle/timeout/CGI/accept failure error log (`logs/error.log`).
-* **Benchmark Fixture (`5ca93a2`):** Added `www/empty.html` for `siege` stress testing.
+### 추가
+* **로그 파일 (`13982df`):** 응답마다 한 줄씩 남는 접근 로그(`logs/access.log`)와 서버 시작·종료, 타임아웃, CGI 실패, `accept()` 실패를 적는 오류 로그(`logs/error.log`)를 넣었다.
+* **siege 테스트 페이지 (`5ca93a2`):** `siege` 부하 테스트에서 쓸 빈 페이지(`www/empty.html`)를 추가했다.
 
-### Security & Fixes
-* **CGI Header Hardening (`cad952e`):** Mitigated **httpoxy (`CVE-2016-5385`)** by dropping `Proxy`, blocked underscore (`_`) header spoofing, and stripped hop-by-hop headers from CGI responses.
-* **Local Redirect Preservation (`8f8dc8a`):** Kept CGI client-redirect response bodies intact.
-* **Standard Portability (`664692b`):** Removed `std::auto_ptr` so the codebase builds cleanly both with `-std=c++98` and modern C++ compilers.
+### 수정과 보안
+* **CGI 헤더 필터링 (`cad952e`):** `Proxy` 헤더를 빼서 `httpoxy`(`CVE-2016-5385`)를 막고, `_`가 들어간 헤더 이름도 무시하도록 바꿨다. CGI 응답에서 hop-by-hop 헤더도 제거한다.
+* **리다이렉트 본문 유지 (`8f8dc8a`):** CGI가 클라이언트 리다이렉트를 돌려줄 때 응답 문서가 빠지지 않게 수정했다.
+* **컴파일러 호환성 (`664692b`):** `std::auto_ptr`를 없애서 `-std=c++98`뿐 아니라 플래그 없이 최신 C++ 컴파일러로도 빌드되게 했다.
 
 ---
 
 ## [v0.6.0] — 2026-10-18 (Commit `6b4ffc2`)
 
-**Stability, Memory Safety & Demo Site (Steps 8–9)**
+**안정성 확인, 메모리 점검, 데모 사이트 (Steps 8–9)**
 
-### Stability & Performance
-* **FD Exhaustion Backpressure (`6b4ffc2`):** Paused `Listener` polling when `accept()` fails on a full descriptor table and resumed on connection close or tick, eliminating 100% CPU busy-spin.
-* **Zero-copy CGI Handoff (`6b4ffc2`):** Returned collected CGI output via `std::string::swap` to eliminate multi-megabyte buffer copies.
-* **Memory & Bounds Audit (`d4ce794`, `83f413c`):** Verified zero leaks and clean signal shutdowns under **Valgrind** and **Electric Fence**; completed step 9 interactive demo site (`www/`).
+### 안정성과 성능
+* **FD 고갈 시 CPU 스핀 방지 (`6b4ffc2`):** fd 테이블이 꽉 차 `accept()`가 실패하면 리스너 폴링을 잠시 멈추고, 연결이 닫히거나 1초 뒤에 다시 시도하게 고쳤다.
+* **CGI 출력 복사 줄이기 (`6b4ffc2`):** 모은 CGI 출력을 돌려줄 때 `std::string::swap`으로 넘겨 큰 출력을 여러 번 복사하지 않도록 했다.
+* **메모리 점검과 데모 (`d4ce794`, `83f413c`):** Valgrind와 Electric Fence로 누수와 경계 오류를 점검하고, 브라우저 데모 파일(`www/`)을 넣었다.
 
 ---
 
 ## [v0.5.0] — 2026-10-18 (Commit `1655980`)
 
-**Asynchronous CGI/1.1 Execution (Step 7)**
+**비동기 CGI/1.1 실행 (Step 7)**
 
-### Added
-* **Non-blocking CGI Pipeline:** Spawned CGI scripts (`fork`/`execve`) in the script's own directory with RFC 3875 meta-variables (`CgiEnv`), polling stdin/stdout pipes (`CgiPipes`) inside the main `poll()` loop.
-* **Timeout & Zombie Prevention:** Enforced `10s` CGI timeout (`504 Gateway Timeout`), `502 Bad Gateway` on malformed output, and non-blocking `waitpid(WNOHANG)` collection via `ChildReaper`.
+### 추가
+* **파이프 기반 CGI 실행:** `fork`/`execve`로 스크립트를 자기 디렉터리에서 실행하고, RFC 3875 메타변수(`CgiEnv`)와 표준입출력 파이프(`CgiPipes`)를 메인 `poll()` 루프에 태웠다.
+* **타임아웃과 자식 회수:** `10초`가 넘으면 `504`, 출력 형식이 깨졌으면 `502`를 보낸다. 끝났거나 죽인 자식 프로세스는 `ChildReaper`가 `waitpid(WNOHANG)`으로 회수한다.
 
 ---
 
 ## [v0.4.0] — 2026-10-17 (Commit `3385e7e`)
 
-**File Uploads & Deletion (Step 6)**
+**파일 업로드와 삭제 (Step 6)**
 
-### Added
-* **`multipart/form-data` Upload (`bb13b56`, `ea1b330`):** Linear-time multipart boundary parser (RFC 7578 / 2046) writing uploaded files to `upload_store` (`201 Created`, `409 Conflict` naming the conflicting file `8664a05`).
-* **`DELETE` Method (`bb13b56`):** Safe deletion of uploaded resources (`204 No Content`) restricted by `limit_except`.
-* **Abuse Prevention (`ea1b330`):** Capped uploaded file count per request (`kMaxUploadFiles = 5`) to protect the single-threaded event loop.
+### 추가
+* **`multipart/form-data` 업로드 (`bb13b56`, `ea1b330`):** 본문을 복사하지 않고 범위 오프셋으로 파싱하는 멀티파트 파서를 넣고, `upload_store`에 저장한다(`201`). 이미 같은 이름이 있으면 파일명을 적어 `409`(`8664a05`)를 보낸다.
+* **`DELETE` 메서드 (`bb13b56`):** `limit_except`로 허용된 위치에서 업로드된 파일을 지울 수 있게 했다(`204`).
+* **파일 개수 제한 (`ea1b330`):** 요청 하나에서 저장할 수 있는 파일을 `5`개(`kMaxUploadFiles`)로 제한해 이벤트 루프가 한 요청에 묶이지 않게 했다.
 
 ---
 
 ## [v0.3.0] — 2026-10-17 (Commit `870f06a`)
 
-**Persistent Connections, Pipelining & Timeouts (Step 5)**
+**연결 유지, 파이프라이닝, 타임아웃 (Step 5)**
 
-### Added
-* **HTTP/1.1 Connection Lifecycle:** Implemented `keep-alive`, HTTP pipelining over buffered `inBuffer_`, and `DRAIN` state (RFC 9112 §9.6) to avoid TCP `RST` erasing error responses.
-* **Per-state Timeouts:** Enforced separate thresholds for idle keep-alive (`15s`), head completion (`30s`), body progress (`30s`), send stall (`30s`), and draining (`1s` idle / `5s` total).
+### 추가
+* **연결 생명주기:** `keep-alive`, `inBuffer_`에 남은 다음 요청을 바로 처리하는 파이프라이닝, 그리고 오류 응답 후 TCP `RST`를 막는 `DRAIN` 상태를 구현했다.
+* **상태별 타임아웃:** keep-alive 대기(`15초`), 헤더 전체(`30초`), 본문 진행(`30초`), 전송 진행(`30초`), drain(`유휴 1초` / `전체 5초`)을 따로 잰다.
 
 ---
 
 ## [v0.2.0] — 2026-10-16 (Commit `7404b94`)
 
-**Incremental HTTP/1.1 Parser, Router & Static Serving (Steps 3–4)**
+**증분 HTTP/1.1 파서, 라우터, 정적 서빙 (Steps 3–4)**
 
-### Added
-* **Incremental Parser (`98cb1e2`, `24fd810`):** Cursor-based HTTP/1.1 parser supporting arbitrary TCP chunk splits, `Content-Length`, `Transfer-Encoding: chunked`, and size limits (`413`, `414`, `431`).
-* **Router & Path Security (`fd5c868`, `4922eb8`):** Percent-decoding, dot-segment resolution, traversal rejection (`400`), `root`/`alias`, `return` redirects, `limit_except`, and `HEAD` handling.
-* **Static Streaming & Listings (`40cb5e8`, `7404b94`):** `ResponseStream` chunked file reads (`64 KiB`), MIME types, IMF-fixdate `Date` header, `autoindex` HTML listings, and custom `error_page`.
+### 추가
+* **증분 파서 (`98cb1e2`, `24fd810`):** 패킷이 쪼개져 와도 계속 파싱하는 `RequestParser`를 만들었다. `Content-Length`, `Transfer-Encoding: chunked`, 크기 제한(`413`, `414`, `431`)을 처리한다.
+* **라우팅과 경로 보안 (`fd5c868`, `4922eb8`):** 퍼센트 디코딩, `.`/`..` 정리, 루트 탈출 차단(`400`), `root`/`alias`, `return`, `limit_except`, `HEAD`를 구현했다.
+* **정적 파일과 목록 (`40cb5e8`, `7404b94`):** `ResponseStream` 청크 전송(`64 KiB`), MIME 타입, `Date` 헤더, `autoindex`, 커스텀 `error_page`를 추가했다.
 
 ---
 
 ## [v0.1.0] — 2026-10-16 (Commit `6f48721`)
 
-**Core `poll()` Event Loop & NGINX-style Config (Steps 1–2)**
+**`poll()` 이벤트 루프와 설정 파서 (Steps 1–2)**
 
-### Added
-* **Configuration Subsystem (`8f4ed3b`, `855f851`, `e58067d`):** Lexer, syntax parser with nesting depth limit, and table-driven `DirectiveRules` for `server` and `location` blocks.
-* **Event Loop & Listener (`6f48721`, `9854f52`):** Single-process `poll()` multiplexer (`EventLoop`), non-blocking listening sockets, and `stat()`-based `Clock`.
-* **Test Harnesses (`d1761bd`, `4b68ef5`):** C++98 unit-test runner and Python standard-library TCP integration harness.
+### 추가
+* **설정 파서 (`8f4ed3b`, `855f851`, `e58067d`):** 렉서, 중첩 깊이 제한이 있는 구문 파서, `DirectiveRules` 테이블 기반 검사를 구현했다.
+* **이벤트 루프와 리스너 (`6f48721`, `9854f52`):** 단일 `poll()` 루프(`EventLoop`), 논블로킹 리스닝 소켓, `.webserv_clock` 기반 `Clock`을 만들었다.
+* **테스트 틀 (`d1761bd`, `4b68ef5`):** C++98 단위 테스트 러너와 Python 통합 테스트 하네스를 만들었다.
