@@ -174,7 +174,7 @@ siege -b -c 50 -t 1M http://127.0.0.1:8080/empty.html
 
 ```text
 .
-├── .github/workflows/ci.yml   # GitHub Actions CI (build, unit & integration tests)
+├── .github/workflows/         # GitHub Actions CI & release binary workflows
 ├── conf/                      # NGINX-style configuration presets
 ├── docs/                      # Detailed architecture & configuration documentation
 ├── include/ & src/
