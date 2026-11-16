@@ -3,7 +3,7 @@
 <div align="center">
   <img src="www/logo.svg" alt="webserv logo" width="64" height="64">
   <h1>webserv</h1>
-  <p>HTTP/1.1 &amp; CGI/1.1 server written in C++98 with a single-process <code>poll()</code> event loop</p>
+  <p>HTTP/1.1 &amp; CGI/1.1 server written in C++98 with a single-process <code>poll()</code> loop</p>
   <p>
     <a href="https://github.com/42GS/webserv/actions/workflows/ci.yml"><img src="https://github.com/42GS/webserv/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <img src="https://img.shields.io/badge/C%2B%2B-98-00599C?logo=cplusplus&logoColor=white" alt="C++98">
@@ -17,35 +17,35 @@
 
 ## Description
 
-An **HTTP/1.1 web server** written from scratch in **C++98** using only POSIX system calls and zero external libraries.
-One process multiplexes all listening sockets, client connections, and CGI pipes inside a single `poll()` loop.
+An HTTP/1.1 web server built from scratch in **C++98** using only POSIX system calls and no external libraries.
+One process handles listening sockets, client connections, and CGI pipes in a single `poll()` loop. All sockets and pipes are non-blocking, and each readiness event triggers at most one `recv()` or `send()`.
 
 ### Project Summary
 
 | Item | Details |
 | :--- | :--- |
-| **Timeline / Team** | Oct 16 – Oct 29, 2026 / 2-person team (`yoshin`, `jyoo`) |
-| **Tech Stack** | C++98 (`-Wall -Wextra -Werror`), POSIX Sockets, `poll()`, CGI/1.1 (`fork`/`execve`) |
-| **Architecture** | Single-process non-blocking event loop, connection state machine, 8-layer module layout |
-| **Verification** | `105/105` C++98 unit tests passing, 11 Python TCP integration suites (124 cases), checked with Valgrind, Electric Fence &amp; `siege` |
-| **Releases / CI** | GitHub Actions CI, Linux (`x86_64`) &amp; macOS (`arm64`) release binaries ([v1.0.0](https://github.com/42GS/webserv/releases/tag/v1.0.0)) |
-| **Docs** | [Architecture Notes](docs/architecture.en.md) · [Configuration Reference](docs/configuration.en.md) · [Changelog](CHANGELOG.en.md) |
+| Timeline / Team | Oct 16 – Oct 29, 2026 / 2-person team (`yoshin`, `jyoo`) |
+| Stack | C++98 (`-Wall -Wextra -Werror`), POSIX Sockets, `poll()`, CGI/1.1 (`fork`/`execve`) |
+| Architecture | Single-process non-blocking event loop, connection state machine, 8-layer module split |
+| Verification | `105/105` C++98 unit tests passing, 11 Python TCP integration suites (124 cases), checked with Valgrind, Electric Fence &amp; `siege` |
+| Releases / CI | GitHub Actions CI, Linux (`x86_64`) &amp; macOS (`arm64`) release binaries ([v1.0.0](https://github.com/42GS/webserv/releases/tag/v1.0.0)) |
+| Docs | [Architecture Notes](docs/architecture.en.md) · [Configuration Reference](docs/configuration.en.md) · [Changelog](CHANGELOG.en.md) |
 
-### Key Implementation Highlights
+### Key Implementation
 
 * **Event Loop &amp; Connections**
-  * Single `poll()` loop (`EventLoop`) handling all socket and CGI pipe I/O (at most one `recv()`/`send()` per readiness event)
-  * `keep-alive`, HTTP pipelining, and per-state timeouts (idle, header, body, send, drain)
+  * One `poll()` loop (`EventLoop`) handles listening sockets, client sockets, and CGI pipe I/O.
+  * Supports `keep-alive`, HTTP pipelining, and per-state timeouts (idle, header, body, send, drain).
 * **HTTP/1.1 Parsing &amp; Routing**
-  * Incremental parser (`RequestParser`) handling split TCP reads, `Content-Length`, and `Transfer-Encoding: chunked`
-  * NGINX-style config (`server`, `location`, `root`, `alias`, `index`, `autoindex`, `return`, `error_page`, `limit_except`, `client_max_body_size`)
+  * Incremental parser (`RequestParser`) handles split TCP reads, `Content-Length`, and `Transfer-Encoding: chunked`.
+  * NGINX-style configuration (`server`, `location`, `root`, `alias`, `index`, `autoindex`, `return`, `error_page`, `limit_except`, `client_max_body_size`).
 * **Files &amp; CGI/1.1**
-  * Static file serving (files over `1 MiB` streamed in `64 KiB` pieces) and directory listings
-  * `multipart/form-data` uploads (`201`/`409`) and `DELETE` (`204`)
-  * Extension-based CGI, RFC 3875 meta-variables, non-blocking pipe I/O, `10s` timeout (`504`), zombie reaping (`ChildReaper`)
+  * Serves static files (files over `1 MiB` are streamed in `64 KiB` pieces) and HTML directory listings.
+  * Handles `multipart/form-data` uploads (`201`/`409`) and `DELETE` (`204`).
+  * Runs CGI scripts by file extension (`fork`/`execve`), passes RFC 3875 meta-variables, polls pipes non-blockingly, enforces a `10s` timeout (`504`), and collects children via `ChildReaper`.
 * **Security &amp; Operations**
-  * Path traversal rejection (`400`), line/header/body size limits (`414`, `431`, `413`)
-  * `logs/access.log` &amp; `logs/error.log`, clean `SIGINT`/`SIGTERM` shutdown closing sockets and CGI children
+  * Rejects path traversal (`..` above root returns `400`) and bounds request line (`414`), header (`431`), and body (`413`) sizes.
+  * Writes `logs/access.log` and `logs/error.log`, and cleans up active sockets and CGI children on `SIGINT`/`SIGTERM`.
 
 ### Architecture
 
@@ -64,14 +64,14 @@ flowchart LR
     Proc --> CGI["cgi::CgiProcess<br/>(+ core::ChildReaper)"]
 ```
 
-* See [docs/architecture.en.md](docs/architecture.en.md) for the connection state machine (`READ_HEAD → READ_BODY → WAIT_CGI → WRITE → DRAIN → CLOSED`), timeout constants, and deferred removal (`unwatched_`).
+See [docs/architecture.en.md](docs/architecture.en.md) for the connection state machine (`READ_HEAD → READ_BODY → WAIT_CGI → WRITE → DRAIN → CLOSED`), timeout constants, and deferred removal (`unwatched_`).
 
 ### Engineering Problems Solved
 
-* **Wall-clock time without time calls (`Clock`):** Time functions (`time()`, `gettimeofday()`) are disallowed by the subject. `Clock` rewrites `.webserv_clock` once per `poll()` pass and reads `st_mtime` with `stat()` for timeouts and `Date` headers.
-* **Preventing TCP RST on early errors (`DRAIN`):** Closing immediately after sending `413` while request bytes remain in the kernel buffer can trigger a TCP `RST` and drop the response at the client. `DRAIN` briefly reads and discards unread input before closing.
-* **Stopping CPU spin on FD exhaustion:** If `accept()` fails when the FD table is full, `Listener` pauses polling and resumes on connection close or every 1 second instead of spinning at 100% CPU.
-* **CGI security and copy avoidance:** `CgiEnv` drops `Proxy` (`httpoxy`, `CVE-2016-5385`) and header names with `_`. Output is capped at `16 MiB` and returned via `std::string::swap` without copying.
+* **Wall-clock time without time calls (`Clock`)**: The subject forbids `time()` and `gettimeofday()`. `Clock` rewrites `.webserv_clock` once per `poll()` pass and reads `st_mtime` with `stat()` for timeouts and `Date` headers.
+* **Avoiding TCP RST on early errors (`DRAIN`)**: Closing the socket immediately after sending `413` while request bytes remain in the kernel buffer can trigger a TCP `RST` and drop the response at the client. `DRAIN` briefly reads and discards remaining bytes before closing.
+* **Stopping CPU spin on FD exhaustion**: When `accept()` fails because the FD table is full, `Listener` pauses polling and resumes on connection close or every 1 second rather than spinning at 100% CPU.
+* **CGI security and copy avoidance**: `CgiEnv` drops `Proxy` (`httpoxy`, `CVE-2016-5385`) and header names with `_`. Output is capped at `16 MiB` and returned via `std::string::swap` without copying.
 
 ### Releases
 
@@ -114,7 +114,7 @@ Run from the repository root (`conf/`, `www/`, `logs/` are relative to it). Stop
 ./webserv [configuration file]   # default: conf/default.conf
 ```
 
-* Pre-built `tar.gz` bundles (Linux `x86_64` / macOS `arm64`) are also attached to [Releases](https://github.com/42GS/webserv/releases/tag/v1.0.0).
+* Pre-built `tar.gz` bundles (Linux `x86_64` / macOS `arm64`) are also available on [Releases](https://github.com/42GS/webserv/releases/tag/v1.0.0).
 * CGI demos need `/usr/bin/python3`; the PHP demo needs `/usr/bin/php-cgi`.
 * Watch logs with `tail -f logs/*.log` (`logs/access.log`, `logs/error.log`).
 
@@ -197,16 +197,16 @@ curl -i -c jar -b jar http://127.0.0.1:8080/cgi-bin/session.py
 
 ## Resources
 
-* **RFCs:** RFC 9110, RFC 9112 (HTTP/1.1), RFC 3986 (URI), RFC 3875 (CGI 1.1), RFC 7578 &amp; RFC 2046 (`multipart/form-data`), RFC 6265 (Cookies), RFC 1945
-* **NGINX:** core, rewrite, index, and autoindex module docs
-* **POSIX.1-2024:** `poll`, `recv`, `send`, `bind`, `fcntl`, `waitpid`, `_Exit`, `remove`, `rmdir`, `<signal.h>`
-* **PHP / Tools:** `php-cgi` (`REDIRECT_STATUS`), `siege`, Valgrind, Electric Fence, Google C++ Style Guide (`.clang-format`)
+* **RFCs**: RFC 9110, RFC 9112 (HTTP/1.1), RFC 3986 (URI), RFC 3875 (CGI 1.1), RFC 7578 &amp; RFC 2046 (`multipart/form-data`), RFC 6265 (Cookies), RFC 1945
+* **NGINX**: core, rewrite, index, and autoindex module docs
+* **POSIX.1-2024**: `poll`, `recv`, `send`, `bind`, `fcntl`, `waitpid`, `_Exit`, `remove`, `rmdir`, `<signal.h>`
+* **PHP / Tools**: `php-cgi` (`REDIRECT_STATUS`), `siege`, Valgrind, Electric Fence, Google C++ Style Guide (`.clang-format`)
 
 ### Use of AI
 
-We used Claude Code (Anthropic) as an assistant throughout the project, with all design decisions, code reviews, and verification done by the authors:
+We used Claude Code (Anthropic) as an assistant throughout the project, while owning all design choices, reviews, and verification:
 
-* **Research &amp; experiments:** Summarized RFC/POSIX docs and tested underspecified OS behavior (`poll()` bits on closed pipes, `413` close behavior) on macOS and Ubuntu 22.04.
-* **Design ownership:** Reviewed structural options and decided the rules ourselves (`400` on `..` above root, multipart-only uploads, `GET`/`HEAD` default for `limit_except`).
-* **Implementation &amp; refactoring:** Reviewed code step by step, splitting modules and removing unnecessary copies and out-parameters.
-* **Verification:** Co-authored unit/integration tests and ran `valgrind`, Electric Fence, and `siege` checks independently.
+* Summarized RFC and POSIX specs and ran small OS experiments (closed-pipe `poll()` bits, `413` close behavior) on macOS and Ubuntu 22.04.
+* Reviewed structural proposals and decided core rules ourselves (`400` on `..` above root, multipart-only uploads, `GET`/`HEAD` default for `limit_except`).
+* Wrote and refactored C++ modules incrementally, reviewing each change to remove copies and out-parameters.
+* Co-authored unit and integration tests and verified stability with `valgrind`, Electric Fence, and `siege`.

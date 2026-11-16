@@ -2,13 +2,13 @@
 
 # Architecture & Design Notes
 
-Notes on how `webserv` works internally and why certain choices were made.
+Notes on how `webserv` works internally and why certain design choices were made.
 
 ---
 
 ## 1. Module Layout
 
-The code is split into 8 directories under `include/` and `src/`. Dependencies point downward toward `core`, `fs`, and `http`.
+The codebase is split into 8 directories under `include/` and `src/`. Dependencies point downward toward `core`, `fs`, and `http`.
 
 ```mermaid
 flowchart TB
@@ -31,7 +31,7 @@ flowchart TB
     CgiProc --> Reaper["core::ChildReaper (waitpid WNOHANG)"]
 ```
 
-| Directory | What it handles |
+| Directory | Responsibility |
 | :--- | :--- |
 | `core/` | Single `poll()` loop, listening sockets, `.webserv_clock`, signal flags, child reaping, logging |
 | `config/` | Config tokenizer, syntax parser, table-driven `DirectiveRules`, server and location builders |
@@ -46,18 +46,23 @@ flowchart TB
 
 ## 2. Single `poll()` Loop & Deferred Removal
 
-`EventLoop` (`include/core/EventLoop.hpp`, `src/core/EventLoop.cpp`) watches every file descriptor—listening sockets, client sockets, and CGI pipes—in one thread using one `poll()` call with a `1000 ms` timeout.
+`EventLoop` (`include/core/EventLoop.hpp`, `src/core/EventLoop.cpp`) watches all file descriptors—listening sockets, client sockets, and CGI pipes—in one thread with a single `poll()` call (`1000 ms` timeout).
 
-### Why `unwatch()` marks handlers instead of erasing immediately
-Inside `dispatch()`, an `IoHandler::onEvent()` call may close a connection or finish a CGI pipe and call `unwatch()`. Erasing from `handlers_` mid-loop would break iteration or touch a deleted handler later in the same pass.
+### Why `unwatch()` marks handlers instead of erasing right away
+
+During `dispatch()`, an `IoHandler::onEvent()` callback can close a connection or finish a CGI pipe and call `unwatch()`. Erasing directly from `handlers_` mid-loop would invalidate iteration or touch a freed handler later in the same pass.
+
+To avoid that, removal happens in two steps:
 
 1. `dispatch()` copies `handlers_` into `polled` and sets `dispatching_ = true`.
-2. `unwatch(handler)` adds the pointer to `unwatched_` and skips any remaining events for that handler in the current round.
+2. Calling `unwatch(handler)` adds the pointer to `unwatched_` and skips remaining events for that handler in the current round.
 3. After `dispatch()` returns, `dropUnwatched()` removes marked handlers from `handlers_`. Closed `Connection` objects are deleted outside dispatch in `Server::afterIteration()`.
 
-### Exception Isolation & FD Exhaustion
-* **Per-connection isolation:** If `std::exception` (such as `std::bad_alloc`) escapes a handler or timeout check, `EventLoop::dispatch()` and `Server::afterIteration()` call `onFailure()` to close just that connection instead of bringing down the server.
-* **Pausing listeners when FDs run out:** When `accept()` fails because the descriptor table is full, `Listener` pauses `POLLIN` polling (`Server::acceptFailed`). Otherwise the loop would spin at 100% CPU failing `accept()` on every pass. `Server::afterIteration()` calls `resume()` after a connection closes or one second passes.
+### Fault Isolation & FD Exhaustion
+
+If `std::exception` (including `std::bad_alloc`) escapes a handler or timeout check, `EventLoop::dispatch()` and `Server::afterIteration()` call `onFailure()` to close only that connection instead of bringing down the server.
+
+When `accept()` fails because the descriptor table is full, `Listener` pauses `POLLIN` polling (`Server::acceptFailed`) rather than spinning at 100% CPU failing `accept()` on every pass. `Server::afterIteration()` calls `resume()` once a connection closes or one second passes.
 
 ---
 
@@ -84,14 +89,15 @@ stateDiagram-v2
     CLOSED --> [*]
 ```
 
-### Why `DRAIN` is there (RFC 9112 §9.6)
-If the server sends an early error like `413` and closes the socket while unread request bytes are still sitting in the kernel receive buffer, the OS sends a TCP `RST`. That reset can erase the error response before the client reads it. Moving to `DRAIN` lets the server read and discard remaining bytes briefly (`1s` idle, `5s` total) before closing.
+### Why `DRAIN` is needed (RFC 9112 §9.6)
+
+If the server sends an early error like `413` and closes the socket while unread request bytes are still sitting in the kernel receive buffer, the OS sends a TCP `RST`. That reset can wipe out the error response before the client reads it. Moving to `DRAIN` lets the server read and discard remaining input briefly (`1s` idle, `5s` total) before closing cleanly.
 
 ### Limits and Timeouts (`include/core/Limits.hpp`, `include/config/ConfigLimits.hpp`)
 
 | Constant | Value | Purpose |
 | :--- | :--- | :--- |
-| `kPollTimeoutMs` | `1000 ms` | `poll()` timeout so periodic timeout checks run |
+| `kPollTimeoutMs` | `1000 ms` | `poll()` interval so timeout checks run periodically |
 | `kKeepAliveTimeoutSeconds` | `15 s` | Wait for the first byte on a new or kept-alive connection (silent close) |
 | `kHeaderTimeoutSeconds` | `30 s` | Total time allowed for the request head after its first byte |
 | `kBodyTimeoutSeconds` | `30 s` | Idle time allowed while receiving the request body |
@@ -108,30 +114,30 @@ If the server sends an early error like `413` and closes the socket while unread
 
 ## 4. Incremental HTTP/1.1 Parser
 
-`RequestParser` (`include/http/RequestParser.hpp`) parses incoming bytes regardless of how TCP splits packets:
+`RequestParser` (`include/http/RequestParser.hpp`) handles incoming bytes regardless of how TCP splits packets.
 
-1. **One erase per `feed()` (`consumed_`):** Tracks how many bytes were consumed and erases from `inBuffer_` once at the end of `feed()`. Any pipelined bytes for the next request stay in the buffer.
-2. **Two-step body limit (`HEAD_DONE`):** `maxBodySize_` starts at `0`. Once the head finishes (`HEAD_DONE`), `Connection` asks `RequestProcessor::bodyLimitFor()` for the matched location's `client_max_body_size` before reading the body.
-3. **Framing and trailers:** Handles `Content-Length` (checking for integer overflow) and `Transfer-Encoding: chunked` including trailers. Trailer lines count toward `kMaxHeaderBytes`.
+Instead of erasing from the front of `inBuffer_` on every read, it advances a cursor (`consumed_`) and erases once at the end of `feed()`. Any pipelined bytes for the next request stay in the buffer intact.
+
+The body limit is applied in two phases. `maxBodySize_` starts at `0` until the head finishes (`HEAD_DONE`), at which point `Connection` asks `RequestProcessor::bodyLimitFor()` for the matched location's `client_max_body_size` before parsing the body. Both `Content-Length` (with overflow checks) and `Transfer-Encoding: chunked` (with trailers counted against `kMaxHeaderBytes`) are supported.
 
 ---
 
 ## 5. Non-blocking CGI/1.1 & Security
 
-`CgiProcess` (`include/cgi/CgiProcess.hpp`, `src/cgi/CgiEnv.cpp`) runs scripts without stalling the `poll()` loop:
+`CgiProcess` (`include/cgi/CgiProcess.hpp`, `src/cgi/CgiEnv.cpp`) runs CGI scripts over non-blocking pipes so the `poll()` loop never stalls.
 
-* **Pipe polling:** `CgiStdin` and `CgiStdout` implement `IoHandler` and register with `EventLoop`. In the child process, `runChild()` wires stdin/stdout via `dup2`, closes inherited descriptors, `chdir()`s into the script's directory, and calls `execve()`.
-* **Avoiding large copies:** Output (up to `16 MiB`) is handed back in `takeOutput()` using `std::string::swap` so C++98 NRVO avoids copying multi-megabyte strings.
-* **Child reaping (`ChildReaper`):** Finished or killed (`SIGKILL`) CGI PIDs are passed to `ChildReaper`, which calls `waitpid(pid, ..., WNOHANG)` on each loop iteration so no zombie processes remain.
-* **Security checks:**
-  * `CgiEnv` strips `Proxy` so `HTTP_PROXY` cannot be injected (`httpoxy`, `CVE-2016-5385`).
-  * Header names with `_` are dropped, matching NGINX defaults, so `X_FOO` cannot collide with `HTTP_X_FOO` from `X-Foo`.
-  * `PathResolver` percent-decodes once, resolves `.` and `..`, rejects paths escaping above root with `400 Bad Request`, and requires `alias` matches on segment boundaries.
+`CgiStdin` and `CgiStdout` implement `IoHandler` and register with `EventLoop`. Inside the child process, `runChild()` hooks up stdin/stdout with `dup2`, closes inherited descriptors, `chdir()`s into the script's directory, and calls `execve()`. Collected output (up to `16 MiB`) is returned in `takeOutput()` using `std::string::swap`, avoiding multi-megabyte copies in C++98. Finished or killed (`SIGKILL`) CGI PIDs go to `ChildReaper`, which reaps them without blocking via `waitpid(pid, ..., WNOHANG)` on every iteration.
+
+Three security checks guard CGI execution and path resolution:
+
+* `CgiEnv` drops `Proxy` so `HTTP_PROXY` cannot be injected (`httpoxy`, `CVE-2016-5385`).
+* Header names containing `_` are ignored (matching NGINX defaults) so `X_FOO` cannot collide with `HTTP_X_FOO` from `X-Foo`.
+* `PathResolver` percent-decodes once, resolves `.` and `..`, rejects paths going above root with `400 Bad Request`, and requires `alias` matches at segment boundaries.
 
 ---
 
 ## 6. Wall-Clock Time Without Time Functions (`.webserv_clock`)
 
-* **Constraint:** The 42 `webserv` subject forbids standard time calls (`time()`, `gettimeofday()`, `clock_gettime()`).
-* **Workaround (`Clock`):** Once per `EventLoop` iteration, `Clock::refresh()` rewrites `.webserv_clock` and reads its modification timestamp (`st_mtime`) using `stat()`, which is allowed.
-* **Where it is used:** All connection timeouts, CGI timeouts, and RFC 9110 `Date` headers read from this single `Clock` class, making it easy to unit test (`clock_test.cpp`).
+The 42 `webserv` subject forbids standard time calls (`time()`, `gettimeofday()`, `clock_gettime()`).
+
+Once per `EventLoop` iteration, `Clock::refresh()` rewrites `.webserv_clock` and reads its modification timestamp (`st_mtime`) using `stat()`, which is allowed. All connection timeouts, CGI timeouts, and RFC 9110 `Date` headers read from this single `Clock` class, keeping time handling isolated and easy to unit test (`clock_test.cpp`).
