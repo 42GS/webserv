@@ -78,8 +78,8 @@ stateDiagram-v2
     READ_BODY --> WAIT_CGI: DONE -> CgiProcess started
     READ_BODY --> WRITE: DONE -> Static/Upload/Delete/Error response
     READ_BODY --> WRITE: Error or Timeout (408)
-    WAIT_CGI --> WRITE: CGI finished (response) or Timeout (504)
-    WAIT_CGI --> WAIT_CGI: CGI local redirect (up to 10x)
+    WAIT_CGI --> WRITE: CGI finished (response / local redirect to static or error) or Timeout (504)
+    WAIT_CGI --> WAIT_CGI: CGI local redirect to another script (up to 10x)
     WRITE --> READ_HEAD: Sent & keepAlive == true (pipeline parseInput)
     WRITE --> DRAIN: Sent & !keepAlive & !requestConsumed
     WRITE --> CLOSED: Sent & !keepAlive & requestConsumed
@@ -126,7 +126,7 @@ The body limit is applied in two phases. `maxBodySize_` starts at `0` until the 
 
 `CgiProcess` (`include/cgi/CgiProcess.hpp`, `src/cgi/CgiEnv.cpp`) runs CGI scripts over non-blocking pipes so the `poll()` loop never stalls.
 
-`CgiStdin` and `CgiStdout` implement `IoHandler` and register with `EventLoop`. Inside the child process, `runChild()` hooks up stdin/stdout with `dup2`, closes inherited descriptors, `chdir()`s into the script's directory, and calls `execve()`. Collected output (up to `16 MiB`) is returned in `takeOutput()` using `std::string::swap`, avoiding multi-megabyte copies in C++98. Finished or killed (`SIGKILL`) CGI PIDs go to `ChildReaper`, which reaps them without blocking via `waitpid(pid, ..., WNOHANG)` on every iteration.
+`CgiStdin` and `CgiStdout` implement `IoHandler` and register with `EventLoop`. Inside the child process, `runChild()` hooks up stdin/stdout with `dup2`, reads `/dev/fd` via `opendir()`/`readdir()` to close all inherited descriptors `>= 3` (since `F_SETFD` / `FD_CLOEXEC` is not on the allowed function list), `chdir()`s into the script's directory, resets `SIGPIPE` to `SIG_DFL`, and calls `execve()`. Collected output (up to `16 MiB`) is returned in `takeOutput()` using `std::string::swap`, avoiding multi-megabyte copies in C++98. Finished or killed (`SIGKILL`) CGI PIDs go to `ChildReaper`, which reaps them without blocking via `waitpid(pid, ..., WNOHANG)` on every iteration.
 
 Three security checks guard CGI execution and path resolution:
 

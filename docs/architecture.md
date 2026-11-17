@@ -78,8 +78,8 @@ stateDiagram-v2
     READ_BODY --> WAIT_CGI: DONE -> CgiProcess 시작
     READ_BODY --> WRITE: DONE -> 정적/업로드/삭제/오류 응답
     READ_BODY --> WRITE: 오류 또는 타임아웃 (408)
-    WAIT_CGI --> WRITE: CGI 끝남 (응답) 또는 타임아웃 (504)
-    WAIT_CGI --> WAIT_CGI: CGI 로컬 리다이렉트 (최대 10회)
+    WAIT_CGI --> WRITE: CGI 끝남 (응답 / 로컬 리다이렉트 정적·오류) 또는 타임아웃 (504)
+    WAIT_CGI --> WAIT_CGI: CGI 로컬 리다이렉트 대상이 CGI일 때 (최대 10회)
     WRITE --> READ_HEAD: 전송 끝 & keepAlive == true (다음 요청 parseInput)
     WRITE --> DRAIN: 전송 끝 & !keepAlive & !requestConsumed
     WRITE --> CLOSED: 전송 끝 & !keepAlive & requestConsumed
@@ -126,7 +126,7 @@ stateDiagram-v2
 
 `CgiProcess`(`include/cgi/CgiProcess.hpp`, `src/cgi/CgiEnv.cpp`)는 CGI 스크립트가 실행되는 동안 이벤트 루프가 멈추지 않게 파이프로 통신한다.
 
-`CgiStdin`과 `CgiStdout`이 `IoHandler`를 구현해 `EventLoop`에 등록된다. 자식 프로세스는 `dup2`로 표준입출력을 파이프에 연결하고, 상속된 다른 fd를 모두 닫은 뒤 스크립트가 있는 디렉터리로 이동(`chdir`)해 `execve()`를 실행한다. 모은 CGI 출력(최대 `16 MiB`)은 `takeOutput()`에서 `std::string::swap`으로 넘겨 C++98 환경에서도 불필요한 대용량 복사가 일어나지 않게 했다.
+`CgiStdin`과 `CgiStdout`이 `IoHandler`를 구현해 `EventLoop`에 등록된다. 자식 프로세스는 `dup2`로 표준입출력을 파이프에 연결하고, `F_SETFD`(`FD_CLOEXEC`)가 허용 함수에 없어 `/dev/fd`를 `opendir()`/`readdir()`로 읽어 `3`(`STDERR_FILENO + 1`) 이상의 열린 디스크립터를 모두 닫는다. 그 뒤 스크립트가 있는 디렉터리로 이동(`chdir`)하고 `SIGPIPE`를 기본 동작(`SIG_DFL`)으로 되돌린 다음 `execve()`를 실행한다. 모은 CGI 출력(최대 `16 MiB`)은 `takeOutput()`에서 `std::string::swap`으로 넘겨 C++98 환경에서도 불필요한 대용량 복사가 일어나지 않게 했다.
 
 출력 수집이 끝났거나 타임아웃(`SIGKILL`)으로 중단된 자식 PID는 `ChildReaper`가 넘겨받아 매 루프마다 `waitpid(pid, ..., WNOHANG)`으로 회수한다.
 
